@@ -7,6 +7,7 @@ import HearingLossCalculator from "@/app/Components/HearingLossCalculator";
 import IndemnityCalculator from "@/app/Components/IndemnityCalculator";
 import UMCalculator from "@/app/Components/UMCalculator";
 import LifeExpectancyCalculator from "@/app/Components/LifeExpectancyCalculator";
+import Head from "next/head";
 
 const maxCompensationRates: Record<number, number> = {
   2025: 1134.43,
@@ -58,48 +59,59 @@ const maxCompensationRates: Record<number, number> = {
   1979: 185.0,
 };
 
-
 interface Calculator {
   name: string;
   component: React.FC<{ maxCompensationRates: Record<number, number> }>;
 }
 
-
 const calculators: Record<string, Calculator> = {
   aww: { name: "Average Weekly Wage / Compensation Rate", component: AwwCRCalculator },
-  indemnity: { name: "Indemnity Calculator", component: IndemnityCalculator },
-  commuted: { name: "Commuted Value Calculator", component: CommutedValueCalculator },
-  hearing: { name: "Hearing Loss Calculator", component: HearingLossCalculator },
-  um: { name: "Utica Mohawk Calculator", component: UMCalculator },
-  lifeexpectancy: { name: "Life Expectancy Calculator", component: LifeExpectancyCalculator },
+  indemnity: { name: "Indemnity", component: IndemnityCalculator },
+  commuted: { name: "Commuted Value", component: CommutedValueCalculator },
+  hearing: { name: "Hearing Loss", component: HearingLossCalculator },
+  um: { name: "Utica Mohawk", component: UMCalculator },
+  lifeexpectancy: { name: "Life Expectancy", component: LifeExpectancyCalculator },
 };
 
-
 export default function Calculators() {
-  // Explicitly type `useState` with `string | null`
   const [selectedCalculator, setSelectedCalculator] = useState<string | null>(null);
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold text-center mb-6">Select a Calculator</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {Object.entries(calculators).map(([id, calc]) => (
-          <button
-            key={id}
-            className="bg-blue-600 text-white p-4 rounded-lg shadow-md hover:bg-blue-500"
-            onClick={() => setSelectedCalculator(id)}
-          >
-            {calc.name}
-          </button>
-        ))}
-      </div>
+    <>
+      <Head>
+        <title>Calculators - SC Worker's Compensation App</title>
+        <meta name="description" content="Calculators of SC Worker's Compensation App" />
+      </Head>
 
-      {selectedCalculator && (
-        <div className="mt-8 p-6 bg-gray-100 rounded-lg">
-          <h2 className="text-xl font-bold mb-4">{calculators[selectedCalculator].name}</h2>
-          {React.createElement(calculators[selectedCalculator].component, { maxCompensationRates })}
-        </div>
-      )}
-    </div>
+      <div className="container mx-auto p-6">
+        {!selectedCalculator ? (
+          <>
+            <h1 className="text-3xl font-bold text-center mb-6">Select a Calculator</h1>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Object.entries(calculators).map(([id, calc]) => (
+                <button
+                  key={id}
+                  className="bg-blue-600 text-white p-4 rounded-lg shadow-md hover:bg-blue-500"
+                  onClick={() => setSelectedCalculator(id)}
+                >
+                  {calc.name}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="bg-gray-100 p-6 rounded-lg shadow-md">
+            <h2 className="text-2xl font-bold mb-4 text-center">{calculators[selectedCalculator].name}</h2>
+            <button
+              className="bg-red-500 text-white px-4 py-2 rounded-lg mb-4 hover:bg-red-400"
+              onClick={() => setSelectedCalculator(null)}
+            >
+              ← Back to All Calculators
+            </button>
+            {React.createElement(calculators[selectedCalculator].component, { maxCompensationRates })}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

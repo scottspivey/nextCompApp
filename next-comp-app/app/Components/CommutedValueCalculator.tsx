@@ -1,3 +1,6 @@
+//I was dumb. I need to get rid of step one - year of injury.  It's irrelevant when the injury occured.  What matters is the date of payment.
+
+
 "use client";
 
 import React, { useState, ChangeEvent } from "react";
@@ -17,6 +20,9 @@ interface Results {
     discountedWeeks: number;
     commutedValue: number;
     compRate: number;
+    ttdPaidToDateValue: number;
+    commutedValue95: number;
+    commutedValue90: number;
 }
 
 interface CommutedValueCalculatorProps {
@@ -61,7 +67,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
         const maxRate = maxCompensationRates[year] || 1134.43;
 
         if (compRate <= 0 || compRate > maxRate) {
-            setErrors(`Compensation Rate must be between $0 and ${maxRate}.`);
+            setErrors(`Compensation Rate must be between $0 and $${maxRate.toLocaleString('en-US')}.`);
             return false;
         }
     
@@ -90,11 +96,17 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
     const calculateResults = () => {
         const { compRate, ttdPaidToDate, otherCredit } = formData;
         const weeksRemaining = 500 - (ttdPaidToDate + otherCredit);
+        const ttdPaidToDateValue = ttdPaidToDate * compRate;
         const discountRate = weeksRemaining > 100 ? 0.0438 : 0.02;
-        const discountedWeeks = weeksRemaining / (1 + discountRate);
+        const weeklyDiscountRate = discountRate / 52; // Convert annual discount rate to weekly
+        const discountedWeeks = (weeksRemaining > 100)
+            ? ((1 - Math.pow(1 + weeklyDiscountRate, -(weeksRemaining + 1))) / weeklyDiscountRate)
+            : ((1 - Math.pow(1 + weeklyDiscountRate, -weeksRemaining)) / weeklyDiscountRate);
         const commutedValue = discountedWeeks * compRate;
+        const commutedValue95 = commutedValue * .95;
+        const commutedValue90 = commutedValue * .90;
 
-        setResults({ weeksRemaining, discountRate, discountedWeeks, commutedValue, compRate });
+        setResults({ weeksRemaining, discountRate, discountedWeeks, commutedValue, compRate, ttdPaidToDateValue, commutedValue95, commutedValue90 });
     };
 
     // Create an array of years starting from the current year and going back to 1979
@@ -131,7 +143,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
                 <div>
                     <h3 className="text-lg font-semibold">Step 2: Compensation Rate</h3>
                     <label>
-                        Compensation Rate (From $0 to ${(maxCompensationRates[parseInt(formData.yearOfInjury)] || 1134.43).toLocaleString('en-US')}, which is the maximum rate for {formData.yearOfInjury}):
+                        Compensation Rate (Must be between $0 and ${(maxCompensationRates[parseInt(formData.yearOfInjury)] || 1134.43).toLocaleString('en-US')} -- which is the maximum rate for {formData.yearOfInjury})):
                     </label>
                     <input
                         type="number"
@@ -201,12 +213,17 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
 
             {step === 4 && results && (
                 <div>
-                    <h3 className="text-lg font-semibold">Summary</h3>
+                    <h3 className="text-lg font-bold">Summary</h3>
+                    <p>Weeks Already Paid: {formData.ttdPaidToDate}</p>
+                    <p>TTD Dollar Value Paid to Date: ${results.ttdPaidToDateValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p>Other Credit: {formData.otherCredit}</p>
                     <p>Weeks Remaining: {results.weeksRemaining}</p>
-                    <p>Discount Rate: {(results.discountRate * 100).toFixed(2)}%</p>
-                    <p>Discounted Weeks: {results.discountedWeeks.toFixed(2)}</p>
+                    <p>Discount Rate: {(results.discountRate * 100).toFixed(2)}% per annum</p>
+                    <p>Weeks - Present Value: {results.discountedWeeks.toFixed(4)}</p>
                     <p>Compensation Rate: ${results.compRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p>Commuted Value: ${results.commutedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="font-bold">Commuted Value: ${results.commutedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p>95% of Commuted Value: ${results.commutedValue95.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p>90% of Commuted Value: ${results.commutedValue90.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <button
                         onClick={() => setStep(3)}
                         className="mt-4 bg-gray-500 text-white p-2 rounded"

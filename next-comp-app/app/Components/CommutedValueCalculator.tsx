@@ -1,6 +1,3 @@
-//I was dumb. I need to get rid of step one - year of injury.  It's irrelevant when the injury occured.  What matters is the date of payment.
-
-
 "use client";
 
 import React, { useState, ChangeEvent } from "react";

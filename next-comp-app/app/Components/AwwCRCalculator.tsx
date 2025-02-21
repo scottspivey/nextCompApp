@@ -1,7 +1,22 @@
+// To do:
+// 1. add step to request user input on whether employee has been employed for 52 weeks
+// 2. use existing code to calculate AWW and CR for employee who has been employed for 52 weeks
+// 4. create code to calculate AWW and CR for employee who has been employed for less than 52 weeks
+// 5. create consistency in styling for this component as compared to CommutedValueCalculator.tsx
+// 6. ensure validation for user input on each step
+// 7. add comments to explain code
+// 8. add a button to reset the form
+// 9. add preset values for quarterly pay and other inputs so that user can see how the form works
+// 10. restrict user input for pay to positive numbers only
+// 11. add help buttons for each step that gives more information on what to input via pop-up
+// 12. add a button to generate a Form 20.
+
+
+
 "use client";
 
 import React, { useState } from "react";
-import { parseISO } from "date-fns";
+import { parseISO, isValid } from "date-fns";
 
 interface MaxCompensationRates {
     [year: number]: number;
@@ -11,6 +26,14 @@ interface QuarterLabel {
     start: string;
     end: string;
 }
+
+const getCurrentDate = (): string => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0"); // Ensure 2-digit month
+    const day = String(now.getDate()).padStart(2, "0"); // Ensure 2-digit day
+    return `${year}-${month}-${day}`;
+};
 
 const quarterLabels: QuarterLabel[] = [
     { start: "January 1", end: "March 31" },
@@ -25,21 +48,53 @@ interface AwwCRCalculatorProps {
 
 const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates }) => {
     const [step, setStep] = useState<number>(1);
-    const [formData, setFormData] = useState<{ [key: string]: string }>({});
+    const [formData, setFormData] = useState<{ dateOfInjury: string; [key: string]: string }>({dateOfInjury: getCurrentDate(),});
+    const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [averageWeeklyWage, setAverageWeeklyWage] = useState<string | null>(null);
     const [compensationRate, setCompensationRate] = useState<string | null>(null);
     const [totalAnnualPay, setTotalAnnualPay] = useState<string | null>(null);
 
-    const handleNextStep = () => setStep((prev) => prev + 1);
+    const handleNextStep = () => {
+        if (validateStep(step)) {
+            setStep((prev) => prev + 1);
+        }
+    };
+
     const handlePrevStep = () => setStep((prev) => prev - 1);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        setErrors({ ...errors, [e.target.name]: "" }); // Clear errors on change
+    };
+
+    const validateStep = (step: number) => {
+        let newErrors: { [key: string]: string } = {};
+
+        if (step === 1) {
+            if (!formData.dateOfInjury) {
+                newErrors.dateOfInjury = "Date of Injury is required.";
+            } else if (!isValid(parseISO(formData.dateOfInjury))) {
+                newErrors.dateOfInjury = "Invalid date format.";
+            }
+        }
+
+        if (step === 2) {
+            getRelevantQuarters(formData.dateOfInjury).forEach((q) => {
+                if (!formData[`quarter${q.quarterIndex}Pay`] || parseFloat(formData[`quarter${q.quarterIndex}Pay`]) < 0) {
+                    newErrors[`quarter${q.quarterIndex}Pay`] = "Enter a valid amount.";
+                }
+            });
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     };
 
     const getRelevantQuarters = (dateOfInjury?: string) => {
         if (!dateOfInjury) return [];
         const doi = parseISO(dateOfInjury);
+        if (!isValid(doi)) return [];
+
         let year = doi.getFullYear();
         const month = doi.getMonth() + 1;
 
@@ -73,43 +128,49 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
     };
 
     const calculateAwwAndCompensation = () => {
-        const totalAnnualPay = [1, 2, 3, 4].reduce(
+        const totalPay = [1, 2, 3, 4].reduce(
             (sum, q) => sum + (parseFloat(formData[`quarter${q}Pay`]) || 0),
             0
         );
-        const aww = totalAnnualPay / 52;
+        const aww = totalPay / 52;
         let compRate = Math.max(aww * 0.6667, 75);
-        
+
         const maxRate = maxCompensationRates[parseISO(formData.dateOfInjury || "").getFullYear()] || null;
         if (maxRate !== null && compRate > maxRate) compRate = maxRate;
 
-        setTotalAnnualPay(totalAnnualPay.toFixed(2));
+        setTotalAnnualPay(totalPay.toFixed(2));
         setAverageWeeklyWage(aww.toFixed(2));
         setCompensationRate(compRate.toFixed(2));
     };
 
     return (
         <div className="mt-8 p-6 bg-gray-100 rounded-lg">
-            <h2 className="text-xl font-bold mb-4">Average Weekly Wage / Compensation Rate</h2>
-
             {step === 1 && (
                 <div>
-                    <h3>Step 1: Enter Date of Injury</h3>
+                    <h3 className="text-lg font-semibold">Step 1: Input the date of injury.</h3>
+                    <label>Select a date between Janaury 1, 1976, and {getCurrentDate()}.</label>
                     <input
                         type="date"
                         name="dateOfInjury"
                         className="border p-2 w-full mt-2"
+                        value={formData.dateOfInjury}
+                        max={getCurrentDate()}
+                        min="1979-01-01"
                         onChange={handleInputChange}
                     />
+                    {errors.dateOfInjury && <p className="text-red-600">{errors.dateOfInjury}</p>}
+
                     <button onClick={handleNextStep} className="mt-4 bg-blue-600 text-white p-2 rounded">
                         Next
                     </button>
                 </div>
             )}
 
+{/* add a step for whether employee has been employed for 52 weeks */}
+
             {step === 2 && (
                 <div>
-                    <h3>Step 2: Enter Employee's Pay for Each Quarter</h3>
+                    <h3>Step 2: Enter Employee's Gross Pay for Each Quarter</h3>
                     {getRelevantQuarters(formData.dateOfInjury).map((q, index) => (
                         <div key={index}>
                             <label>{q.label}</label>
@@ -117,8 +178,10 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                                 type="number"
                                 name={`quarter${q.quarterIndex}Pay`}
                                 className="border p-2 w-full"
+                                value={formData[`quarter${q.quarterIndex}Pay`] || ""}
                                 onChange={handleInputChange}
                             />
+                            {errors[`quarter${q.quarterIndex}Pay`] && <p className="text-red-600">{errors[`quarter${q.quarterIndex}Pay`]}</p>}
                         </div>
                     ))}
                     <button onClick={handlePrevStep} className="mt-4 bg-gray-500 text-white p-2 rounded">
@@ -130,6 +193,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                             handleNextStep();
                         }}
                         className="ml-2 bg-blue-600 text-white p-2 rounded"
+                        disabled={Object.keys(errors).length > 0}
                     >
                         Next
                     </button>
@@ -139,18 +203,9 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
             {step === 3 && (
                 <div>
                     <h3>Summary</h3>
-                    <p>
-                        Total Pre-Injury Annual Gross Pay: $
-                        {totalAnnualPay ? parseFloat(totalAnnualPay).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                    </p>
-                    <p>
-                        Average Weekly Wage: $
-                        {averageWeeklyWage ? parseFloat(averageWeeklyWage).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                    </p>
-                    <p>
-                        Compensation Rate: $
-                        {compensationRate ? parseFloat(compensationRate).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                    </p>
+                    <p>Total Pre-Injury Annual Gross Pay: ${totalAnnualPay || "0.00"}</p>
+                    <p>Average Weekly Wage: ${averageWeeklyWage || "0.00"}</p>
+                    <p>Compensation Rate: ${compensationRate || "0.00"}</p>
                     <button onClick={handlePrevStep} className="mt-4 bg-gray-500 text-white p-2 rounded">
                         Back
                     </button>
@@ -161,3 +216,4 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 };
 
 export default AwwCRCalculator;
+

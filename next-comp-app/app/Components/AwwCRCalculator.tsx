@@ -10,8 +10,8 @@
 // 10. restrict user input for pay to positive numbers only
 // 11. add help buttons for each step that gives more information on what to input via pop-up
 // 12. add a button to generate a Form 20.
-
-
+// 13. check the minimum compensation rate logic
+// 14. add special cases such as students, volunteer firefighters, etc.
 
 "use client";
 
@@ -133,7 +133,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
             0
         );
         const aww = totalPay / 52;
-        let compRate = Math.max(aww * 0.6667, 75);
+        let compRate = Math.max(aww * 0.6667, 75);  // Minimum compensation rate is $75 but this should be checked as it can be lower?
 
         const maxRate = maxCompensationRates[parseISO(formData.dateOfInjury || "").getFullYear()] || null;
         if (maxRate !== null && compRate > maxRate) compRate = maxRate;

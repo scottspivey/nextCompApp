@@ -128,19 +128,19 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
     };
 
     const calculateAwwAndCompensation = () => {
-        const totalPay = [1, 2, 3, 4].reduce(
+        const totalAnnualPay = [1, 2, 3, 4].reduce(
             (sum, q) => sum + (parseFloat(formData[`quarter${q}Pay`]) || 0),
             0
         );
-        const aww = totalPay / 52;
-        let compRate = Math.max(aww * 0.6667, 75);  // Minimum compensation rate is $75 but this should be checked as it can be lower?
-
+        const aww = totalAnnualPay / 52;
+        
+        const initialCompRate = aww < 75 ? aww : Math.max(aww * 0.6667, 75);
         const maxRate = maxCompensationRates[parseISO(formData.dateOfInjury || "").getFullYear()] || null;
-        if (maxRate !== null && compRate > maxRate) compRate = maxRate;
+        const finalCompRate = maxRate !== null && initialCompRate > maxRate ? maxRate : initialCompRate;
 
-        setTotalAnnualPay(totalPay.toFixed(2));
+        setTotalAnnualPay(totalAnnualPay.toFixed(2));
         setAverageWeeklyWage(aww.toFixed(2));
-        setCompensationRate(compRate.toFixed(2));
+        setCompensationRate(finalCompRate.toFixed(2));
     };
 
     return (

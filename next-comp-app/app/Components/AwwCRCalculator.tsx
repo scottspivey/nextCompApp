@@ -68,7 +68,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
     };
 
     const validateStep = (step: number) => {
-        let newErrors: { [key: string]: string } = {};
+        const newErrors: { [key: string]: string } = {};
 
         if (step === 1) {
             if (!formData.dateOfInjury) {
@@ -98,8 +98,8 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         let year = doi.getFullYear();
         const month = doi.getMonth() + 1;
 
-        let doiQuarter = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
-        let relevantQuarters = [];
+        const doiQuarter = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
+        const relevantQuarters = [];
         let count = 0;
 
         let currentQuarter = doiQuarter - 1;
@@ -170,7 +170,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 
             {step === 2 && (
                 <div>
-                    <h3>Step 2: Enter Employee's Gross Pay for Each Quarter</h3>
+                    <h3>Step 2: Enter Employee&#39;s Gross Pay for Each Quarter</h3>
                     {getRelevantQuarters(formData.dateOfInjury).map((q, index) => (
                         <div key={index}>
                             <label>{q.label}</label>

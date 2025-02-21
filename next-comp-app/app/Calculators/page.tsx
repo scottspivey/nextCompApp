@@ -79,7 +79,7 @@ export default function Calculators() {
   return (
     <>
       <Head>
-        <title>Calculators - SC Worker's Compensation App</title>
+        <title>Calculators - SC Worker&#39;s Compensation App</title>
         <meta name="description" content="Calculators of SC Worker's Compensation App" />
       </Head>
 

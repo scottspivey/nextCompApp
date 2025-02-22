@@ -6,22 +6,24 @@ To do:
 5. create consistency in styling for this component as compared to CommutedValueCalculator.tsx
 6. ensure validation for user input on each step
 7. add comments to explain code
-8. add a button to reset the form
-9. add preset values for quarterly pay and other inputs so that user can see how the form works and less errors
+8. (DONE) add a button to reset the form
+9. (DONE) add preset values for quarterly pay and other inputs so that user can see how the form works and less errors
 10. restrict user input for pay to positive numbers only
 11. add help buttons for each step that gives more information on what to input via pop-up
 12. add a button to generate a Form 20.
-13. (done) check the minimum compensation rate logic
+13. (DONE) check the minimum compensation rate logic
 14. add special cases such as students, volunteer firefighters, etc. - somewhere in step one 
-15. getCurrentDate below needs to be in correct format in label on step one.
-16. take the "back to all calc" button out of the div to be just under header.  maybe in it's own div but not w/ gray background.
-17. enter button advances to next step.
+15. (DONE) getCurrentDate below needs to be in correct format in label on step one.
+16. (DONE) take the "back to all calc" button out of the div to be just under header.  maybe in it's own div but not w/ gray background.
+17. 
 */
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { parseISO, isValid } from "date-fns";
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/solid'
+import { format } from "date-fns";
 
 interface MaxCompensationRates {
     [year: number]: number;
@@ -35,6 +37,11 @@ interface QuarterLabel {
 const getCurrentDate = (): string => {
     const now = new Date();
     return now.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+};
+
+//reformat the date to be in the format of Mmmmmmmm, d, YYYY
+const formatDisplayDate = (isoDate: string): string => {
+    return format(parseISO(isoDate), "MMMM d, yyyy"); // Converts "2025-02-22" → "February 22, 2025"
 };
 
 const quarterLabels: QuarterLabel[] = [
@@ -51,6 +58,14 @@ interface AwwCRCalculatorProps {
 
 const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates }) => {
     const [step, setStep] = useState<number>(1);
+    const firstInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (step === 2 && firstInputRef.current) {
+            firstInputRef.current.focus();
+        }
+    }, [step]);
+
     const [formData, setFormData] = useState<{ dateOfInjury: string; [key: string]: string }>({
         dateOfInjury: getCurrentDate(),
         quarter1Pay: "2500",
@@ -135,12 +150,12 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         <div className="mt-8 p-6 bg-gray-100 rounded-lg">
             {step === 1 && (
                 <div>
-                    <h3 className="text-lg font-semibold">Step 1: Input the date of injury.</h3>
+                    <h3 className="mb-4 text-lg font-semibold flex">Step 1: Input the date of injury. <QuestionMarkCircleIcon className="w-6 h-6 ml-1 text-gray-500" /></h3>
                     {/* Need to set getCurrentDate() below to be a string in Mmmmmmmm, d, YYYY */}
-                    <label>Select a date between January 1, 1976, and {getCurrentDate()}.</label> 
+                    <label>Select a date between January 1, 1976, and {formatDisplayDate(getCurrentDate())}.</label> 
                     <input
                         type="date"
-                        autofocus
+                        autoFocus
                         name="dateOfInjury"
                         className="border p-2 w-full mt-2"
                         value={formData.dateOfInjury}
@@ -150,10 +165,10 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                     />
                     {errors.dateOfInjury && <p className="text-red-600">{errors.dateOfInjury}</p>}
 
-                    <button onClick={handleNextStep} className="mt-4 bg-blue-600 text-white p-2 rounded">
+                    <button onClick={handleNextStep} className="mt-4 bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
                         Next
                     </button>
-                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right">
+                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right focus:bg-red-500 hover:bg-red-500">
                         Reset Form
                     </button>
                 </div>
@@ -161,8 +176,8 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 
             {step === 2 && (
                 <div>
-                    <h3 className="text-lg font-semibold">Step 2: Enter the employee's gross pay for each quarter.</h3>
-                    {[1, 2, 3, 4].map((q) => (
+                    <h3 className="mb-4 text-lg font-semibold flex">Step 2: Enter the employee's gross pay for each quarter. <QuestionMarkCircleIcon className="w-6 h-6 ml-1 text-gray-500" /></h3>
+                    {[1, 2, 3, 4].map((q, index) => (
                         <div key={q}>
                             <label>Gross Pay for Quarter {q}:</label>
                             <input
@@ -171,23 +186,24 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                                 className="border p-2 w-full"
                                 value={formData[`quarter${q}Pay`]}
                                 onChange={handleInputChange}
+                                ref={index === 0 ? firstInputRef : null} // Only first input gets the ref
                             />
                             {errors[`quarter${q}Pay`] && <p className="text-red-600">{errors[`quarter${q}Pay`]}</p>}
                         </div>
-                    ))}
-                    <button onClick={handlePrevStep} className="mt-4 bg-gray-500 text-white p-2 rounded">
-                        Back
-                    </button>
+                    ))}       
                     <button
                         onClick={() => {
                             calculateAwwAndCompensation();
                             handleNextStep();
                         }}
-                        className="ml-2 bg-blue-600 text-white p-2 rounded"
-                    >
+                        className="mt-4 mr-2 bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
                         Next
                     </button>
-                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right">
+                    <button onClick={handlePrevStep} className="mt-4 bg-gray-500 text-white p-2 rounded hover:bg-gray-400 hover:bg-gray-400">
+                        Back
+                    </button>
+                    
+                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right hover:bg-red-500 hover:bg-red-500">
                         Reset Form
                     </button>
                 </div>
@@ -195,15 +211,15 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 
             {step === 3 && (
                 <div>
-                    <h3 className="text-lg font-bold">Summary</h3>
+                    <h3 className="text-lg font-bold mb-2">Summary</h3>
                     <p></p>
                     <p>Total Pre-Injury Annual Gross Pay: ${totalAnnualPay ? Number(totalAnnualPay).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <p>Average Weekly Wage: ${averageWeeklyWage ? Number(averageWeeklyWage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <p className="font-bold">Compensation Rate: ${compensationRate ? Number(compensationRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
-                    <button onClick={handlePrevStep} className="mt-4 bg-gray-500 text-white p-2 rounded">
+                    <button onClick={handlePrevStep} className="mt-4 bg-gray-500 text-white p-2 rounded hover:bg-gray-400 hover:bg-gray-400">
                         Back
                     </button>
-                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right">
+                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right hover:bg-red-500 hover:bg-red-500">
                         Reset Form
                     </button>
                 </div>

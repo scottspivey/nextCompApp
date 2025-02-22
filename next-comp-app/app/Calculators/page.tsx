@@ -100,15 +100,19 @@ export default function Calculators() {
             </div>
           </>
         ) : (
-          <div className="bg-gray-100 p-6 rounded-lg shadow-md">
-            <h2 className="text-2xl font-bold mb-4 text-center">{calculators[selectedCalculator].name}</h2>
-            <button
-              className="bg-red-500 text-white px-4 py-2 rounded-lg mb-4 hover:bg-red-400"
-              onClick={() => setSelectedCalculator(null)}
-            >
-              ← Back to All Calculators
-            </button>
-            {React.createElement(calculators[selectedCalculator].component, { maxCompensationRates })}
+          <div>
+            <div className="mb-4">
+              <button
+                className="bg-red-500 text-white px-4 py-2 rounded-lg mb-4 focus:bg-red-400 hover:bg-red-400"
+                onClick={() => setSelectedCalculator(null)}
+              >
+                ← Back to All Calculators
+              </button>
+            </div>
+            <div className="bg-gray-100 p-6 rounded-lg shadow-md">
+              <h2 className="text-2xl font-bold mb-4 text-center">{calculators[selectedCalculator].name}</h2>
+              {React.createElement(calculators[selectedCalculator].component, { maxCompensationRates })}
+            </div>
           </div>
         )}
       </div>

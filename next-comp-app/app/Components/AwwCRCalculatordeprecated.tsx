@@ -15,12 +15,11 @@ To do:
 14. add special cases such as students, volunteer firefighters, etc. - somewhere in step one 
 15. getCurrentDate below needs to be in correct format in label on step one.
 16. take the "back to all calc" button out of the div to be just under header.  maybe in it's own div but not w/ gray background.
-17. enter button advances to next step.
 */
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { parseISO, isValid } from "date-fns";
 
 interface MaxCompensationRates {
@@ -47,7 +46,6 @@ const quarterLabels: QuarterLabel[] = [
 interface AwwCRCalculatorProps {
     maxCompensationRates: MaxCompensationRates;
 }
-
 
 const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates }) => {
     const [step, setStep] = useState<number>(1);
@@ -93,7 +91,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 
     const validateStep = (step: number) => {
         const newErrors: { [key: string]: string } = {};
-        // need to add to step one in case date is outside of range.
+
         if (step === 1) {
             if (!formData.dateOfInjury) {
                 newErrors.dateOfInjury = "Date of Injury is required.";
@@ -101,11 +99,12 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                 newErrors.dateOfInjury = "Invalid date format.";
             }
         }
-        //need to add to step two in case number is negative.
+
         if (step === 2) {
             [1, 2, 3, 4].forEach((q) => {
                 const value = formData[`quarter${q}Pay`] || "2500"; // Ensure preset value is used
-                if (!value || parseFloat(value) < 0) {newErrors[`quarter${q}Pay`] = "Enter a valid amount.";//Should throw error message if user inputs negative money.
+                if (!value || parseFloat(value) < 0) {
+                    newErrors[`quarter${q}Pay`] = "Enter a valid amount.";
                 }
             });
         }
@@ -113,7 +112,6 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
-
 
     const calculateAwwAndCompensation = () => {
         const totalAnnualPay = [1, 2, 3, 4].reduce(
@@ -131,12 +129,21 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         setCompensationRate(finalCompRate.toFixed(2));
     };
 
+    // Handle key press at the input level
+    const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, field: string) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            if (validateStep(step)) {
+                handleNextStep();
+            }
+        }
+    };
+
     return (
         <div className="mt-8 p-6 bg-gray-100 rounded-lg">
             {step === 1 && (
                 <div>
                     <h3 className="text-lg font-semibold">Step 1: Input the date of injury.</h3>
-                    {/* Need to set getCurrentDate() below to be a string in Mmmmmmmm, d, YYYY */}
                     <label>Select a date between January 1, 1976, and {getCurrentDate()}.</label> 
                     <input
                         type="date"
@@ -146,13 +153,14 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                         max={getCurrentDate()}
                         min="1976-01-01"
                         onChange={handleInputChange}
+                        onKeyDown={(e) => handleKeyPress(e, "dateOfInjury")}
                     />
                     {errors.dateOfInjury && <p className="text-red-600">{errors.dateOfInjury}</p>}
 
                     <button onClick={handleNextStep} className="mt-4 bg-blue-600 text-white p-2 rounded">
                         Next
                     </button>
-                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right">
+                    <button onClick={resetForm} className="ml-2 bg-red-600 text-white p-2 rounded">
                         Reset Form
                     </button>
                 </div>
@@ -170,6 +178,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                                 className="border p-2 w-full"
                                 value={formData[`quarter${q}Pay`]}
                                 onChange={handleInputChange}
+                                onKeyDown={(e) => handleKeyPress(e, `quarter${q}Pay`)}
                             />
                             {errors[`quarter${q}Pay`] && <p className="text-red-600">{errors[`quarter${q}Pay`]}</p>}
                         </div>
@@ -186,7 +195,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                     >
                         Next
                     </button>
-                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right">
+                    <button onClick={resetForm} className="ml-2 bg-red-600 text-white p-2 rounded">
                         Reset Form
                     </button>
                 </div>
@@ -195,14 +204,13 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
             {step === 3 && (
                 <div>
                     <h3 className="text-lg font-bold">Summary</h3>
-                    <p></p>
                     <p>Total Pre-Injury Annual Gross Pay: ${totalAnnualPay ? Number(totalAnnualPay).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <p>Average Weekly Wage: ${averageWeeklyWage ? Number(averageWeeklyWage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <p className="font-bold">Compensation Rate: ${compensationRate ? Number(compensationRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <button onClick={handlePrevStep} className="mt-4 bg-gray-500 text-white p-2 rounded">
                         Back
                     </button>
-                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right">
+                    <button onClick={resetForm} className="ml-2 bg-red-600 text-white p-2 rounded">
                         Reset Form
                     </button>
                 </div>

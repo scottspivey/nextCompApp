@@ -1,22 +1,17 @@
-/* 
-To do:
-1. add step to request user input on whether employee has been employed for 52 weeks
-2. use existing code to calculate AWW and CR for employee who has been employed for 52 weeks
-4. create code to calculate AWW and CR for employee who has been employed for less than 52 weeks
-5. create consistency in styling for this component as compared to CommutedValueCalculator.tsx
-6. ensure validation for user input on each step
-7. add comments to explain code
-8. add a button to reset the form
-9. add preset values for quarterly pay and other inputs so that user can see how the form works and less errors
-10. restrict user input for pay to positive numbers only
-11. add help buttons for each step that gives more information on what to input via pop-up
-12. add a button to generate a Form 20.
-13. (done) check the minimum compensation rate logic
-14. add special cases such as students, volunteer firefighters, etc. - somewhere in step one 
-15. getCurrentDate below needs to be in correct format in label on step one.
-16. take the "back to all calc" button out of the div to be just under header.  maybe in it's own div but not w/ gray background.
-17. enter button advances to next step.
-*/
+// To do:
+// 1. add step to request user input on whether employee has been employed for 52 weeks
+// 2. use existing code to calculate AWW and CR for employee who has been employed for 52 weeks
+// 4. create code to calculate AWW and CR for employee who has been employed for less than 52 weeks
+// 5. create consistency in styling for this component as compared to CommutedValueCalculator.tsx
+// 6. ensure validation for user input on each step
+// 7. add comments to explain code
+// 8. add a button to reset the form
+// 9. add preset values for quarterly pay and other inputs so that user can see how the form works and less errors
+// 10. restrict user input for pay to positive numbers only
+// 11. add help buttons for each step that gives more information on what to input via pop-up
+// 12. add a button to generate a Form 20.
+// 13. (done) check the minimum compensation rate logic
+// 14. add special cases such as students, volunteer firefighters, etc. - somewhere in step one
 
 "use client";
 
@@ -34,7 +29,10 @@ interface QuarterLabel {
 
 const getCurrentDate = (): string => {
     const now = new Date();
-    return now.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0"); // Ensure 2-digit month
+    const day = String(now.getDate()).padStart(2, "0"); // Ensure 2-digit day
+    return `${year}-${month}-${day}`;
 };
 
 const quarterLabels: QuarterLabel[] = [
@@ -48,16 +46,9 @@ interface AwwCRCalculatorProps {
     maxCompensationRates: MaxCompensationRates;
 }
 
-
 const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates }) => {
     const [step, setStep] = useState<number>(1);
-    const [formData, setFormData] = useState<{ dateOfInjury: string; [key: string]: string }>({
-        dateOfInjury: getCurrentDate(),
-        quarter1Pay: "2500",
-        quarter2Pay: "2500",
-        quarter3Pay: "2500",
-        quarter4Pay: "2500",
-    });
+    const [formData, setFormData] = useState<{ dateOfInjury: string; [key: string]: string }>({dateOfInjury: getCurrentDate(),});
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [averageWeeklyWage, setAverageWeeklyWage] = useState<string | null>(null);
     const [compensationRate, setCompensationRate] = useState<string | null>(null);
@@ -71,21 +62,6 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 
     const handlePrevStep = () => setStep((prev) => prev - 1);
 
-    const resetForm = () => {
-        setFormData({
-            dateOfInjury: getCurrentDate(),
-            quarter1Pay: "2500",
-            quarter2Pay: "2500",
-            quarter3Pay: "2500",
-            quarter4Pay: "2500",
-        });
-        setErrors({});
-        setStep(1);
-        setAverageWeeklyWage(null);
-        setCompensationRate(null);
-        setTotalAnnualPay(null);
-    };
-
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
         setErrors({ ...errors, [e.target.name]: "" }); // Clear errors on change
@@ -93,7 +69,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 
     const validateStep = (step: number) => {
         const newErrors: { [key: string]: string } = {};
-        // need to add to step one in case date is outside of range.
+
         if (step === 1) {
             if (!formData.dateOfInjury) {
                 newErrors.dateOfInjury = "Date of Injury is required.";
@@ -101,11 +77,11 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                 newErrors.dateOfInjury = "Invalid date format.";
             }
         }
-        //need to add to step two in case number is negative.
+
         if (step === 2) {
-            [1, 2, 3, 4].forEach((q) => {
-                const value = formData[`quarter${q}Pay`] || "2500"; // Ensure preset value is used
-                if (!value || parseFloat(value) < 0) {newErrors[`quarter${q}Pay`] = "Enter a valid amount.";//Should throw error message if user inputs negative money.
+            getRelevantQuarters(formData.dateOfInjury).forEach((q) => {
+                if (!formData[`quarter${q.quarterIndex}Pay`] || parseFloat(formData[`quarter${q.quarterIndex}Pay`]) < 0) {
+                    newErrors[`quarter${q.quarterIndex}Pay`] = "Enter a valid amount.";
                 }
             });
         }
@@ -114,6 +90,42 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         return Object.keys(newErrors).length === 0;
     };
 
+    const getRelevantQuarters = (dateOfInjury?: string) => {
+        if (!dateOfInjury) return [];
+        const doi = parseISO(dateOfInjury);
+        if (!isValid(doi)) return [];
+
+        let year = doi.getFullYear();
+        const month = doi.getMonth() + 1;
+
+        const doiQuarter = month <= 3 ? 1 : month <= 6 ? 2 : month <= 9 ? 3 : 4;
+        const relevantQuarters = [];
+        let count = 0;
+
+        let currentQuarter = doiQuarter - 1;
+        if (currentQuarter < 1) {
+            currentQuarter = 4;
+            year--;
+        }
+
+        while (count < 4) {
+            relevantQuarters.push({
+                ...quarterLabels[currentQuarter - 1],
+                year,
+                label: `Gross Pay for Quarter ${currentQuarter} of ${year}:`,
+                quarterIndex: currentQuarter,
+            });
+
+            currentQuarter--;
+            if (currentQuarter < 1) {
+                currentQuarter = 4;
+                year--;
+            }
+            count++;
+        }
+
+        return relevantQuarters;
+    };
 
     const calculateAwwAndCompensation = () => {
         const totalAnnualPay = [1, 2, 3, 4].reduce(
@@ -136,15 +148,14 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
             {step === 1 && (
                 <div>
                     <h3 className="text-lg font-semibold">Step 1: Input the date of injury.</h3>
-                    {/* Need to set getCurrentDate() below to be a string in Mmmmmmmm, d, YYYY */}
-                    <label>Select a date between January 1, 1976, and {getCurrentDate()}.</label> 
+                    <label>Select a date between Janaury 1, 1976, and {getCurrentDate()}.</label>
                     <input
                         type="date"
                         name="dateOfInjury"
                         className="border p-2 w-full mt-2"
                         value={formData.dateOfInjury}
                         max={getCurrentDate()}
-                        min="1976-01-01"
+                        min="1979-01-01"
                         onChange={handleInputChange}
                     />
                     {errors.dateOfInjury && <p className="text-red-600">{errors.dateOfInjury}</p>}
@@ -152,26 +163,26 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                     <button onClick={handleNextStep} className="mt-4 bg-blue-600 text-white p-2 rounded">
                         Next
                     </button>
-                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right">
-                        Reset Form
-                    </button>
                 </div>
             )}
 
+{/* add a step for whether employee has been employed for 52 weeks */}
+
             {step === 2 && (
                 <div>
-                    <h3 className="text-lg font-semibold">Step 2: Enter the employee's gross pay for each quarter.</h3>
-                    {[1, 2, 3, 4].map((q) => (
-                        <div key={q}>
-                            <label>Gross Pay for Quarter {q}:</label>
+                    <h3>Step 2: Enter the employee&#39;s gross pay for each quarter.</h3>
+                    {getRelevantQuarters(formData.dateOfInjury).map((q, index) => (
+                        <div key={index}>
+                            <p></p>
+                            <label>{q.label}</label>
                             <input
                                 type="number"
-                                name={`quarter${q}Pay`}
+                                name={`quarter${q.quarterIndex}Pay`}
                                 className="border p-2 w-full"
-                                value={formData[`quarter${q}Pay`]}
+                                value={formData[`quarter${q.quarterIndex}Pay`] || ""}
                                 onChange={handleInputChange}
                             />
-                            {errors[`quarter${q}Pay`] && <p className="text-red-600">{errors[`quarter${q}Pay`]}</p>}
+                            {errors[`quarter${q.quarterIndex}Pay`] && <p className="text-red-600">{errors[`quarter${q.quarterIndex}Pay`]}</p>}
                         </div>
                     ))}
                     <button onClick={handlePrevStep} className="mt-4 bg-gray-500 text-white p-2 rounded">
@@ -183,11 +194,9 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                             handleNextStep();
                         }}
                         className="ml-2 bg-blue-600 text-white p-2 rounded"
+                        disabled={Object.keys(errors).length > 0}
                     >
                         Next
-                    </button>
-                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right">
-                        Reset Form
                     </button>
                 </div>
             )}
@@ -195,15 +204,11 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
             {step === 3 && (
                 <div>
                     <h3 className="text-lg font-bold">Summary</h3>
-                    <p></p>
                     <p>Total Pre-Injury Annual Gross Pay: ${totalAnnualPay ? Number(totalAnnualPay).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <p>Average Weekly Wage: ${averageWeeklyWage ? Number(averageWeeklyWage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <p className="font-bold">Compensation Rate: ${compensationRate ? Number(compensationRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <button onClick={handlePrevStep} className="mt-4 bg-gray-500 text-white p-2 rounded">
                         Back
-                    </button>
-                    <button onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right">
-                        Reset Form
                     </button>
                 </div>
             )}
@@ -212,3 +217,4 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 };
 
 export default AwwCRCalculator;
+

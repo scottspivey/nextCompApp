@@ -140,6 +140,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                     <label>Select a date between January 1, 1976, and {getCurrentDate()}.</label> 
                     <input
                         type="date"
+                        autofocus
                         name="dateOfInjury"
                         className="border p-2 w-full mt-2"
                         value={formData.dateOfInjury}

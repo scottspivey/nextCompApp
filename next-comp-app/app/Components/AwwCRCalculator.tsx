@@ -94,7 +94,6 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 
     useEffect(() => {
         if (step === 3 && firstInputRef.current) {
-        if (step === 3 && firstInputRef.current) {
             firstInputRef.current.focus();
         }
     }, [step]);
@@ -188,7 +187,6 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         });
         setErrors({});
         setStep(1);
-        setSubStep(null);
         setAverageWeeklyWage(null);
         setCompensationRate(null);
         setTotalAnnualPay(null);
@@ -221,8 +219,6 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                 const value = formData[`quarter${q}Pay`] || "2500"; // Ensure preset value is used
                 if (!value || parseFloat(value) < 0) {
                     newErrors[`quarter${q}Pay`] = "Enter a valid amount."; // Should throw error message if user inputs negative money.
-                if (!value || parseFloat(value) < 0) {
-                    newErrors[`quarter${q}Pay`] = "Enter a valid amount."; // Should throw error message if user inputs negative money.
                 }
             });
         }
@@ -235,6 +231,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
+
     //calculates the AWW and CR for the employee
     //default method for calculating AWW and CR
     //only used when the employee has been employed for four full quarters
@@ -251,6 +248,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         setAverageWeeklyWage(aww.toFixed(2));
         setCompensationRate(finalCompRate.toFixed(2));
     };
+
     //returns the form for the AWW and CR calculator
     //this is the main component for the AWW and CR calculator
     return (
@@ -271,13 +269,11 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                         min="1976-01-01"
                         onChange={handleInputChange}
                         tabIndex={1}
-                        tabIndex={1}
                     />
                     {errors.dateOfInjury && <p className="text-red-600">{errors.dateOfInjury}</p>}
                     <button tabIndex={2} onClick={handleNextStepOn1} className="mt-4 bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
                         Next
                     </button>
-                    <button tabIndex={3} onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right focus:bg-red-500 hover:bg-red-500">
                     <button tabIndex={3} onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right focus:bg-red-500 hover:bg-red-500">
                         Reset Form
                     </button>
@@ -402,8 +398,6 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                                 ref={index === 0 ? firstInputRef : null} // Only first input gets the ref
                                 tabIndex={index + 1}
                                 min="0"
-                                tabIndex={index + 1}
-                                min="0"
                             />
                             {errors[`quarter${q}Pay`] && <p className="text-red-600">{errors[`quarter${q}Pay`]}</p>}
                         </div>
@@ -463,9 +457,6 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                         onClick={handleBackBtn} className="mt-4 bg-gray-500 text-white p-2 rounded hover:bg-gray-400 hover:bg-gray-400">
                         Back
                     </button>
-                    <button 
-                        tabIndex={2}
-                        onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right hover:bg-red-500 hover:bg-red-500">
                     <button 
                         tabIndex={2}
                         onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right hover:bg-red-500 hover:bg-red-500">

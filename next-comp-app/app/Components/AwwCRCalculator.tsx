@@ -3,12 +3,15 @@ Stopped In the middle of nextstep/previous step logic
 To do:
 1. (DONE) add step to request user input on whether employee has been employed for 52 weeks
 2. (DONE) use existing code to calculate AWW and CR for employee who has been employed for 52 weeks
+1. (DONE) add step to request user input on whether employee has been employed for 52 weeks
+2. (DONE) use existing code to calculate AWW and CR for employee who has been employed for 52 weeks
 4. create code to calculate AWW and CR for employee who has been employed for less than 52 weeks
 5. create consistency in styling for this component as compared to CommutedValueCalculator.tsx
 6. ensure validation for user input on each step
 7. add comments to explain code
 8. (DONE) add a button to reset the form
 9. (DONE) add preset values for quarterly pay and other inputs so that user can see how the form works and less errors
+10. (DONE) restrict user input for pay to positive numbers only and validate that user input is a positive number
 10. (DONE) restrict user input for pay to positive numbers only and validate that user input is a positive number
 11. add help buttons for each step that gives more information on what to input via pop-up
 12. add a button to generate a Form 20.
@@ -91,6 +94,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
 
     useEffect(() => {
         if (step === 3 && firstInputRef.current) {
+        if (step === 3 && firstInputRef.current) {
             firstInputRef.current.focus();
         }
     }, [step]);
@@ -116,6 +120,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         quarter4Pay: "2500",
     });
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
     const [averageWeeklyWage, setAverageWeeklyWage] = useState<string | null>(null);
     const [compensationRate, setCompensationRate] = useState<string | null>(null);
     const [totalAnnualPay, setTotalAnnualPay] = useState<string | null>(null);
@@ -183,6 +188,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         });
         setErrors({});
         setStep(1);
+        setSubStep(null);
         setAverageWeeklyWage(null);
         setCompensationRate(null);
         setTotalAnnualPay(null);
@@ -213,6 +219,8 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         if (step === 3) {
             [1, 2, 3, 4].forEach((q) => {
                 const value = formData[`quarter${q}Pay`] || "2500"; // Ensure preset value is used
+                if (!value || parseFloat(value) < 0) {
+                    newErrors[`quarter${q}Pay`] = "Enter a valid amount."; // Should throw error message if user inputs negative money.
                 if (!value || parseFloat(value) < 0) {
                     newErrors[`quarter${q}Pay`] = "Enter a valid amount."; // Should throw error message if user inputs negative money.
                 }
@@ -263,11 +271,13 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                         min="1976-01-01"
                         onChange={handleInputChange}
                         tabIndex={1}
+                        tabIndex={1}
                     />
                     {errors.dateOfInjury && <p className="text-red-600">{errors.dateOfInjury}</p>}
                     <button tabIndex={2} onClick={handleNextStepOn1} className="mt-4 bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
                         Next
                     </button>
+                    <button tabIndex={3} onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right focus:bg-red-500 hover:bg-red-500">
                     <button tabIndex={3} onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right focus:bg-red-500 hover:bg-red-500">
                         Reset Form
                     </button>
@@ -392,6 +402,8 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                                 ref={index === 0 ? firstInputRef : null} // Only first input gets the ref
                                 tabIndex={index + 1}
                                 min="0"
+                                tabIndex={index + 1}
+                                min="0"
                             />
                             {errors[`quarter${q}Pay`] && <p className="text-red-600">{errors[`quarter${q}Pay`]}</p>}
                         </div>
@@ -451,6 +463,9 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                         onClick={handleBackBtn} className="mt-4 bg-gray-500 text-white p-2 rounded hover:bg-gray-400 hover:bg-gray-400">
                         Back
                     </button>
+                    <button 
+                        tabIndex={2}
+                        onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right hover:bg-red-500 hover:bg-red-500">
                     <button 
                         tabIndex={2}
                         onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right hover:bg-red-500 hover:bg-red-500">

@@ -121,7 +121,6 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         quarter4Pay: "2500",
     });
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
-
     const [averageWeeklyWage, setAverageWeeklyWage] = useState<string | null>(null);
     const [compensationRate, setCompensationRate] = useState<string | null>(null);
     const [totalAnnualPay, setTotalAnnualPay] = useState<string | null>(null);
@@ -129,6 +128,97 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
     //only sets next step if the current step is valid
     //sets value for the previous step to be used in the back button logic
     //advances the step +1
+
+        //validates the steps of the form
+        const validateStep = (step: number) => {
+            const newErrors: { [key: string]: string } = {};
+            if (step === 1) {
+                if (!formData.dateOfInjury) {
+                    newErrors.dateOfInjury = "Date of Injury is required.";
+                } else if (!isValid(parseISO(formData.dateOfInjury))) {
+                    newErrors.dateOfInjury = "Invalid date format.";
+                }
+            }
+            if (step === 2) {
+                const validOptions = [
+                    "none", "volunteerFF", "volunteerSheriff", "guard",
+                    "volunteerRescue", "volunteerConstable", "inmate", "student"
+                ];
+            
+                if (!validOptions.includes(formData?.specialCase)) {
+                    newErrors.specialCase = "You must select a valid option before proceeding.";
+                }
+            }
+            if (step === 3) {
+                const validOptions = [
+                    "yes", "no"
+                ];
+                if (!validOptions.includes(formData?.specialCase)) {
+                    newErrors.specialCase = "You must select 'yes' or 'no' before proceeding.";
+                }
+            }
+            if (step === 4) {
+                [1, 2, 3, 4].forEach((q) => {
+                    const value = formData[`quarter${q}Pay`] || "2500"; // Ensure preset value is used
+                    if (!value || parseFloat(value) < 0) {
+                        newErrors[`quarter${q}Pay`] = "Enter a valid amount."; // Should throw error message if user inputs negative money.
+                    }
+                });
+            }
+            if (step === 5) {
+                // Add validation for less than four quarters logic here
+                // Example: if not entering values.
+            }
+    
+            // Update the errors state with the new errors
+            setErrors(newErrors);
+            return Object.keys(newErrors).length === 0;
+        };
+
+    const nextBtnArray = [
+        {
+            currentStep: 1,
+            action: ()=> handleNextStep(1),
+            validate: validateStep,
+            nextStep: (formdata: any) => 2,
+        },
+        {
+            currentStep: 2,
+            action: () => handleNextStep(2),
+            validate: validateStep,
+            nextStep: (formData: any) => {
+                const specialMap: Record<string, number> = {
+                    none: 3,
+                    guard: 4,
+                    volunteerFF: 5,
+                    volunteerRescue: 6,
+                    volunteerSheriff: 7,
+                    volunteerConstable: 8,
+                    inmate: 9,
+                    student: 10,
+                };
+                return specialMap[formData.specialCase as keyof typeof specialMap] || 3;
+            },
+        }, 
+        {
+
+        },
+
+    ]
+
+    const handleNextStep = (currentStep: number) => {
+        const nextStepConfig = nextBtnArray.find(step => step.currentStep === currentStep);
+
+        if (!nextStepConfig) return;
+
+        const {validate, nextStep} = nextStepConfig
+
+        if (validate(step)) {
+            setPrevStep(step);
+            setStep(nextStep(formData));
+        };
+    };
+
     const handleNextStepOn1 = () => {
         if (validateStep(step)) {
             setPrevStep(step);
@@ -205,51 +295,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         setErrors({ ...errors, [e.target.name]: "" });
     };
 
-    //validates the steps of the form
-    const validateStep = (step: number) => {
-        const newErrors: { [key: string]: string } = {};
-        if (step === 1) {
-            if (!formData.dateOfInjury) {
-                newErrors.dateOfInjury = "Date of Injury is required.";
-            } else if (!isValid(parseISO(formData.dateOfInjury))) {
-                newErrors.dateOfInjury = "Invalid date format.";
-            }
-        }
-        if (step === 2) {
-            const validOptions = [
-                "none", "volunteerFF", "volunteerSheriff", "guard",
-                "volunteerRescue", "volunteerConstable", "inmate", "student"
-            ];
-        
-            if (!validOptions.includes(formData?.specialCase)) {
-                newErrors.specialCase = "You must select a valid option before proceeding.";
-            }
-        }
-        if (step === 3) {
-            const validOptions = [
-                "yes", "no"
-            ];
-            if (!validOptions.includes(formData?.specialCase)) {
-                newErrors.specialCase = "You must select 'yes' or 'no' before proceeding.";
-            }
-        }
-        if (step === 4) {
-            [1, 2, 3, 4].forEach((q) => {
-                const value = formData[`quarter${q}Pay`] || "2500"; // Ensure preset value is used
-                if (!value || parseFloat(value) < 0) {
-                    newErrors[`quarter${q}Pay`] = "Enter a valid amount."; // Should throw error message if user inputs negative money.
-                }
-            });
-        }
-        if (step === 5) {
-            // Add validation for less than four quarters logic here
-            // Example: if not entering values.
-        }
 
-        // Update the errors state with the new errors
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
 
     //calculates the AWW and CR for the employee
     //default method for calculating AWW and CR

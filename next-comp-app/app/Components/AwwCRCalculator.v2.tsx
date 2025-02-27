@@ -1,7 +1,5 @@
-/*
+/* 
 Stopped In the middle of nextstep/previous step logic
-trying a map/key approach to steps by dynamically rendered - current errors and bugs.
-
 To do:
 1. (DONE) add step to request user input on whether employee has been employed for 52 weeks
 2. (DONE) use existing code to calculate AWW and CR for employee who has been employed for 52 weeks
@@ -230,7 +228,7 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                 "yes", "no"
             ];
             if (!validOptions.includes(formData?.specialCase)) {
-                newErrors.specialCase = "You must select 'yes' or 'no' before proceeding.";
+                newErrors.specialCase = "You must select yes or no before proceeding.";
             }
         }
         if (step === 4) {
@@ -268,55 +266,133 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
         setCompensationRate(finalCompRate.toFixed(2));
     };
 
-    const steps = [
-        {
-            title: "Input the date of injury",
-            description: `Select a date between January 1, 1976, and ${formatDisplayDate(getCurrentDate())}.`,
-            content: (
-                <input
-                    type="date"
-                    autoFocus
-                    name="dateOfInjury"
-                    className="border p-2 w-full mt-2"
-                    value={formData.dateOfInjury}
-                    max={getCurrentDate()}
-                    min="1976-01-01"
-                    onChange={handleInputChange}
-                    tabIndex={1}
-                />
-            ),
-            error: errors.dateOfInjury,
-            next: handleNextStepOn1,
-        },
-        {
-            title: "Was the injured worker injured while working as any of the following?",
-            options: [
-                { value: "guard", label: "State and/or National Guard" },
-                { value: "volunteerFF", label: "Volunteer Fire Fighter" },
-                { value: "volunteerRescue", label: "Volunteer Rescue Squad Member" },
-                { value: "volunteerSheriff", label: "Volunteer Deputy Sheriff" },
-                { value: "volunteerConstable", label: "Volunteer State Constable" },
-                { value: "inmate", label: "Inmate" },
-                { value: "student", label: "Student Engaged in Work Study, Marketing Education, or Apprenticeship" },
-                { value: "none", label: "None of the Above" }
-            ],
-            error: errors.specialCase,
-            next: handleNextStepOn2,
-        },
-        {
-            title: `Was the injured worker employed for at least four complete quarters prior to ${formatDisplayDate(formData.dateOfInjury)}?`,
-            description: `Note: The four quarters of employment cannot include employment during ${getQuarterContainingDateOfInjury(formData.dateOfInjury)}.`,
-            options: [
-                { value: "yes", label: "Yes" },
-                { value: "no", label: "No" },
-            ],
-            error: errors.employedFourQuarters,
-            next: handleNextStepOn3,
-        },
-        {
-            title: "Enter the employee's gross pay for each quarter",
-            content: (
-                <>
+    //returns the form for the AWW and CR calculator
+    //this is the main component for the AWW and CR calculator
+    return (
+        <div className="mt-8 p-6 bg-gray-100 rounded-lg">
+{/* Step 1 - should ask for the date of injury*/}
+            {step === 1 && (
+                <div>
+                    <h3 className="mb-4 text-lg font-semibold flex">1 Input the date of injury. 
+                        <QuestionMarkCircleIcon className="w-6 h-6 ml-1 text-gray-500" /></h3>
+                    <label>Select a date between January 1, 1976, and {formatDisplayDate(getCurrentDate())}.</label> 
+                    <input
+                        type="date"
+                        autoFocus
+                        name="dateOfInjury"
+                        className="border p-2 w-full mt-2"
+                        value={formData.dateOfInjury}
+                        max={getCurrentDate()}
+                        min="1976-01-01"
+                        onChange={handleInputChange}
+                        tabIndex={1}
+                    />
+                    {errors.dateOfInjury && <p className="text-red-600">{errors.dateOfInjury}</p>}
+                    <button tabIndex={2} onClick={handleNextStepOn1} className="mt-4 bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
+                        Next
+                    </button>
+                    <button tabIndex={3} onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right focus:bg-red-500 hover:bg-red-500">
+                        Reset Form
+                    </button>
+                </div>
+            )}
+{/*Step 2 - Special "Employees" under 42-7-60 */}
+            {step === 2 && (
+                <div>
+                    <h3 className="mb-4 text-lg font-semibold flex">
+                        2 Was the injured worker injured while working as any of the following?
+                        <QuestionMarkCircleIcon className="w-6 h-6 ml-1 text-gray-500" />
+                    </h3>
+                    {[
+                        { value: "guard", label: "State and/or National Guard", tabIndex: 1 },
+                        { value: "volunteerFF", label: "Volunteer Fire Fighter", tabIndex: 2 },
+                        { value: "volunteerRescue", label: "Volunteer Rescue Squad Member", tabIndex: 3 },
+                        { value: "volunteerSheriff", label: "Volunteer Deputy Sheriff", tabIndex: 4 },
+                        { value: "volunteerConstable", label: "Volunteer State Constable", tabIndex: 5 },
+                        { value: "inmate", label: "Inmate", tabIndex: 6 },
+                        { value: "student", label: "Student Engaged in Work Study, Marketing Education, or Apprenticeship", tabIndex: 7 },
+                        { value: "none", label: "None of the Above", tabIndex: 8 }
+                    ].map(({ value, label, tabIndex }) => (
+                        <label key={value} className="flex items-center">
+                            <input
+                                type="radio"
+                                name="specialCase"
+                                value={value}
+                                checked={formData.specialCase === value}
+                                onChange={handleInputChange}
+                                className="m-2"
+                                tabIndex={tabIndex}
+                            />
+                            {label}
+                        </label>
+                    ))}
+
+                    {errors.specialCase && <p className="text-red-600">{errors.specialCase}</p>}
+
+                    <button tabIndex={10} onClick={handleBackBtn} className="mt-4 mr-2 bg-gray-500 text-white p-2 rounded hover:bg-gray-400">
+                        Back
+                    </button>
+                    <button tabIndex={9} onClick={handleNextStepOn2} className="mt-4 bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
+                        Next
+                    </button>
+                    <button tabIndex={11} onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right focus:bg-red-500 hover:bg-red-500">
+                        Reset Form
+                    </button>
+                </div>
+            )}
+
+{/*Step 3 - should ask whether the employee was employed for four quarters*/}
+            {step === 3 && (
+                <div>
+                    <h3 className="mb-1 text-lg font-semibold flex">3Was the injured worker employed for at least four 
+                        complete quarters prior to {formatDisplayDate(formData.dateOfInjury)}?
+                        <QuestionMarkCircleIcon className="w-6 h-6 ml-1 text-gray-500" />
+                    </h3>
+                    <h4 className="mb-2 text-lg italic flex">Note: The four quarters of employment cannot include employment during {getQuarterContainingDateOfInjury(formData.dateOfInjury)}. 
+                    </h4>
+                    <div className="flex flex-col space-y-2">
+                        <label className="flex items-center">
+                            <input
+                                type="radio"
+                                name="employedFourQuarters"
+                                value="yes"
+                                checked={formData.employedFourQuarters === "yes"}
+                                onChange={handleInputChange}
+                                className="m-1"
+                                tabIndex={1}
+                            />
+                            Yes
+                        </label>
+                        <label className="flex items-center">
+                            <input
+                                type="radio"
+                                name="employedFourQuarters"
+                                value="no"
+                                checked={formData.employedFourQuarters === "no"}
+                                onChange={handleInputChange}
+                                className="m-1"
+                                tabIndex={2}
+                            />
+                            No
+                        </label>
+                    </div>
+                    {errors.employedFourQuarters && <p className="text-red-600">{errors.employedFourQuarters}</p>}
+                    <button tabIndex={4} onClick={handleBackBtn} className="mt-4 mr-2 bg-gray-500 text-white p-2 rounded hover:bg-gray-400 hover:bg-gray-400">
+                        Back
+                    </button>
+                    <button tabIndex={3} onClick={handleNextStepOn3} className="mt-4 bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
+                        Next
+                    </button>
+                    <button tabIndex={5} onClick={resetForm} className="mt-4 bg-red-500 text-white p-2 rounded float-right focus:bg-red-400 hover:bg-red-400">
+                        Reset Form
+                    </button>
+                </div>
+            )}
+{/*Step 4 - should ask for the gross pay for each quarter and should only be used if the employee was employed for 4 full quarters*/}
+            {step === 4 && (
+                <div>
+                    <h3 className="mb-4 text-lg font-semibold flex">4Enter the employee's gross pay for each quarter. 
+                            <QuestionMarkCircleIcon className="w-6 h-6 ml-1 text-gray-500" /></h3>
                     {[1, 2, 3, 4].map((q, index) => (
                         <div key={q}>
                             <label>Gross Pay for Quarter {q}:</label>
@@ -326,87 +402,77 @@ const AwwCRCalculator: React.FC<AwwCRCalculatorProps> = ({ maxCompensationRates 
                                 className="border p-2 w-full"
                                 value={formData[`quarter${q}Pay`]}
                                 onChange={handleInputChange}
-                                ref={index === 0 ? firstInputRef : null}
+                                ref={index === 0 ? firstInputRef : null} // Only first input gets the ref
                                 tabIndex={index + 1}
                                 min="0"
                             />
                             {errors[`quarter${q}Pay`] && <p className="text-red-600">{errors[`quarter${q}Pay`]}</p>}
                         </div>
-                    ))}
-                </>
-            ),
-            next: handleNextStepOn1,
-        },
-        {
-            title: "Employee was employed less than four quarters.",
-            description: "Please fill out data for the time that they were employed.",
-            next: handleNextStepOn1,
-        },
-        {
-            title: "Summary",
-            content: (
-                <>
+                    ))}       
+                    <button
+                        tabIndex={6} 
+                        onClick={handleBackBtn} className="mt-4 mr-2 bg-gray-500 text-white p-2 rounded hover:bg-gray-400 hover:bg-gray-400">
+                        Back
+                    </button>
+                    <button
+                        tabIndex={5}
+                        onClick={handleNextStepOn1}
+                        className="mt-4 bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
+                        Next
+                    </button>               
+                    <button 
+                        tabIndex={7}
+                        onClick={resetForm} className="mt-4 bg-red-500 text-white p-2 rounded float-right hover:bg-red-400 hover:bg-red-400">
+                        Reset Form
+                    </button>
+                </div>
+            )}
+{/*Step 5 - should ask for the gross pay for a time period and should only be used if the employee was employed for less than 4 full quarters*/}
+            {step === 5 && (
+                <div>
+                    <h3 className="mb-4 text-lg font-semibold flex">5Employee was employed less than four quarters.<QuestionMarkCircleIcon className="w-6 h-6 ml-1 text-gray-500" /></h3>
+                    {/* Implement the logic for the case where the employee was employed for less than four quarters */}
+                    <p>Please fill out data for the time that they were employed.</p>
+                     <button
+                        tabIndex={1} 
+                        onClick={handleBackBtn} className="mt-4 mr-2 bg-gray-500 text-white p-2 rounded hover:bg-gray-400 hover:bg-gray-400">
+                        Back
+                    </button>
+                     <button
+                        tabIndex={2} 
+                        onClick={handleNextStepOn1}
+                        className="mt-4 bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
+                        Next
+                    </button>
+                     <button 
+                        tabIndex={3}
+                        onClick={resetForm} className="mt-4 bg-red-600 text-white p-2 rounded float-right hover:bg-red-500 hover:bg-red-500">
+                        Reset Form
+                    </button>
+                </div>
+            )}
+{/*Step 6 - should show the summary of the AWW and CR for the employee if the default (full 4 quarters) method used*/}
+            {step === 6 && (
+                <div>
+                    <h3 className="text-lg font-bold mb-2">6Summary</h3>
+                    <p></p>
                     <p>Total Pre-Injury Annual Gross Pay: ${totalAnnualPay ? Number(totalAnnualPay).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <p>Average Weekly Wage: ${averageWeeklyWage ? Number(averageWeeklyWage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
                     <p className="font-bold">Compensation Rate: ${compensationRate ? Number(compensationRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
-                </>
-            ),
-        },
-    ];
-
-//returns the form/html for the AWW and CR calculator
-    return (
-        <div className="mt-8 p-6 bg-gray-100 rounded-lg">
-        {steps[step - 1] && (
-            <div>
-                <h3 className="mb-4 text-lg font-semibold flex">
-                    {step} {steps[step - 1].title}
-                    <QuestionMarkCircleIcon className="w-6 h-6 ml-1 text-gray-500" />
-                </h3>
-                {steps[step - 1].description && <p className="mb-2">{steps[step - 1].description}</p>}
-
-                {/* Render Inputs or Options */}
-                {steps[step - 1].content}
-                {steps[step - 1].options && (
-                    <div className="flex flex-col space-y-2">
-                        {steps[step - 1].options.map(({ value, label }, index) => (
-                            <label key={value} className="flex items-center">
-                                <input
-                                    type="radio"
-                                    name={step === 2 ? "specialCase" : "employedFourQuarters"}
-                                    value={value}
-                                    checked={formData[step === 2 ? "specialCase" : "employedFourQuarters"] === value}
-                                    onChange={handleInputChange}
-                                    className="m-1"
-                                    tabIndex={index + 1}
-                                />
-                                {label}
-                            </label>
-                        ))}
-                    </div>
-                )}
-
-                {steps[step - 1].error && <p className="text-red-600">{steps[step - 1].error}</p>}
-
-                {/* Navigation Buttons */}
-                <div className="mt-4">
-                    {step > 1 && (
-                        <button onClick={handleBackBtn} className="mr-2 bg-gray-500 text-white p-2 rounded hover:bg-gray-400">
-                            Back
-                        </button>
-                    )}
-                    {steps[step - 1].next && (
-                        <button onClick={steps[step - 1].next} className="bg-blue-600 text-white p-2 rounded focus:bg-blue-500 hover:bg-blue-500">
-                            Next
-                        </button>
-                    )}
-                    <button onClick={resetForm} className="bg-red-500 text-white p-2 rounded float-right focus:bg-red-400 hover:bg-red-400">
-                        Reset Calculator
+                    <button 
+                        tabIndex={1}
+                        onClick={handleBackBtn} className="mt-4 bg-gray-500 text-white p-2 rounded hover:bg-gray-400 hover:bg-gray-400">
+                        Back
+                    </button>
+                    <button 
+                        tabIndex={2}
+                        onClick={resetForm} className="mt-4 bg-red-500 text-white p-2 rounded float-right hover:bg-red-400 hover:bg-red-400">
+                        Reset Form
                     </button>
                 </div>
-            </div>
             )}
         </div>
     );
 };
+
 export default AwwCRCalculator;

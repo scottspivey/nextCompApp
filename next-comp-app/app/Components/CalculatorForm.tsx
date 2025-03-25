@@ -1,8 +1,9 @@
 // app/Components/CalculatorForm.tsx
-"use client";
+"use client"; // Mark as client component
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getCurrentDate } from "./CalcDateFunctions/getCurrentDate";
 
 interface CalculatorFormProps {
   currentStep: number;
@@ -14,12 +15,6 @@ interface CalculatorFormProps {
   quarter3Pay: string;
   quarter4Pay: string;
 }
-
-// Gets the current date in the format of YYYY-MM-DD
-const getCurrentDate = (): string => {
-  const now = new Date();
-  return now.toLocaleDateString("en-CA");
-};
 
 export function CalculatorForm({
   currentStep,
@@ -34,6 +29,13 @@ export function CalculatorForm({
   const router = useRouter();
   const searchParams = useSearchParams();
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const [localDateOfInjury, setLocalDateOfInjury] = useState(dateOfInjury);
+  const [localSpecialCase, setLocalSpecialCase] = useState(specialCase);
+  const [localEmployedFourQuarters, setLocalEmployedFourQuarters] = useState(employedFourQuarters);
+  const [localQuarter1Pay, setLocalQuarter1Pay] = useState(quarter1Pay);
+  const [localQuarter2Pay, setLocalQuarter2Pay] = useState(quarter2Pay);
+  const [localQuarter3Pay, setLocalQuarter3Pay] = useState(quarter3Pay);
+  const [localQuarter4Pay, setLocalQuarter4Pay] = useState(quarter4Pay);
 
   useEffect(() => {
     if (firstInputRef.current) {
@@ -54,10 +56,11 @@ export function CalculatorForm({
         ref={firstInputRef}
         name="dateOfInjury"
         className="border p-2 w-full mt-2"
-        value={dateOfInjury}
+        value={localDateOfInjury}
         max={getCurrentDate()}
         min="1976-01-01"
-        onChange={(e) => updateParams("dateOfInjury", e.target.value)}
+        onChange={(e) => setLocalDateOfInjury(e.target.value)}
+        onBlur={(e) => updateParams("dateOfInjury", e.target.value)}
       />
     );
   }
@@ -82,8 +85,9 @@ export function CalculatorForm({
               type="radio"
               name="specialCase"
               value={value}
-              checked={specialCase === value}
-              onChange={() => updateParams("specialCase", value)}
+              checked={localSpecialCase === value}
+              onChange={() => setLocalSpecialCase(value)}
+              onBlur={() => updateParams("specialCase", value)}
               className="m-1"
               ref={index === 0 ? firstInputRef : null}
             />
@@ -108,8 +112,9 @@ export function CalculatorForm({
               type="radio"
               name="employedFourQuarters"
               value={value}
-              checked={employedFourQuarters === value}
-              onChange={() => updateParams("employedFourQuarters", value)}
+              checked={localEmployedFourQuarters === value}
+              onChange={() => setLocalEmployedFourQuarters(value)}
+              onBlur={() => updateParams("employedFourQuarters", value)}
               className="m-1"
               ref={index === 0 ? firstInputRef : null}
             />
@@ -130,8 +135,15 @@ export function CalculatorForm({
               type="number"
               name={`quarter${q}Pay`}
               className="border p-2 w-full"
-              value={[quarter1Pay, quarter2Pay, quarter3Pay, quarter4Pay][q-1]}
-              onChange={(e) => updateParams(`quarter${q}Pay`, e.target.value)}
+              value={[localQuarter1Pay, localQuarter2Pay, localQuarter3Pay, localQuarter4Pay][q - 1]}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                if (q === 1) setLocalQuarter1Pay(newValue);
+                if (q === 2) setLocalQuarter2Pay(newValue);
+                if (q === 3) setLocalQuarter3Pay(newValue);
+                if (q === 4) setLocalQuarter4Pay(newValue);
+              }}
+              onBlur={(e) => updateParams(`quarter${q}Pay`, e.target.value)}
               ref={index === 0 ? firstInputRef : null}
               min="0"
             />

@@ -19,7 +19,6 @@ interface StepNavigationProps {
 }
 
 export function StepNavigation({
-  currentStep,
   nextStep,
   prevStep,
   errors,
@@ -41,6 +40,14 @@ export function StepNavigation({
     
     const params = new URLSearchParams(searchParams.toString());
     params.set("step", step.toString());
+    
+    if (!params.has('dateOfInjury')) params.set("dateOfInjury", dateOfInjury);
+    if (!params.has('specialCase')) params.set("specialCase", specialCase);
+    if (!params.has('employedFourQuarters')) params.set("employedFourQuarters", employedFourQuarters);
+    if (!params.has('quarter1Pay')) params.set("quarter1Pay", quarter1Pay);
+    if (!params.has('quarter2Pay')) params.set("quarter2Pay", quarter2Pay);
+    if (!params.has('quarter3Pay')) params.set("quarter3Pay", quarter3Pay);
+    if (!params.has('quarter4Pay')) params.set("quarter4Pay", quarter4Pay);
     router.push(`?${params.toString()}`);
   };
 

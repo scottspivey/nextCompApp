@@ -1,75 +1,84 @@
-// app/Components/AwwCRCalculator.tsx
+"use client";
+
 import React from "react";
-import { parseISO, isValid, format } from "date-fns";
+import { parseISO, isValid } from "date-fns";
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/solid';
 import { CalculatorForm } from "./CalculatorForm";
 import { StepNavigation } from "./StepNavigation";
+import { getCurrentDate } from "./CalcDateFunctions/getCurrentDate";
+import { formatDisplayDate } from "./CalcDateFunctions/formatDisplayDate";
+import { getQuarterContainingDateOfInjury } from "./CalcDateFunctions/getQuarterContainingDateOfInjury";
+import { useSearchParams } from "next/navigation";
 
 interface MaxCompensationRates {
   [year: number]: number;
 }
 
-interface QuarterLabel {
-  start: string;
-  end: string;
-}
-
-// Gets the current date in the format of YYYY-MM-DD
-const getCurrentDate = (): string => {
-  const now = new Date();
-  return now.toLocaleDateString("en-CA");
-};
-
-// Reformats the date to be in the format of Mmmmmmmm, d, YYYY
-const formatDisplayDate = (isoDate: string): string => {
-  try {
-    return format(parseISO(isoDate), "MMMM d, yyyy"); // Converts "2025-02-22" → "February 22, 2025"
-  } catch {
-    return "Invalid Date";
-  }
-};
-
-// Function to determine the quarter containing the date of injury
-const getQuarterContainingDateOfInjury = (dateOfInjury: string): string => {
-  try {
-    const month = parseISO(dateOfInjury).getMonth() + 1;
-    const year = parseISO(dateOfInjury).getFullYear();
-    if (month >= 1 && month <= 3) return `Quarter 1 of ${year} (January 1, ${year} - March 31, ${year})`;
-    if (month >= 4 && month <= 6) return `Quarter 2 of ${year} (April 1, ${year} - June 30, ${year})`;
-    if (month >= 7 && month <= 9) return `Quarter 3 of ${year} (July 1, ${year} - September 30, ${year})`;
-    if (month >= 10 && month <= 12) return `Quarter 4 of ${year} (October 1, ${year} - December 31, ${year})`;
-    return "";
-  } catch {
-    return "";
-  }
-};
-
-// Props for the AwwCRCalculator
 interface AwwCRCalculatorProps {
   maxCompensationRates: MaxCompensationRates;
   searchParams: { [key: string]: string | string[] | undefined };
 }
 
-export function AwwCRCalculator({ maxCompensationRates, searchParams }: AwwCRCalculatorProps) {
-  // Extract state from URL params
-  const step = parseInt(searchParams.step as string || "1");
-  const dateOfInjury = (searchParams.dateOfInjury as string) || getCurrentDate();
-  const specialCase = (searchParams.specialCase as string) || "none";
-  const employedFourQuarters = (searchParams.employedFourQuarters as string) || "yes";
-  const quarter1Pay = (searchParams.quarter1Pay as string) || "2500";
-  const quarter2Pay = (searchParams.quarter2Pay as string) || "2500";
-  const quarter3Pay = (searchParams.quarter3Pay as string) || "2500";
-  const quarter4Pay = (searchParams.quarter4Pay as string) || "2500";
+export async function AwwCRCalculator({ maxCompensationRates }: AwwCRCalculatorProps) {
+  const searchParams = useSearchParams();
+  const step = parseInt(searchParams.get("step") || "1");
+  const dateOfInjury = searchParams.get("dateOfInjury") || getCurrentDate();
+  const specialCase = searchParams.get("specialCase") || "none";
+  const employedFourQuarters = searchParams.get("employedFourQuarters") || "yes";
+  const quarter1Pay = searchParams.get("quarter1Pay") || "2500";
+  const quarter2Pay = searchParams.get("quarter2Pay") || "2500";
+  const quarter3Pay = searchParams.get("quarter3Pay") || "2500";
+  const quarter4Pay = searchParams.get("quarter4Pay") || "2500";
+  
+  // Validation
+  const errors: { [key: string]: string } = {};
 
-  // Calculate results if we're on the results step
+  if (step === 1) {
+    if (!dateOfInjury) {
+      errors.dateOfInjury = "Date of Injury is required.";
+    } else if (!isValid(parseISO(dateOfInjury))) {
+      errors.dateOfInjury = "Invalid date format.";
+    }
+  }
+
+  if (step === 2) {
+    const validOptions = [
+      "none", "volunteerFF", "volunteerSheriff", "guard",
+      "volunteerRescue", "volunteerConstable", "inmate", "student"
+    ];
+
+    if (!validOptions.includes(specialCase)) {
+      errors.specialCase = "You must select a valid option before proceeding.";
+    }
+  }
+
+  if (step === 3) {
+    const validOptions = ["yes", "no"];
+    if (!validOptions.includes(employedFourQuarters)) {
+      errors.employedFourQuarters = "You must select 'yes' or 'no' before proceeding.";
+    }
+  }
+
+  if (step === 4) {
+    [1, 2, 3, 4].forEach((q) => {
+      const value = searchParams.get(`quarter${q}Pay`) as string || "0";
+      if (!value || parseFloat(value) < 0) {
+        errors[`quarter${q}Pay`] = "Enter a valid amount.";
+      }
+    });
+  }
+
+
   let averageWeeklyWage: string | null = null;
   let compensationRate: string | null = null;
   let totalAnnualPay: string | null = null;
+  let maxRateNotice: string | null = null;
+  let minRateNotice: string | null = null;
 
   if ((step === 4 && employedFourQuarters === "yes") || step === 6) {
     const calculatedTotalPay = [1, 2, 3, 4].reduce(
       (sum, q) => {
-        const payParam = searchParams[`quarter${q}Pay`] as string;
+        const payParam = searchParams.get(`quarter${q}Pay`) || "0";
         return sum + (parseFloat(payParam) || 0);
       },
       0
@@ -85,50 +94,21 @@ export function AwwCRCalculator({ maxCompensationRates, searchParams }: AwwCRCal
       totalAnnualPay = calculatedTotalPay.toFixed(2);
       averageWeeklyWage = aww.toFixed(2);
       compensationRate = finalCompRate.toFixed(2);
+
+      if (maxRate !== null && initialCompRate > maxRate) {
+        maxRateNotice = '*The compensation rate was limited by the maximum compensation rate for ${parseISO(dateOfInjury).getFullYear()}: $${maxRate.toFixed(2)}*';
+      }
+      if (aww <= 75) {
+        minRateNotice = 'The compensation rate was set to the Average Weekly Wage because the Average Weekly Wage is less than $75.00';
+      }
+      if (aww <112.5 && aww >75) { 
+        minRateNotice = 'The compensation rate was limited by the minimum compensation rate of $75.00';
+      }
     } catch (error) {
       console.error("Error calculating compensation rate:", error);
     }
   }
-
-  // Validate the current step
-  const errors: { [key: string]: string } = {};
-  
-  if (step === 1) {
-    if (!dateOfInjury) {
-      errors.dateOfInjury = "Date of Injury is required.";
-    } else if (!isValid(parseISO(dateOfInjury))) {
-      errors.dateOfInjury = "Invalid date format.";
-    }
-  }
-  
-  if (step === 2) {
-    const validOptions = [
-      "none", "volunteerFF", "volunteerSheriff", "guard",
-      "volunteerRescue", "volunteerConstable", "inmate", "student"
-    ];
-  
-    if (!validOptions.includes(specialCase)) {
-      errors.specialCase = "You must select a valid option before proceeding.";
-    }
-  }
-  
-  if (step === 3) {
-    const validOptions = ["yes", "no"];
-    if (!validOptions.includes(employedFourQuarters)) {
-      errors.employedFourQuarters = "You must select 'yes' or 'no' before proceeding.";
-    }
-  }
-  
-  if (step === 4) {
-    [1, 2, 3, 4].forEach((q) => {
-      const value = searchParams[`quarter${q}Pay`] as string || "0";
-      if (!value || parseFloat(value) < 0) {
-        errors[`quarter${q}Pay`] = "Enter a valid amount.";
-      }
-    });
-  }
-
-  // Define step definitions for rendering
+    // Define step definitions for rendering
   const steps = [
     {
       title: "Input the date of injury",
@@ -249,6 +229,8 @@ export function AwwCRCalculator({ maxCompensationRates, searchParams }: AwwCRCal
           <p>Total Pre-Injury Annual Gross Pay: ${totalAnnualPay ? Number(totalAnnualPay).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
           <p>Average Weekly Wage: ${averageWeeklyWage ? Number(averageWeeklyWage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
           <p className="font-bold">Compensation Rate: ${compensationRate ? Number(compensationRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
+          {maxRateNotice && <p className="text-sm text-gray-500">{maxRateNotice}</p>}
+          {minRateNotice && <p className="text-sm text-gray-500">{minRateNotice}</p>}
         </>
       ),
       prevStep: employedFourQuarters === "yes" ? 4 : 5,

@@ -1,274 +1,188 @@
-"use client";
+// app/Components/AwwCRCalculator.tsx
+'use client';
 
-import React from "react";
-import { parseISO, isValid } from "date-fns";
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/solid';
-import { CalculatorForm } from "./CalculatorForm";
-import { StepNavigation } from "./StepNavigation";
-import { getCurrentDate } from "./CalcDateFunctions/getCurrentDate";
-import { formatDisplayDate } from "./CalcDateFunctions/formatDisplayDate";
-import { getQuarterContainingDateOfInjury } from "./CalcDateFunctions/getQuarterContainingDateOfInjury";
-import { useSearchParams } from "next/navigation";
+import React, { useState } from 'react';
 
-interface MaxCompensationRates {
-  [year: number]: number;
+// Define types for results
+interface CalculationResults {
+  averageWeeklyWage: number;
+  compensationRate: number;
 }
 
-interface AwwCRCalculatorProps {
-  maxCompensationRates: MaxCompensationRates;
-  searchParams: { [key: string]: string | string[] | undefined };
+// Define types for wage inputs
+interface WageInput {
+  amount: string;
 }
 
-export async function AwwCRCalculator({ maxCompensationRates }: AwwCRCalculatorProps) {
-  const searchParams = useSearchParams();
-  const step = parseInt(searchParams.get("step") || "1");
-  const dateOfInjury = searchParams.get("dateOfInjury") || getCurrentDate();
-  const specialCase = searchParams.get("specialCase") || "none";
-  const employedFourQuarters = searchParams.get("employedFourQuarters") || "yes";
-  const quarter1Pay = searchParams.get("quarter1Pay") || "2500";
-  const quarter2Pay = searchParams.get("quarter2Pay") || "2500";
-  const quarter3Pay = searchParams.get("quarter3Pay") || "2500";
-  const quarter4Pay = searchParams.get("quarter4Pay") || "2500";
+// Main calculator component
+const AwwCRCalculator: React.FC = () => {
+  // Initialize state for the weekly wage inputs
+  const [weeklyWages, setWeeklyWages] = useState<WageInput[]>(
+    Array(13).fill({ amount: '' })
+  );
   
-  // Validation
-  const errors: { [key: string]: string } = {};
+  // State for calculation results
+  const [results, setResults] = useState<CalculationResults | null>(null);
+  
+  // State for active tab
+  const [activeTab, setActiveTab] = useState<string>("weekly");
+  
+  // State for showing/hiding instructions
+  const [showInstructions, setShowInstructions] = useState<boolean>(false);
+  
+  // Update a specific weekly wage input
+  const handleWeeklyWageChange = (index: number, value: string) => {
+    const updatedWages = [...weeklyWages];
+    updatedWages[index] = { amount: value };
+    setWeeklyWages(updatedWages);
+  };
 
-  if (step === 1) {
-    if (!dateOfInjury) {
-      errors.dateOfInjury = "Date of Injury is required.";
-    } else if (!isValid(parseISO(dateOfInjury))) {
-      errors.dateOfInjury = "Invalid date format.";
+  // Calculate the average weekly wage and compensation rate
+  const calculateResults = () => {
+    // Filter out empty values and convert to numbers
+    const validWages = weeklyWages
+      .map(wage => parseFloat(wage.amount))
+      .filter(amount => !isNaN(amount));
+
+    // If no valid wages, return early
+    if (validWages.length === 0) {
+      setResults(null);
+      return;
     }
-  }
 
-  if (step === 2) {
-    const validOptions = [
-      "none", "volunteerFF", "volunteerSheriff", "guard",
-      "volunteerRescue", "volunteerConstable", "inmate", "student"
-    ];
-
-    if (!validOptions.includes(specialCase)) {
-      errors.specialCase = "You must select a valid option before proceeding.";
-    }
-  }
-
-  if (step === 3) {
-    const validOptions = ["yes", "no"];
-    if (!validOptions.includes(employedFourQuarters)) {
-      errors.employedFourQuarters = "You must select 'yes' or 'no' before proceeding.";
-    }
-  }
-
-  if (step === 4) {
-    [1, 2, 3, 4].forEach((q) => {
-      const value = searchParams.get(`quarter${q}Pay`) as string || "0";
-      if (!value || parseFloat(value) < 0) {
-        errors[`quarter${q}Pay`] = "Enter a valid amount.";
-      }
+    // Calculate average weekly wage
+    const total = validWages.reduce((sum, wage) => sum + wage, 0);
+    const averageWeeklyWage = total / validWages.length;
+    
+    // Calculate compensation rate (2/3 of AWW)
+    const compensationRate = averageWeeklyWage * (2/3);
+    
+    // Update results
+    setResults({
+      averageWeeklyWage,
+      compensationRate
     });
-  }
+  };
 
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    calculateResults();
+  };
 
-  let averageWeeklyWage: string | null = null;
-  let compensationRate: string | null = null;
-  let totalAnnualPay: string | null = null;
-  let maxRateNotice: string | null = null;
-  let minRateNotice: string | null = null;
-
-  if ((step === 4 && employedFourQuarters === "yes") || step === 6) {
-    const calculatedTotalPay = [1, 2, 3, 4].reduce(
-      (sum, q) => {
-        const payParam = searchParams.get(`quarter${q}Pay`) || "0";
-        return sum + (parseFloat(payParam) || 0);
-      },
-      0
-    );
-    
-    const aww = calculatedTotalPay / 52;
-    const initialCompRate = aww < 75 ? aww : Math.max(aww * 0.6667, 75);
-    
-    try {
-      const maxRate = maxCompensationRates[parseISO(dateOfInjury).getFullYear()] || null;
-      const finalCompRate = maxRate !== null && initialCompRate > maxRate ? maxRate : initialCompRate;
-      
-      totalAnnualPay = calculatedTotalPay.toFixed(2);
-      averageWeeklyWage = aww.toFixed(2);
-      compensationRate = finalCompRate.toFixed(2);
-
-      if (maxRate !== null && initialCompRate > maxRate) {
-        maxRateNotice = '*The compensation rate was limited by the maximum compensation rate for ${parseISO(dateOfInjury).getFullYear()}: $${maxRate.toFixed(2)}*';
-      }
-      if (aww <= 75) {
-        minRateNotice = 'The compensation rate was set to the Average Weekly Wage because the Average Weekly Wage is less than $75.00';
-      }
-      if (aww <112.5 && aww >75) { 
-        minRateNotice = 'The compensation rate was limited by the minimum compensation rate of $75.00';
-      }
-    } catch (error) {
-      console.error("Error calculating compensation rate:", error);
-    }
-  }
-    // Define step definitions for rendering
-  const steps = [
-    {
-      title: "Input the date of injury",
-      description: `Select a date between January 1, 1976, and ${formatDisplayDate(getCurrentDate())}.`,
-      content: (
-        <CalculatorForm
-          currentStep={1}
-          dateOfInjury={dateOfInjury}
-          specialCase={specialCase}
-          employedFourQuarters={employedFourQuarters}
-          quarter1Pay={quarter1Pay}
-          quarter2Pay={quarter2Pay}
-          quarter3Pay={quarter3Pay}
-          quarter4Pay={quarter4Pay}
-        />
-      ),
-      error: errors.dateOfInjury,
-      nextStep: 2,
-      prevStep: null,
-    },
-    {
-      title: "Was the injured worker injured while working as any of the following?",
-      options: [
-        { value: "guard", label: "State and/or National Guard" },
-        { value: "volunteerFF", label: "Volunteer Fire Fighter" },
-        { value: "volunteerRescue", label: "Volunteer Rescue Squad Member" },
-        { value: "volunteerSheriff", label: "Volunteer Deputy Sheriff" },
-        { value: "volunteerConstable", label: "Volunteer State Constable" },
-        { value: "inmate", label: "Inmate" },
-        { value: "student", label: "Student Engaged in Work Study, Marketing Education, or Apprenticeship" },
-        { value: "none", label: "None of the Above" }
-      ],
-      content: (
-        <CalculatorForm
-          currentStep={2}
-          dateOfInjury={dateOfInjury}
-          specialCase={specialCase}
-          employedFourQuarters={employedFourQuarters}
-          quarter1Pay={quarter1Pay}
-          quarter2Pay={quarter2Pay}
-          quarter3Pay={quarter3Pay}
-          quarter4Pay={quarter4Pay}
-        />
-      ),
-      error: errors.specialCase,
-      nextStep: specialCase === "none" ? 3 : 
-                specialCase === "guard" ? 4 : 
-                specialCase === "volunteerFF" ? 5 : 
-                specialCase === "volunteerRescue" ? 6 : 
-                specialCase === "volunteerSheriff" ? 7 : 
-                specialCase === "volunteerConstable" ? 8 : 
-                specialCase === "inmate" ? 9 : 
-                specialCase === "student" ? 10 : 3,
-      prevStep: 1,
-    },
-    {
-      title: `Was the injured worker employed for at least four complete quarters prior to ${formatDisplayDate(dateOfInjury)}?`,
-      description: `Note: The four quarters of employment cannot include employment during ${getQuarterContainingDateOfInjury(dateOfInjury)}.`,
-      options: [
-        { value: "yes", label: "Yes" },
-        { value: "no", label: "No" },
-      ],
-      content: (
-        <CalculatorForm
-          currentStep={3}
-          dateOfInjury={dateOfInjury}
-          specialCase={specialCase}
-          employedFourQuarters={employedFourQuarters}
-          quarter1Pay={quarter1Pay}
-          quarter2Pay={quarter2Pay}
-          quarter3Pay={quarter3Pay}
-          quarter4Pay={quarter4Pay}
-        />
-      ),
-      error: errors.employedFourQuarters,
-      nextStep: employedFourQuarters === "yes" ? 4 : 5,
-      prevStep: 2,
-    },
-    {
-      title: "Enter the employee's gross pay for each quarter",
-      content: (
-        <CalculatorForm
-          currentStep={4}
-          dateOfInjury={dateOfInjury}
-          specialCase={specialCase}
-          employedFourQuarters={employedFourQuarters}
-          quarter1Pay={quarter1Pay}
-          quarter2Pay={quarter2Pay}
-          quarter3Pay={quarter3Pay}
-          quarter4Pay={quarter4Pay}
-        />
-      ),
-      nextStep: 6,
-      prevStep: 3,
-    },
-    {
-      title: "Employee was employed less than four quarters.",
-      description: "Please fill out data for the time that they were employed.",
-      content: (
-        <CalculatorForm
-          currentStep={5}
-          dateOfInjury={dateOfInjury}
-          specialCase={specialCase}
-          employedFourQuarters={employedFourQuarters}
-          quarter1Pay={quarter1Pay}
-          quarter2Pay={quarter2Pay}
-          quarter3Pay={quarter3Pay}
-          quarter4Pay={quarter4Pay}
-        />
-      ),
-      nextStep: 6,
-      prevStep: 3,
-    },
-    {
-      title: "Summary",
-      content: (
-        <>
-          <p>Total Pre-Injury Annual Gross Pay: ${totalAnnualPay ? Number(totalAnnualPay).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
-          <p>Average Weekly Wage: ${averageWeeklyWage ? Number(averageWeeklyWage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
-          <p className="font-bold">Compensation Rate: ${compensationRate ? Number(compensationRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}</p>
-          {maxRateNotice && <p className="text-sm text-gray-500">{maxRateNotice}</p>}
-          {minRateNotice && <p className="text-sm text-gray-500">{minRateNotice}</p>}
-        </>
-      ),
-      prevStep: employedFourQuarters === "yes" ? 4 : 5,
-      nextStep: null,
-    },
-  ];
-
-  const currentStep = steps[Math.min(step - 1, steps.length - 1)];
+  // Toggle instructions visibility
+  const toggleInstructions = () => {
+    setShowInstructions(!showInstructions);
+  };
 
   return (
-    <div className="mt-8 p-6 bg-gray-100 rounded-lg">
-      <div>
-        <h3 className="mb-4 text-lg font-semibold flex">
-          {step}. {currentStep.title}
-          <QuestionMarkCircleIcon className="w-6 h-6 ml-1 text-gray-500" />
-        </h3>
-        {currentStep.description && <p className="mb-2">{currentStep.description}</p>}
-
-        {/* Render the form or options based on step */}
-        {currentStep.content}
-
-        {currentStep.error && <p className="text-red-600">{currentStep.error}</p>}
-
-        {/* Navigation Buttons */}
-        <StepNavigation 
-          currentStep={step}
-          prevStep={currentStep.prevStep}
-          nextStep={currentStep.nextStep}
-          errors={errors}
-          dateOfInjury={dateOfInjury}
-          specialCase={specialCase}
-          employedFourQuarters={employedFourQuarters}
-          quarter1Pay={quarter1Pay}
-          quarter2Pay={quarter2Pay}
-          quarter3Pay={quarter3Pay}
-          quarter4Pay={quarter4Pay}
-        />
+    <div className="w-full max-w-2xl mx-auto border rounded-lg shadow-md">
+      <div className="p-6 border-b">
+        <h2 className="text-xl font-semibold">Average Weekly Wage & Compensation Rate Calculator</h2>
+        <p className="text-gray-600">
+          Calculate a claimant&apos;s AWW and CR based on their earnings history.
+        </p>
+        <button 
+          onClick={toggleInstructions}
+          className="mt-2 px-4 py-2 text-sm border rounded hover:bg-gray-100"
+        >
+          {showInstructions ? "Hide Instructions" : "Show Instructions"}
+        </button>
       </div>
+
+      {showInstructions && (
+        <div className="p-6 border-b bg-blue-50">
+          <div className="flex gap-2 items-start">
+            <div className="flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold">Instructions</h3>
+              <p>Enter the claimant&apos;s weekly wages for the 13 weeks prior to injury. Leave blank any weeks not worked.</p>
+              <p>The calculator will automatically determine the Average Weekly Wage (AWW) and Compensation Rate (CR).</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="p-6">
+        <div className="mb-4 border-b">
+          <div className="flex">
+            <button 
+              className={`px-4 py-2 ${activeTab === "weekly" ? "border-b-2 border-blue-500 -mb-px" : ""}`}
+              onClick={() => setActiveTab("weekly")}
+            >
+              Weekly Method
+            </button>
+            <button 
+              className={`px-4 py-2 ${activeTab === "fourweek" ? "border-b-2 border-blue-500 -mb-px" : ""}`}
+              onClick={() => setActiveTab("fourweek")}
+            >
+              Four-Week Method
+            </button>
+          </div>
+        </div>
+
+        {activeTab === "weekly" ? (
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              {weeklyWages.map((wage, index) => (
+                <div key={index} className="grid grid-cols-2 items-center gap-4">
+                  <label htmlFor={`week-${index}`} className="text-sm font-medium">Week {index + 1}</label>
+                  <input
+                    id={`week-${index}`}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={wage.amount}
+                    onChange={(e) => handleWeeklyWageChange(index, e.target.value)}
+                    className="px-3 py-2 border rounded-md"
+                  />
+                </div>
+              ))}
+            </div>
+            <button 
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Calculate
+            </button>
+          </form>
+        ) : (
+          <div className="flex items-center justify-center h-40">
+            <p className="text-gray-500">Four-week calculation method coming soon.</p>
+          </div>
+        )}
+      </div>
+
+      {results && (
+        <div className="p-6 border-t">
+          <div className="w-full">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Average Weekly Wage</label>
+                <p className="text-2xl font-bold">${results.averageWeeklyWage.toFixed(2)}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Compensation Rate</label>
+                <p className="text-2xl font-bold">${results.compensationRate.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+// Create a wrapper for server components to use
+export const AwwCRCalculatorWrapper = () => {
+  return <AwwCRCalculator />;
+};
+
+export default AwwCRCalculator;

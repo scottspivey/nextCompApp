@@ -1,11 +1,10 @@
 // app/Components/CalculatorForm.tsx
-"use client"; // Mark as client component
+"use client";
 
-import React, { useRef, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useRef, useEffect } from "react";
 import { getCurrentDate } from "./CalcDateFunctions/getCurrentDate";
 
-interface CalculatorFormProps {
+export interface CalculatorFormProps {
   currentStep: number;
   dateOfInjury: string;
   specialCase: string;
@@ -14,6 +13,7 @@ interface CalculatorFormProps {
   quarter2Pay: string;
   quarter3Pay: string;
   quarter4Pay: string;
+  handleInputChange: (name: string, value: string) => void;
 }
 
 export function CalculatorForm({
@@ -25,29 +25,15 @@ export function CalculatorForm({
   quarter2Pay,
   quarter3Pay,
   quarter4Pay,
+  handleInputChange,
 }: CalculatorFormProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const firstInputRef = useRef<HTMLInputElement>(null);
-  const [localDateOfInjury, setLocalDateOfInjury] = useState(dateOfInjury);
-  const [localSpecialCase, setLocalSpecialCase] = useState(specialCase);
-  const [localEmployedFourQuarters, setLocalEmployedFourQuarters] = useState(employedFourQuarters);
-  const [localQuarter1Pay, setLocalQuarter1Pay] = useState(quarter1Pay);
-  const [localQuarter2Pay, setLocalQuarter2Pay] = useState(quarter2Pay);
-  const [localQuarter3Pay, setLocalQuarter3Pay] = useState(quarter3Pay);
-  const [localQuarter4Pay, setLocalQuarter4Pay] = useState(quarter4Pay);
 
   useEffect(() => {
     if (firstInputRef.current) {
       firstInputRef.current.focus();
     }
   }, []);
-
-  const updateParams = (name: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set(name, value);
-    router.push(`?${params.toString()}`);
-  };
 
   if (currentStep === 1) {
     return (
@@ -56,11 +42,10 @@ export function CalculatorForm({
         ref={firstInputRef}
         name="dateOfInjury"
         className="border p-2 w-full mt-2"
-        value={localDateOfInjury}
+        value={dateOfInjury}
         max={getCurrentDate()}
         min="1976-01-01"
-        onChange={(e) => setLocalDateOfInjury(e.target.value)}
-        onBlur={(e) => updateParams("dateOfInjury", e.target.value)}
+        onChange={(e) => handleInputChange("dateOfInjury", e.target.value)}
       />
     );
   }
@@ -85,9 +70,8 @@ export function CalculatorForm({
               type="radio"
               name="specialCase"
               value={value}
-              checked={localSpecialCase === value}
-              onChange={() => setLocalSpecialCase(value)}
-              onBlur={() => updateParams("specialCase", value)}
+              checked={specialCase === value}
+              onChange={() => handleInputChange("specialCase", value)}
               className="m-1"
               ref={index === 0 ? firstInputRef : null}
             />
@@ -112,9 +96,8 @@ export function CalculatorForm({
               type="radio"
               name="employedFourQuarters"
               value={value}
-              checked={localEmployedFourQuarters === value}
-              onChange={() => setLocalEmployedFourQuarters(value)}
-              onBlur={() => updateParams("employedFourQuarters", value)}
+              checked={employedFourQuarters === value}
+              onChange={() => handleInputChange("employedFourQuarters", value)}
               className="m-1"
               ref={index === 0 ? firstInputRef : null}
             />
@@ -128,27 +111,30 @@ export function CalculatorForm({
   if (currentStep === 4) {
     return (
       <>
-        {[1, 2, 3, 4].map((q, index) => (
-          <div key={q} className="mb-4">
-            <label className="block mb-1">Gross Pay for Quarter {q}:</label>
-            <input
-              type="number"
-              name={`quarter${q}Pay`}
-              className="border p-2 w-full"
-              value={[localQuarter1Pay, localQuarter2Pay, localQuarter3Pay, localQuarter4Pay][q - 1]}
-              onChange={(e) => {
-                const newValue = e.target.value;
-                if (q === 1) setLocalQuarter1Pay(newValue);
-                if (q === 2) setLocalQuarter2Pay(newValue);
-                if (q === 3) setLocalQuarter3Pay(newValue);
-                if (q === 4) setLocalQuarter4Pay(newValue);
-              }}
-              onBlur={(e) => updateParams(`quarter${q}Pay`, e.target.value)}
-              ref={index === 0 ? firstInputRef : null}
-              min="0"
-            />
-          </div>
-        ))}
+        {[1, 2, 3, 4].map((q, index) => {
+          const payKey = `quarter${q}Pay` as keyof CalculatorFormProps;
+          const payValue = String(
+            q === 1 ? quarter1Pay : 
+            q === 2 ? quarter2Pay : 
+            q === 3 ? quarter3Pay : 
+            quarter4Pay
+          );
+          
+          return (
+            <div key={q} className="mb-4">
+              <label className="block mb-1">Gross Pay for Quarter {q}:</label>
+              <input
+                type="number"
+                name={payKey}
+                className="border p-2 w-full"
+                value={payValue}
+                onChange={(e) => handleInputChange(payKey, e.target.value)}
+                ref={index === 0 ? firstInputRef : null}
+                min="0"
+              />
+            </div>
+          );
+        })}
       </>
     );
   }

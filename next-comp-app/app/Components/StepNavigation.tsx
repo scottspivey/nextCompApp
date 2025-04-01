@@ -2,9 +2,9 @@
 "use client";
 
 import React from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/Components/ui/button"
 import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
-import { CalculatorStep } from "@/app/stores/awwCalculatorStore";
+import { CalculatorStep } from "@/app/stores/awwCalculatorstore";
 
 export interface StepNavigationProps {
   currentStep: CalculatorStep;

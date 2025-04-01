@@ -1,15 +1,15 @@
 // app/Components/CalculatorForm.tsx
 "use client";
 
-import React, { useRef, useEffect } from "react";
-import { CalculatorStep } from "@/app/stores/awwCalculatorStore";
-import { getCurrentDate } from "./CalcDateFunctions/getCurrentDate";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import React, { useRef, useEffect, RefObject } from "react";
+import { CalculatorStep } from "@/app/stores/awwCalculatorstore";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/app/Components/ui/tooltip";
+import { Input } from "@/app/Components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/app/Components/ui/radio-group"
+import { getCurrentDate } from "@/app/Components/CalcDateFunctions/getCurrentDate";
+import { Label } from "@/app/Components/ui/label";
 import { InfoIcon } from "lucide-react";
-import { getQuarterContainingDateOfInjury } from "./CalcDateFunctions/getQuarterContainingDateOfInjury";
+import { getQuarterContainingDateOfInjury } from "@/app/Components/CalcDateFunctions/getQuarterContainingDateOfInjury";
 
 export interface CalculatorFormProps {
   currentStep: CalculatorStep;
@@ -36,7 +36,14 @@ export function CalculatorForm({
   errors,
   handleInputChange,
 }: CalculatorFormProps) {
-  const firstInputRef = useRef<HTMLInputElement>(null);
+  const firstInputRef = useRef<HTMLInputElement>(null);const guardRadioRef = useRef<HTMLButtonElement>(null);
+  const employedYesRef = useRef<HTMLButtonElement>(null);
+  const quarterPayRefs = useRef<RefObject<HTMLInputElement | null>[]>([
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+  ]);
 
   useEffect(() => {
     if (firstInputRef.current) {
@@ -156,7 +163,7 @@ export function CalculatorForm({
               <RadioGroupItem
                 value={option.value}
                 id={`specialCase-${option.value}`}
-                ref={option.value === "guard" ? firstInputRef : null}
+                ref={option.value === "guard" ? guardRadioRef : null}
               />
               <Label
                 htmlFor={`specialCase-${option.value}`}
@@ -195,7 +202,7 @@ export function CalculatorForm({
               <RadioGroupItem
                 value={option.value}
                 id={`employedFourQuarters-${option.value}`}
-                ref={index === 0 ? firstInputRef : null}
+                ref={index === 0 ? employedYesRef : null}
               />
               <Label
                 htmlFor={`employedFourQuarters-${option.value}`}
@@ -248,7 +255,7 @@ export function CalculatorForm({
                   className={`pl-7 ${errors[errorKey] ? "border-red-500" : ""}`}
                   value={payValue}
                   onChange={(e) => handleInputChange(payKey, e.target.value)}
-                  ref={index === 0 ? firstInputRef : null}
+                  ref={index === 0 ? firstInputRef : quarterPayRefs.current[index]}
                   min="0"
                   step="0.01"
                 />

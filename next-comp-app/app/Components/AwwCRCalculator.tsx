@@ -3,15 +3,15 @@
 
 import React, { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/Components/ui/card";
 import { formatDisplayDate } from "./CalcDateFunctions/formatDisplayDate";
 import { CalculatorForm } from "./CalculatorForm";
 import { StepNavigation } from "./StepNavigation";
-import { useAWWCalculatorStore } from "@/app/stores/awwCalculatorStore";
+import { useAWWCalculatorStore } from "@/app/stores/awwCalculatorstore";
 import { maxCompensationRates } from "@/app/CommonVariables";
 
 interface AWWCRCalculatorProps {
-  maxCompensationRates: MaxCompensationRates;
+  maxCompensationRates: typeof maxCompensationRates;
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 

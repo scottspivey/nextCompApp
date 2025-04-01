@@ -15,7 +15,7 @@ interface AWWCRCalculatorProps {
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export function AwwCRCalculator({ maxCompensationRates, searchParams }: AWWCRCalculatorProps) {
+export function AwwCRCalculator({ searchParams }: AWWCRCalculatorProps) {
   // Get state and actions from our store
   const {
     dateOfInjury,

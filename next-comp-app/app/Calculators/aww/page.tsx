@@ -12,7 +12,6 @@ export const metadata: Metadata = {
 };
 
 export default function AwwCalculatorPage({
-  searchParams,
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {

@@ -12,7 +12,8 @@ import {
   Scale,
   Clock
 } from 'lucide-react';
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle, CardContent } from '@/app/Components/ui/card';
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle, } from '@/app/Components/ui/card';
+//import { CardContent } from '@/app/Components/ui/card';
 import { Button } from '@/app/Components/ui/button';
 
 export const metadata: Metadata = {

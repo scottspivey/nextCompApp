@@ -1,106 +1,213 @@
-// app/Calculators/aww/page.tsx
-// 'use client' // Required if you add paywall checks directly here
+// app/Calculators/page.tsx
+'use client';
 
-import React from "react";
-import Link from "next/link";
-import { Metadata } from "next";
-import { ChevronLeft } from "lucide-react";
-import { Button } from "@/app/Components/ui/button"; // Adjust path
-import { AwwCRCalculator } from "@/app/Components/AwwCRCalculator"; // Adjust path
-// Import authentication/subscription checking hooks or functions if needed
-// import { useAuth, useSubscription } from '@/app/hooks/...' // Example
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/app/Components/ui/button'; // Import the themed Button
+import { cn } from "@/lib/utils"; // Assuming you have this utility
+// Import necessary Lucide icons
+import {
+  CircleDollarSign,
+  Calculator,
+  ShieldCheck,
+  TrendingDown,
+  Clock,
+  AudioWaveform,
+} from 'lucide-react';
 
-export const metadata: Metadata = {
-  title: "Average Weekly Wage Calculator | SC Workers&apos; Compensation",
-  description: "Calculate your Average Weekly Wage (AWW) and Compensation Rate (CR) according to South Carolina workers&apos; compensation laws.",
-  // Add other relevant meta tags if desired
-};
+// Define calculator types and their information
+// Consider moving this data to a separate file (e.g., data/calculators.ts) if it grows
+const calculators = [
+ {
+    id: 'aww',
+    name: 'Average Weekly Wage & Comp Rate',
+    description: 'Calculate the average weekly wage and compensation rate based on quarterly earnings.',
+    // Use Lucide icon
+    icon: <CircleDollarSign className="h-10 w-10 text-primary" strokeWidth={1.5} />,
+    path: '/Calculators/aww',
+    free: true
+  },
+  {
+    id: 'commuted',
+    name: 'Commuted Value Calculator',
+    description: 'Calculate the present value of future compensation payments using current discount rates.',
+    // Use Lucide icon
+    icon: <Calculator className="h-10 w-10 text-primary" strokeWidth={1.5} />,
+    path: '/Calculators/commuted',
+    free: true
+  },
+  {
+    id: 'indemnity',
+    name: 'Indemnity Benefit Calculator',
+    description: 'Calculate partial and total disability benefits based on impairment ratings and compensation rates.',
+    // Use Lucide icon
+    icon: <ShieldCheck className="h-10 w-10 text-primary" strokeWidth={1.5} />,
+    path: '/Calculators/indemnity',
+    free: false
+  },
+  {
+    id: 'wage-loss',
+    name: 'Wage Loss Calculator',
+    description: 'Calculate wage loss benefits for injured workers with diminished earning capacity.',
+    // Use Lucide icon
+    icon: <TrendingDown className="h-10 w-10 text-primary" strokeWidth={1.5} />,
+    path: '/Calculators/wage-loss',
+    free: false
+  },
+  {
+    id: 'life-expectancy',
+    name: 'Life Expectancy Calculator',
+    description: 'Calculate life expectancy for permanent total disability cases and lifetime benefits.',
+    // Use Lucide icon
+    icon: <Clock className="h-10 w-10 text-primary" strokeWidth={1.5} />,
+    path: '/Calculators/life-expectancy',
+    free: false
+  },
+  {
+    id: 'hearing-loss',
+    name: 'Hearing Loss Calculator',
+    description: 'Calculate benefits for occupational hearing loss claims based on audiogram results.',
+    // Use Lucide icon
+    icon: <AudioWaveform className="h-10 w-10 text-primary" strokeWidth={1.5} />,
+    path: '/Calculators/hearing-loss',
+    free: false
+  }
+];
 
-export default function AwwCalculatorPage() {
-  // --- Paywall Check Example ---
-  // This is where you would typically check authentication and subscription status.
-  // The exact implementation depends on your auth/subscription setup (e.g., context, hooks, server-side checks).
+const CalculatorsPage = () => {
+  const router = useRouter(); // Router is already initialized here
+  const [filterFree, setFilterFree] = useState<boolean | null>(null);
 
-  // Example using hypothetical hooks:
-  // const { isAuthenticated, isLoading: authLoading } = useAuth();
-  // const { hasActiveSubscription, isLoading: subLoading } = useSubscription();
+  const filteredCalculators = filterFree === null
+    ? calculators
+    : calculators.filter(calc => calc.free === filterFree);
 
-  // if (authLoading || subLoading) {
-  //   return <div>Loading...</div>; // Or a proper loading skeleton
-  // }
+  const checkAccess = (calc: typeof calculators[0]): boolean => {
+    if (calc.free) return true;
+    const isLoggedIn = false; // Replace with actual auth check
+    const isPremiumUser = false; // Replace with actual subscription check
+    if (!isLoggedIn) {
+      router.push(`/login?returnTo=${calc.path}`);
+      return false;
+    } else if (!isPremiumUser) {
+      router.push('/pricing');
+      return false;
+    }
+    return true;
+  };
 
-  // if (!isAuthenticated) {
-  //   // Redirect to login or show a message/component prompting login
-  //   // return <RedirectToLogin />;
-  //   return (
-  //       <div className="container mx-auto p-6 text-center">
-  //           <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
-  //           <p className="mb-4">Please log in to use the calculators.</p>
-  //           <Link href="/login">
-  //               <Button>Log In</Button>
-  //           </Link>
-  //       </div>
-  //   );
-  // }
+  const handleCalculatorClick = (calc: typeof calculators[0]) => {
+    if (checkAccess(calc)) {
+      router.push(calc.path);
+    }
+  };
 
-  // if (!hasActiveSubscription) {
-  //   // Show a message/component prompting subscription
-  //   return (
-  //       <div className="container mx-auto p-6 text-center">
-  //           <h1 className="text-2xl font-semibold mb-4">Subscription Required</h1>
-  //           <p className="mb-4">Access to calculators requires an active subscription.</p>
-  //           <Link href="/subscribe">
-  //               <Button>Subscribe Now</Button>
-  //           </Link>
-  //       </div>
-  //   );
-  // }
-
-  // If authenticated and subscribed (or if it's a public calculator), render the content:
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8"> {/* Added responsive padding */}
-      {/* Back Button */}
-      <div className="mb-6">
-        <Link href="/Calculators" passHref legacyBehavior>
-          <Button variant="outline" className="inline-flex items-center gap-2 rounded-md transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-            <ChevronLeft className="h-4 w-4" />
-            Back to All Calculators
-          </Button>
-        </Link>
-      </div>
-
-      {/* Page Header */}
-      <div className="mb-8 border-b pb-4">
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Average Weekly Wage Calculator</h1>
-        <p className="text-muted-foreground mt-2 max-w-2xl">
-          Estimate your Average Weekly Wage (AWW) and Compensation Rate (CR) based on
-          South Carolina workers&apos; compensation laws (S.C. Code § 42-1-40).
-        </p>
-      </div>
-
-      {/* Calculator Component */}
-      <AwwCRCalculator />
-
-      {/* Informational Section */}
-      <div className="mt-12 bg-muted/50 p-6 rounded-lg border">
-        <h2 className="text-xl font-semibold mb-4 text-foreground">About Average Weekly Wage Calculations in SC</h2>
-        <div className="space-y-4 text-muted-foreground">
-          <p>
-            South Carolina law defines the primary method for calculating the average weekly wage in <code className="font-mono bg-muted px-1 py-0.5 rounded">§ 42-1-40</code>.
-            Generally, if the employee worked for the employer for the full four quarters immediately preceding the injury, the AWW is the total gross earnings during those four quarters divided by 52 weeks.
-          </p>
-          <p>
-            The weekly compensation rate is typically two-thirds (66.67%) of the calculated AWW. However, this amount is subject to
-            the <strong className="text-foreground">maximum weekly compensation rate</strong> set by the state for the specific year the injury occurred. Your compensation rate cannot exceed this maximum, regardless of how high your AWW is.
-          </p>
-          <p>
-            The law also outlines <strong className="text-foreground">alternative calculation methods</strong> for situations where the employee worked less than four quarters, had concurrent employment, or falls into special categories (like certain volunteers). These methods can be more complex and may require information not included in this basic calculator.
-          </p>
-          <p>
-             Always refer to the official statute or consult with a legal professional for guidance on specific cases.
+    <div className="container mx-auto py-8 px-4 md:py-12 lg:py-16 bg-background">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-12 pb-6 border-b border-border">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Workers&apos; Compensation Calculators</h1>
+          <p className="text-muted-foreground max-w-2xl">
+            Professional-grade tools to accurately calculate South Carolina workers&apos; compensation
+            benefits and settlement values.
           </p>
         </div>
+        {/* Filter Buttons */}
+        <div className="mt-4 md:mt-0 flex items-center space-x-1 p-1 bg-muted rounded-lg">
+           <Button
+             variant={filterFree === null ? 'default' : 'ghost'}
+             size="sm"
+             onClick={() => setFilterFree(null)}
+             className={cn("transition-colors", filterFree !== null && "text-muted-foreground")}
+           >
+             All
+           </Button>
+           <Button
+             variant={filterFree === true ? 'default' : 'ghost'}
+             size="sm"
+             onClick={() => setFilterFree(true)}
+             className={cn("transition-colors", filterFree !== true && "text-muted-foreground")}
+           >
+             Free
+           </Button>
+           <Button
+             variant={filterFree === false ? 'default' : 'ghost'}
+             size="sm"
+             onClick={() => setFilterFree(false)}
+             className={cn("transition-colors", filterFree !== false && "text-muted-foreground")}
+           >
+             Premium
+           </Button>
+        </div>
+      </div>
+
+      {/* Calculator Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredCalculators.map((calc) => (
+          <div
+            key={calc.id}
+            onClick={() => handleCalculatorClick(calc)}
+            className={cn(
+                "bg-card rounded-lg border border-border p-6 transition-all duration-200 hover:shadow-md hover:-translate-y-1 cursor-pointer group relative overflow-hidden",
+                !calc.free && "border-t-4 border-primary"
+            )}
+          >
+            <div className="flex items-start mb-4">
+              {/* Icon container now renders Lucide icon */}
+              <div className="mr-4 flex-shrink-0 p-2 bg-primary/10 rounded-full">
+                {calc.icon}
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">{calc.name}</h3>
+                <p className="text-muted-foreground text-sm">{calc.description}</p>
+              </div>
+            </div>
+            <div className="flex justify-between items-center mt-4 pt-4 border-t border-border/50">
+              <span className={cn(
+                  "text-xs font-medium px-2.5 py-0.5 rounded-full",
+                  calc.free
+                    ? 'bg-secondary text-secondary-foreground'
+                    : 'bg-primary/10 text-primary'
+              )}>
+                {calc.free ? 'Free' : 'Premium'}
+              </span>
+              <span className="text-primary font-medium text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  Use Calculator &rarr;
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* No Results Message */}
+      {!filteredCalculators.length && (
+        <div className="text-center py-16">
+          <h3 className="text-xl text-muted-foreground mb-4">No calculators match your filter.</h3>
+          <Button
+            onClick={() => setFilterFree(null)}
+            variant="outline"
+          >
+            Show All Calculators
+          </Button>
+        </div>
+      )}
+
+      {/* "Need Help" Section */}
+      <div className="mt-16 md:mt-20 lg:mt-24 bg-muted p-8 rounded-lg text-center">
+        <h2 className="text-2xl font-bold text-foreground mb-4">Need Help Choosing?</h2>
+        <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
+          Not sure which calculator to use? Our guides can help you determine the right tool for your specific case.
+        </p>
+        <Button
+            variant="secondary"
+            onClick={() => router.push('/resources')}
+        >
+          View Calculation Guides &rarr;
+        </Button>
       </div>
     </div>
   );
-}
+};
+
+export default CalculatorsPage;

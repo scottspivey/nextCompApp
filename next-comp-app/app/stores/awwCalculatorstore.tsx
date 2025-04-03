@@ -1,34 +1,60 @@
-// app/stores/awwCalculatorStore.ts
+// app/stores/awwCalculatorstore.tsx
 import { create } from 'zustand';
-import { z } from 'zod';
-import { maxCompensationRates } from '@/app/CommonVariables';
+import { z, ZodTypeAny } from 'zod'; // Import ZodTypeAny
+import Big from 'big.js';
+import { MIN_DOI_DATE } from '@/app/Components/awwConstants'; // Adjust path
+import { getYearFromDate } from '@/app/utils/dateUtils'; // Adjust path
+import {
+  calculateAWWFourQuarters,
+  calculateAWWShortEmployment,
+  calculateCompensationRate
+} from '@/app/utils/calculationUtils'; // Adjust path
 
-// Define the schema for validation using Zod
-export const dateOfInjurySchema = z.string().refine(
-  (date) => {
-    if (!date) return false;
-    const validDate = new Date(date);
-    return !isNaN(validDate.getTime()) && validDate <= new Date() && validDate >= new Date('1979-01-01');
-  },
-  { message: "Please enter a valid date between January 1, 1979 and today" }
-);
+// --- Zod Schemas for Validation ---
 
-export const specialCasesSchema = z.enum(['guard', 'volunteerFF', 'volunteerRescue', 'volunteerSheriff', 'volunteerConstable', 'inmate', 'student', 'none']);
+export const dateOfInjurySchema = z.string()
+  .min(1, { message: "Date of injury is required" })
+  .refine(date => !isNaN(new Date(date).getTime()), { message: "Invalid date format" })
+  .refine(date => new Date(date) <= new Date(), { message: "Date cannot be in the future" })
+  .refine(date => new Date(date) >= new Date(MIN_DOI_DATE), { message: `Date must be on or after ${new Date(MIN_DOI_DATE).toLocaleDateString()}` });
 
-export const employedFourQuartersSchema = z.enum(['yes', 'no']);
+export const specialCasesSchema = z.enum(['guard', 'volunteerFF', 'volunteerRescue', 'volunteerSheriff', 'volunteerConstable', 'inmate', 'student', 'none'], {
+    errorMap: () => ({ message: "Please select a valid option." })
+});
 
-export const quarterPaySchema = z.string().refine(
-  (pay) => {
-    const value = Number(pay);
-    return !isNaN(value) && value >= 0;
-  },
-  { message: "Please enter a valid amount (must be a positive number)" }
-);
+export const employedFourQuartersSchema = z.enum(['yes', 'no'], {
+    errorMap: () => ({ message: "Please select Yes or No." })
+});
 
-// Define types for our store
+export const quarterPaySchema = z.string()
+  .min(1, { message: "Amount is required" })
+  .refine(pay => /^\d+(\.\d{1,2})?$/.test(pay), { message: "Please enter a valid positive amount (e.g., 123.45)" })
+  .refine(pay => {
+      try {
+          return new Big(pay).gte(0);
+      } catch {
+          return false;
+      }
+  }, { message: "Amount cannot be negative" });
+
+
+// --- Store State and Actions ---
+
 export type CalculatorStep = 1 | 2 | 3 | 4 | 5;
 
-interface AWWCalculatorState {
+export interface AWWErrors {
+  dateOfInjury?: string;
+  specialCase?: string;
+  employedFourQuarters?: string;
+  quarter1Pay?: string;
+  quarter2Pay?: string;
+  quarter3Pay?: string;
+  quarter4Pay?: string;
+  calculation?: string;
+}
+
+// Exporting this interface so it can be used in calculationUtils.ts
+export interface AWWCalculatorState {
   // Form data
   dateOfInjury: string;
   specialCase: string;
@@ -37,248 +63,236 @@ interface AWWCalculatorState {
   quarter2Pay: string;
   quarter3Pay: string;
   quarter4Pay: string;
-  
+
   // UI state
   currentStep: CalculatorStep;
-  errors: Record<string, string>;
+  errors: AWWErrors;
   isCalculating: boolean;
-  
+  showResults: boolean;
+
   // Results
-  averageWeeklyWage: number | null;
-  compensationRate: number | null;
+  averageWeeklyWage: string | null;
+  compensationRate: string | null;
   yearOfInjury: number | null;
-  maxCompRate: number | null;
-  
+  maxCompRate: string | null;
+
   // Actions
-  setField: (field: string, value: string) => void;
-  validateCurrentStep: () => boolean;
-  nextStep: () => void;
-  previousStep: () => void;
-  calculateResults: () => void;
+  setField: (field: keyof AWWCalculatorState, value: string) => void;
+  validateStep: (step: CalculatorStep) => boolean;
+  goToNextStep: () => void;
+  goToPreviousStep: () => void;
+  calculateAndShowResults: () => void;
   resetCalculator: () => void;
 }
 
-// Helper function to calculate year from date string
-const getYearFromDate = (dateString: string): number => {
-  const date = new Date(dateString);
-  return date.getFullYear();
-};
-
-// Create the Zustand store
-export const useAWWCalculatorStore = create<AWWCalculatorState>((set, get) => ({
-  // Initial form data
+// Define the initial state for the calculator
+// Removed the explicit : AWWCalculatorState type annotation here
+const initialState = {
   dateOfInjury: '',
   specialCase: 'none',
-  employedFourQuarters: 'yes',
+  employedFourQuarters: '',
   quarter1Pay: '',
   quarter2Pay: '',
   quarter3Pay: '',
   quarter4Pay: '',
-  
-  // Initial UI state
-  currentStep: 1,
+  currentStep: 1 as CalculatorStep,
   errors: {},
   isCalculating: false,
-  
-  // Initial results
+  showResults: false,
   averageWeeklyWage: null,
   compensationRate: null,
   yearOfInjury: null,
   maxCompRate: null,
-  
-  // Actions
+};
+
+// Create the Zustand store
+export const useAWWCalculatorStore = create<AWWCalculatorState>((set, get) => ({
+  ...initialState,
+
+  // Action to update any field in the state
   setField: (field, value) => {
-    set({ [field]: value });
-    
-    // Clear error for this field if it exists
-    const currentErrors = { ...get().errors };
-    if (currentErrors[field]) {
-      delete currentErrors[field];
-      set({ errors: currentErrors });
+    if (field in get()) {
+        set(state => ({
+            ...state,
+            [field]: value,
+            errors: { ...state.errors, [field]: undefined, calculation: undefined },
+            showResults: false,
+            averageWeeklyWage: null,
+            compensationRate: null,
+            yearOfInjury: null,
+            maxCompRate: null,
+        }));
+    } else {
+        console.warn(`Attempted to set invalid field: ${String(field)}`);
     }
   },
-  
-  validateCurrentStep: () => {
+
+  // Action to validate the data for a specific step
+  validateStep: (step) => {
     const state = get();
-    const newErrors: Record<string, string> = {};
-    
-    switch (state.currentStep) {
-      case 1: {
-        try {
-          dateOfInjurySchema.parse(state.dateOfInjury);
-        } catch (error) {
-          if (error instanceof z.ZodError) {
-            newErrors.dateOfInjury = error.errors[0].message;
-          }
-        }
-        break;
-      }
-      case 2: {
-        try {
-          specialCasesSchema.parse(state.specialCase);
-        } catch (error) {
-          if (error instanceof z.ZodError) {
-            newErrors.specialCase = error.errors[0].message;
-          }
-        }
-        break;
-      }
-      case 3: {
-        try {
-          employedFourQuartersSchema.parse(state.employedFourQuarters);
-        } catch (error) {
-          if (error instanceof z.ZodError) {
-            newErrors.employedFourQuarters = error.errors[0].message;
-          }
-        }
-        break;
-      }
-      case 4: {
-        // Only validate if employed for four quarters is "yes"
-        if (state.employedFourQuarters === 'yes') {
-          try {
-            quarterPaySchema.parse(state.quarter1Pay);
-          } catch (error) {
-            if (error instanceof z.ZodError) {
-              newErrors.quarter1Pay = error.errors[0].message;
-            }
-          }
-          
-          try {
-            quarterPaySchema.parse(state.quarter2Pay);
-          } catch (error) {
-            if (error instanceof z.ZodError) {
-              newErrors.quarter2Pay = error.errors[0].message;
-            }
-          }
-          
-          try {
-            quarterPaySchema.parse(state.quarter3Pay);
-          } catch (error) {
-            if (error instanceof z.ZodError) {
-              newErrors.quarter3Pay = error.errors[0].message;
-            }
-          }
-          
-          try {
-            quarterPaySchema.parse(state.quarter4Pay);
-          } catch (error) {
-            if (error instanceof z.ZodError) {
-              newErrors.quarter4Pay = error.errors[0].message;
-            }
-          }
-        }
-        break;
-      }
-      // Step 5 validation would go here if needed
-    }
-    
-    set({ errors: newErrors });
-    return Object.keys(newErrors).length === 0;
-  },
-  
-  nextStep: () => {
-    const state = get();
-    
-    if (state.validateCurrentStep()) {
-      if (state.currentStep < 5) {
-        // Special case: if user selects "no" for employed four quarters, skip to step 5
-        if (state.currentStep === 3 && state.employedFourQuarters === 'no') {
-          set({ currentStep: 5 as CalculatorStep });
+    let success = true;
+    const currentErrors = { ...state.errors };
+    const stepErrors: AWWErrors = {};
+
+    // Helper to run validation and update errors for this step
+    // Updated schema type from z.ZodSchema<any> to z.ZodTypeAny
+    const validateField = (field: keyof AWWErrors, schema: ZodTypeAny, value: string) => {
+        const result = schema.safeParse(value);
+        if (!result.success) {
+            stepErrors[field] = result.error.errors[0].message;
+            success = false;
         } else {
-          set({ currentStep: (state.currentStep + 1) as CalculatorStep });
+             stepErrors[field] = undefined;
         }
-        
-        // If we're at the last step, calculate the results
-        if (state.currentStep === 4 || (state.currentStep === 3 && state.employedFourQuarters === 'no')) {
-          state.calculateResults();
+    };
+
+    switch (step) {
+      case 1:
+        validateField('dateOfInjury', dateOfInjurySchema, state.dateOfInjury);
+        break;
+      case 2:
+        validateField('specialCase', specialCasesSchema, state.specialCase);
+        break;
+      case 3:
+        validateField('employedFourQuarters', employedFourQuartersSchema, state.employedFourQuarters);
+        break;
+      case 4:
+        if (state.employedFourQuarters === 'yes') {
+          validateField('quarter1Pay', quarterPaySchema, state.quarter1Pay);
+          validateField('quarter2Pay', quarterPaySchema, state.quarter2Pay);
+          validateField('quarter3Pay', quarterPaySchema, state.quarter3Pay);
+          validateField('quarter4Pay', quarterPaySchema, state.quarter4Pay);
+        } else {
+             stepErrors.quarter1Pay = undefined;
+             stepErrors.quarter2Pay = undefined;
+             stepErrors.quarter3Pay = undefined;
+             stepErrors.quarter4Pay = undefined;
         }
-      }
+        break;
+      case 5:
+        // No validation needed for step 5 currently
+        break;
+    }
+
+     const updatedErrors = { ...currentErrors, ...stepErrors };
+
+     const cleanedErrors = Object.entries(updatedErrors).reduce((acc, [key, value]) => {
+         if (value !== undefined) {
+             acc[key as keyof AWWErrors] = value;
+         }
+         return acc;
+     }, {} as AWWErrors);
+
+    set({ errors: cleanedErrors });
+    return success;
+  },
+
+  // Action to proceed to the next step if current step is valid
+  goToNextStep: () => {
+    const { currentStep, validateStep, calculateAndShowResults, employedFourQuarters } = get();
+    if (validateStep(currentStep)) {
+        let nextStep = currentStep + 1;
+        if (currentStep === 3 && employedFourQuarters === 'no') {
+            nextStep = 5;
+        }
+        const maxSteps = 5;
+        if (nextStep <= maxSteps) {
+             set({ currentStep: nextStep as CalculatorStep });
+             if (nextStep === 5) {
+                 calculateAndShowResults();
+             }
+        }
     }
   },
-  
-  previousStep: () => {
-    const state = get();
-    
-    if (state.currentStep > 1) {
-      // Special case: if user is on step 5 and selected "no" for employed four quarters, go back to step 3
-      if (state.currentStep === 5 && state.employedFourQuarters === 'no') {
-        set({ currentStep: 3 as CalculatorStep });
-      } else {
-        set({ currentStep: (state.currentStep - 1) as CalculatorStep });
-      }
+
+  // Action to go back to the previous step
+  goToPreviousStep: () => {
+    const { currentStep, employedFourQuarters } = get();
+    let previousStep = currentStep - 1;
+    if (currentStep === 5 && employedFourQuarters === 'no') {
+      previousStep = 3;
     }
-  },
-  
-  calculateResults: () => {
-    const state = get();
-    set({ isCalculating: true });
-    
-    // Add a slight delay to simulate calculation
-    setTimeout(() => {
-      // Calculate the year of injury
-      const yearOfInjury = getYearFromDate(state.dateOfInjury);
-      
-      // Get max compensation rate for that year
-      const maxCompRate = maxCompensationRates[yearOfInjury] || maxCompensationRates[2025]; // Default to current year if not found
-      
-      let averageWeeklyWage = 0;
-      
-      if (state.employedFourQuarters === 'yes') {
-        // Calculate AWW based on the four quarters of pay
-        const quarter1 = parseFloat(state.quarter1Pay) || 0;
-        const quarter2 = parseFloat(state.quarter2Pay) || 0;
-        const quarter3 = parseFloat(state.quarter3Pay) || 0;
-        const quarter4 = parseFloat(state.quarter4Pay) || 0;
-        
-        const totalPay = quarter1 + quarter2 + quarter3 + quarter4;
-        averageWeeklyWage = totalPay / 52; // Divide by weeks in a year
-      } else {
-        // For this example, we'll just set a placeholder value
-        // In a real app, you would implement the calculation for less than 4 quarters
-        averageWeeklyWage = 0;
-      }
-      
-      // Calculate compensation rate (typically 66.67% of AWW)
-      let compensationRate = averageWeeklyWage * 0.6667;
-      
-      // Cap the compensation rate at the max for that year
-      if (compensationRate > maxCompRate) {
-        compensationRate = maxCompRate;
-      }
-      
-      // Apply any special case adjustments (simplified for this example)
-      if (state.specialCase !== 'none') {
-        // Special case calculations would go here
-        // For now, we'll just leave it as is
-      }
-      
+    if (previousStep >= 1) {
       set({
-        averageWeeklyWage,
-        compensationRate,
-        yearOfInjury,
-        maxCompRate,
-        isCalculating: false
+          currentStep: previousStep as CalculatorStep,
+          showResults: false,
+          averageWeeklyWage: null,
+          compensationRate: null,
+          yearOfInjury: null,
+          maxCompRate: null,
+          errors: { ...get().errors, calculation: undefined }
       });
-    }, 500);
+    }
   },
-  
-  resetCalculator: () => {
-    set({
-      dateOfInjury: '',
-      specialCase: 'none',
-      employedFourQuarters: 'yes',
-      quarter1Pay: '',
-      quarter2Pay: '',
-      quarter3Pay: '',
-      quarter4Pay: '',
-      currentStep: 1,
-      errors: {},
-      isCalculating: false,
-      averageWeeklyWage: null,
-      compensationRate: null,
-      yearOfInjury: null,
-      maxCompRate: null
+
+  // Action to perform the calculation and update results state
+  calculateAndShowResults: () => {
+    const state = get();
+    let canCalculate = true;
+    const validationSteps = [1, 2, 3];
+    if(state.employedFourQuarters === 'yes') {
+        validationSteps.push(4);
+    }
+
+    validationSteps.forEach(step => {
+        if (!state.validateStep(step as CalculatorStep)) {
+            canCalculate = false;
+        }
     });
-  }
+
+     if (!canCalculate) {
+         console.error("Cannot calculate results, validation failed for preceding steps.");
+         set({
+             isCalculating: false,
+             showResults: false,
+             errors: { ...get().errors, calculation: "Please fix errors in previous steps before calculating." }
+            });
+         return;
+     }
+
+    set({ isCalculating: true, showResults: false, errors: { ...get().errors, calculation: undefined } });
+
+    setTimeout(() => {
+      try {
+        const yearOfInjury = getYearFromDate(state.dateOfInjury);
+        let aww: Big;
+
+        if (state.employedFourQuarters === 'yes') {
+          aww = calculateAWWFourQuarters(
+            state.quarter1Pay,
+            state.quarter2Pay,
+            state.quarter3Pay,
+            state.quarter4Pay
+          );
+        } else {
+          aww = calculateAWWShortEmployment(state.dateOfInjury, state);
+        }
+
+        const { compensationRate, maxCompRateForYear } = calculateCompensationRate(aww, state.dateOfInjury);
+
+        set({
+          averageWeeklyWage: aww.toFixed(2),
+          compensationRate: compensationRate.toFixed(2),
+          yearOfInjury: yearOfInjury,
+          maxCompRate: maxCompRateForYear ? maxCompRateForYear.toFixed(2) : null,
+          isCalculating: false,
+          showResults: true,
+          currentStep: 5,
+        });
+
+      } catch (error) {
+          console.error("Error during AWW/CR calculation:", error);
+          set(prevState => ({
+              isCalculating: false,
+              showResults: false,
+              errors: { ...prevState.errors, calculation: "An unexpected error occurred during calculation." }
+          }));
+      }
+    }, 50);
+  },
+
+  // Action to reset the calculator to its initial state
+  resetCalculator: () => {
+    set(initialState);
+  },
 }));

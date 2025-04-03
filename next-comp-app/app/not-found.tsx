@@ -21,7 +21,7 @@ export default function NotFound() {
 
       {/* Message */}
       <p className="mt-4 text-lg text-muted-foreground max-w-md">
-        Oops! Looks like the page you were searching for doesn't exist or has been moved.
+        Oops! Looks like the page you were searching for doesn&apos;t exist or has been moved.
       </p>
 
       {/* Action Buttons */}

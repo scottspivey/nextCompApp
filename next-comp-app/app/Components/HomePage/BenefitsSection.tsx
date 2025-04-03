@@ -1,47 +1,57 @@
-import { benefitsList } from "@/app/Components/HomePage/data";
+// app/Components/HomePage/BenefitsSection.tsx
+
+// Assuming benefitsList is imported correctly and has the structure:
+// interface Benefit { id: string | number; iconType: string; title: string; description: string; }
+import { benefitsList } from "@/app/Components/HomePage/data"; // Adjust path if needed
+
+// Import specific icons from lucide-react
+import { CheckCircle2, Clock, Scale, Info } from 'lucide-react';
 
 export default function BenefitsSection() {
-  // Function to render the appropriate icon based on iconType
+  // Function now renders imported Lucide components
   const renderIcon = (iconType: string) => {
+    const iconProps = {
+      className: "h-8 w-8 text-primary", // Apply theme color and size via className
+      strokeWidth: 1.5 // Adjust stroke width as desired
+    };
+
     switch (iconType) {
       case 'checkmark':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
+        // Use imported CheckCircle2 component
+        return <CheckCircle2 {...iconProps} />;
       case 'clock':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
+        // Use imported Clock component
+        return <Clock {...iconProps} />;
       case 'scale':
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-          </svg>
-        );
-      default:
-        return (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
+        // Use imported Scale component
+        return <Scale {...iconProps} />;
+      default: // Default icon (e.g., Info)
+        // Use imported Info component
+        return <Info {...iconProps} />;
     }
   };
 
   return (
-    <section className="px-4 md:px-6 lg:px-8">
-      <h2 className="text-3xl font-bold text-center mb-8">Why Choose Our Platform?</h2>
+    // Add vertical padding to the section
+    <section className="px-4 md:px-6 lg:px-8 py-16 md:py-20 lg:py-24">
+      {/* Section Title - Use theme text color */}
+      <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 md:mb-16 text-foreground">
+        Why Choose Our Platform?
+      </h2>
+      {/* Benefits Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {benefitsList.map((benefit) => (
-          <div key={benefit.id} className="flex flex-col items-center text-center">
-            <div className="bg-blue-100 p-4 rounded-full mb-4">
+          // Apply card styling to each benefit item
+          <div key={benefit.id} className="bg-card border border-border rounded-lg p-6 text-center flex flex-col items-center shadow-sm hover:shadow-md transition-shadow duration-200">
+            {/* Icon Wrapper - Use themed background */}
+            <div className="bg-primary/10 p-4 rounded-full mb-5 inline-flex">
+              {/* Render the Lucide icon */}
               {renderIcon(benefit.iconType)}
             </div>
-            <h3 className="text-xl font-semibold mb-2">{benefit.title}</h3>
-            <p className="text-gray-600">{benefit.description}</p>
+            {/* Benefit Title - Use theme text color */}
+            <h3 className="text-xl font-semibold mb-2 text-foreground">{benefit.title}</h3>
+            {/* Benefit Description - Use theme muted text color */}
+            <p className="text-muted-foreground text-sm">{benefit.description}</p>
           </div>
         ))}
       </div>

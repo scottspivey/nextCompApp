@@ -1,30 +1,30 @@
-// app/Components/ui/label.tsx
-"use client"; // Radix UI components often require client-side context/hooks
+// components/ui/label.tsx
+"use client"
 
-import * as React from "react";
-import * as LabelPrimitive from "@radix-ui/react-label"; // Import the Radix Label primitive
-import { cn } from "@/lib/utils"; // Import your className merging utility
+import * as React from "react"
+import * as LabelPrimitive from "@radix-ui/react-label"
+import { cva, type VariantProps } from "class-variance-authority"
 
-// Use React.forwardRef to allow refs to be passed down
+import { cn } from "@/lib/utils" // Adjust path if needed
+
+// Define variants for the label using CVA (though only base styles are common here)
+const labelVariants = cva(
+  "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+)
+
+// Use React.ComponentRef instead of deprecated React.ElementRef
 const Label = React.forwardRef<
-  // Type of the element the ref points to (the Radix Label root element)
-  React.ElementRef<typeof LabelPrimitive.Root>,
-  // Type of the props the component accepts, based on Radix Label props
-  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>
+  React.ComponentRef<typeof LabelPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> &
+    VariantProps<typeof labelVariants> // Include variant props if you define more variants
 >(({ className, ...props }, ref) => (
   <LabelPrimitive.Root
-    ref={ref} // Pass the ref to the Radix component
-    className={cn(
-      // Base Tailwind styles for the label
-      "text-sm font-medium leading-none",
-      // Accessibility: Style adjustments when the associated peer input is disabled
-      // Assumes the associated input has the 'peer' class (e.g., <Input className="peer" />)
-      "peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-      className // Merge base styles with any custom classes passed via props
-    )}
-    {...props} // Pass down all other props (like htmlFor, children, etc.)
+    ref={ref}
+    // Apply base styles and merge with passed className
+    className={cn(labelVariants(), className)}
+    {...props}
   />
-));
-Label.displayName = LabelPrimitive.Root.displayName; // Set display name for React DevTools
+))
+Label.displayName = LabelPrimitive.Root.displayName
 
-export { Label }; // Export the component for use
+export { Label }

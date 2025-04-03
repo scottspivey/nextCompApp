@@ -1,4 +1,4 @@
-/* app/styles/globals.css */
+/* app/globals.css */
 
 /* Import Tailwind directives */
 @tailwind base;
@@ -7,69 +7,71 @@
 
 /* Define CSS Variables for Theming */
 @layer base {
-  /* Default Light Theme Variables */
+  /* Light Mode - Teal & Gray */
   :root {
     --background: 0 0% 100%; /* White */
-    --foreground: 222.2 84% 4.9%; /* Dark Gray/Almost Black */
+    --foreground: 224 71.4% 4.1%; /* Dark Slate Gray */
 
     --card: 0 0% 100%; /* White */
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 224 71.4% 4.1%;
 
     --popover: 0 0% 100%; /* White */
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 224 71.4% 4.1%;
 
-    --primary: 221.2 83.2% 53.3%; /* Blue */
-    --primary-foreground: 210 40% 98%; /* Almost White */
+    --primary: 173.5 80.1% 38.2%; /* Teal */
+    --primary-foreground: 180 100% 97%; /* Very Light Cyan/White */
 
-    --secondary: 210 40% 96.1%; /* Light Gray */
-    --secondary-foreground: 222.2 47.4% 11.2%; /* Dark Gray */
+    --secondary: 220 13% 91%; /* Light Gray */
+    --secondary-foreground: 224 71.4% 4.1%;
 
-    --muted: 210 40% 96.1%; /* Light Gray */
-    --muted-foreground: 215.4 16.3% 46.9%; /* Medium Gray */
+    --muted: 220 13% 91%; /* Light Gray */
+    --muted-foreground: 220 8.9% 46.1%; /* Medium Gray */
 
-    --accent: 210 40% 96.1%; /* Light Gray */
-    --accent-foreground: 222.2 47.4% 11.2%; /* Dark Gray */
+    --accent: 220 13% 91%; /* Light Gray */
+    --accent-foreground: 224 71.4% 4.1%;
 
     --destructive: 0 84.2% 60.2%; /* Red */
-    --destructive-foreground: 210 40% 98%; /* Almost White */
+    --destructive-foreground: 210 20% 98%; /* Almost White */
 
-    --border: 214.3 31.8% 91.4%; /* Light Gray Border */
-    --input: 214.3 31.8% 91.4%; /* Light Gray Input Border */
-    --ring: 221.2 83.2% 53.3%; /* Blue Focus Ring */
+    --border: 220 13% 91%; /* Light Gray Border */
+    --input: 220 13% 91%; /* Light Gray Input Border */
+    --ring: 173.5 80.1% 38.2%; /* Teal Focus Ring */
 
     --radius: 0.5rem; /* Default border radius */
   }
 
-  /* Dark Theme Variables */
+  /* Dark Mode - Teal & Gray */
   /* Applied when the 'dark' class is present (usually on the <html> tag) */
   .dark {
-    --background: 222.2 84% 4.9%; /* Dark Gray/Almost Black */
-    --foreground: 210 40% 98%; /* Almost White */
+    --background: 224 71.4% 4.1%; /* Dark Slate Gray */
+    --foreground: 210 20% 98%; /* Almost White */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 224 71.4% 4.1%;
+    --card-foreground: 210 20% 98%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 224 71.4% 4.1%;
+    --popover-foreground: 210 20% 98%;
 
-    --primary: 217.2 91.2% 59.8%; /* Brighter Blue for Dark Mode */
-    --primary-foreground: 210 40% 98%; /* Almost White */
+    --primary: 174.6 73.3% 46.5%; /* Brighter Teal */
+    --primary-foreground: 180 100% 97%; /* Very Light Cyan/White */
 
-    --secondary: 217.2 32.6% 17.5%; /* Dark Gray */
-    --secondary-foreground: 210 40% 98%; /* Almost White */
+    --secondary: 215 27.9% 16.9%; /* Darker Gray */
+    --secondary-foreground: 210 20% 98%;
 
-    --muted: 217.2 32.6% 17.5%; /* Dark Gray */
-    --muted-foreground: 215 20.2% 65.1%; /* Lighter Gray */
+    --muted: 215 27.9% 16.9%; /* Darker Gray */
+    --muted-foreground: 217.5 16.7% 61%; /* Lighter Gray */
 
-    --accent: 217.2 32.6% 17.5%; /* Dark Gray */
-    --accent-foreground: 210 40% 98%; /* Almost White */
+    --accent: 215 27.9% 16.9%; /* Darker Gray */
+    --accent-foreground: 210 20% 98%;
 
     --destructive: 0 62.8% 30.6%; /* Darker Red */
-    --destructive-foreground: 210 40% 98%; /* Almost White */
+    --destructive-foreground: 210 20% 98%;
 
-    --border: 217.2 32.6% 17.5%; /* Dark Gray Border */
-    --input: 217.2 32.6% 17.5%; /* Dark Gray Input Border */
-    --ring: 217.2 91.2% 59.8%; /* Brighter Blue Focus Ring */
+    --border: 215 27.9% 16.9%; /* Darker Gray Border */
+    --input: 215 27.9% 16.9%; /* Darker Gray Input Border */
+    --ring: 174.6 73.3% 46.5%; /* Brighter Teal Focus Ring */
+
+    /* --radius is usually the same for both modes */
   }
 }
 
@@ -85,4 +87,3 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
-

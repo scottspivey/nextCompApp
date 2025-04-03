@@ -48,11 +48,11 @@ export interface TrustedByLogo {
 }
 
 export const trustedByLogos: TrustedByLogo[] = [
-  { id: 1, name: "Example Law Firm A", logoUrl: "https://placehold.co/600/e2e8f0/64748b?text=Law+Firm+A" }, // Placeholder
-  { id: 2, name: "Example Insurance Co", logoUrl: "https://placehold.co/200/e2e8f0/64748b?text=Insurance+Co" }, // Placeholder
-  { id: 3, name: "Example Legal Group", logoUrl: "https://placehold.co/200/e2e8f0/64748b?text=Legal+Group" }, // Placeholder
-  { id: 4, name: "Example Adjuster Firm", logoUrl: "https://placehold.co/200/e2e8f0/64748b?text=Adjusters" }, // Placeholder
-  { id: 5, name: "Example SC Association", logoUrl: "https://placehold.co/200/e2e8f0/64748b?text=Association" }, // Placeholder
+  { id: 1, name: "Example Law Firm A Placeholder Logo", logoUrl: "https://placehold.co/600/e2e8f0/64748b?text=Law+Firm+A" }, // Placeholder
+  { id: 2, name: "Example Insurance Co Placeholder Logo", logoUrl: "https://placehold.co/200/e2e8f0/64748b?text=Insurance+Co" }, // Placeholder
+  { id: 3, name: "Example Legal Group Placeholder Logo", logoUrl: "https://placehold.co/200/e2e8f0/64748b?text=Legal+Group" }, // Placeholder
+  { id: 4, name: "Example Adjuster Firm Placeholder Logo", logoUrl: "https://placehold.co/200/e2e8f0/64748b?text=Adjusters" }, // Placeholder
+  { id: 5, name: "Example SC Association Placeholder Logo", logoUrl: "https://placehold.co/200/e2e8f0/64748b?text=Association" }, // Placeholder
   // Add more logos as needed (up to 5 for the lg:grid-cols-5 layout)
 ];
 

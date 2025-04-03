@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/app/Components/ui/button"; // Adjust path
-import { AwwCRCalculator } from "@/app/Components/AwwCRCalculator"; // Adjust path
+import { AwwCRCalculator } from "@/app/Components/CalcComponents/AwwCRCalculator"; // Adjust path
 // Import authentication/subscription checking hooks or functions if needed
 // import { useAuth, useSubscription } from '@/app/hooks/...' // Example
 

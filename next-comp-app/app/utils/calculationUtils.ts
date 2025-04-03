@@ -5,7 +5,7 @@ import { AWWCalculatorState } from '@/app/stores/awwCalculatorstore'; // Adjust 
 // Corrected import path for maxCompensationRates
 import { maxCompensationRates } from '@/app/CommonVariables'; // User provided correct path
 // Import other constants from awwConstants
-import { COMPENSATION_RATE_PERCENTAGE, WEEKS_IN_YEAR } from '@/app/Components/awwConstants'; // Adjust path as needed
+import { COMPENSATION_RATE_PERCENTAGE, WEEKS_IN_YEAR } from '@/app/Components/CalcComponents/awwConstants'; // Adjust path as needed
 import { getYearFromDate } from './dateUtils'; // Adjust path as needed
 
 // Removed unused ShortEmploymentFormData type alias

@@ -1,7 +1,7 @@
 // app/Calculators/commuted/page.tsx
 import React from "react";
 import { Metadata } from "next";
-import CommutedValueCalculator from "@/app/Components/CommutedValueCalculator"; // Adjust path if needed
+import CommutedValueCalculator from "@/app/Components/CalcComponents/CommutedValueCalculator"; // Adjust path if needed
 import { maxCompensationRates } from "@/app/CommonVariables"; // Adjust path if needed
 
 // Metadata remains the same

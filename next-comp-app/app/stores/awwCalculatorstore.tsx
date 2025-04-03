@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { z, ZodTypeAny } from 'zod'; // Import ZodTypeAny
 import Big from 'big.js';
-import { MIN_DOI_DATE } from '@/app/Components/awwConstants'; // Adjust path
+import { MIN_DOI_DATE } from '@/app/Components/CalcComponents/awwConstants'; // Adjust path
 import { getYearFromDate } from '@/app/utils/dateUtils'; // Adjust path
 import {
   calculateAWWFourQuarters,

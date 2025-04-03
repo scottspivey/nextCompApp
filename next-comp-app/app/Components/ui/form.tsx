@@ -1,7 +1,7 @@
 // components/ui/form.tsx
-import * as React from "react"
-import * as LabelPrimitive from "@radix-ui/react-label"
-import { Slot } from "@radix-ui/react-slot"
+import * as React from "react";
+import * as LabelPrimitive from "@radix-ui/react-label";
+import { Slot } from "@radix-ui/react-slot";
 import {
   Controller,
   ControllerProps,
@@ -9,10 +9,10 @@ import {
   FieldValues,
   FormProvider,
   useFormContext,
-} from "react-hook-form"
-
-import { cn } from "@/lib/utils" // Adjust path if needed
-import { Label } from "@/app/Components/ui/label" // Adjust path if needed
+} from "react-hook-form";
+import { AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils"; // Adjust path if needed
+import { Label } from "@/app/Components/ui/label"; // Adjust path if needed
 
 // --- Form Provider ---
 // Provides react-hook-form context to nested components
@@ -185,7 +185,7 @@ const FormMessage = React.forwardRef<
       className={cn("text-sm font-medium text-destructive", className)}
       {...props}
     >
-      {body}
+      {body} {/* Display error message text */}
     </p>
   )
 })

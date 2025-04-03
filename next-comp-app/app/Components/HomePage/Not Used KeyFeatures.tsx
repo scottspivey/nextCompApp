@@ -1,4 +1,4 @@
-// app/Components/KeyFeatures.tsx
+// app/Components/HomePage/KeyFeatures.tsx
 import { ReactNode } from 'react';
 
 interface FeatureCardProps {
@@ -19,7 +19,7 @@ function FeatureCard({ icon, title, description }: FeatureCardProps) {
   );
 }
 
-export default function FeaturesCallout() {
+export default function KeyFeatures() {
   return (
     <div className="py-12 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

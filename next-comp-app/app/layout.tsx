@@ -2,6 +2,7 @@
 import { Metadata } from "next";
 import Navbar from "@/app/Components/Navbar";
 import Footer from "@/app/Components/Footer";
+import { Toaster } from "@/app/Components/ui/toaster";
 import "@/app/styles/globals.css";
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="h-full">
       <body className="flex flex-col min-h-screen">
         <Navbar />
+        <Toaster />
         <main className="flex-grow">{children}</main>
         <Footer />
       </body>

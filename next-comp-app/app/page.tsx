@@ -8,9 +8,11 @@ import TestimonialsSection from "@/app/Components/HomePage/TestimonialsSection";
 import CTASection from "@/app/Components/HomePage/CTASection";
 import HowItWorksSection from "@/app/Components/HomePage/HowItWorksSection";
 import FAQSection from "@/app/Components/HomePage/FAQSection";
-import NewsletterSignup from "@/app/Components/NewsletterSignup";
-import TrustedBy from "@/app/Components/TrustedBy";
-import KeyFeatures from "@/app/Components/KeyFeatures";
+import NewsletterSignup from "@/app/Components/HomePage/NewsletterSignup";
+import TrustedBy from "@/app/Components/HomePage/TrustedBy";
+import FeaturesCallout from "@/app/Components/HomePage/FeaturesCallout";
+// no longer used 
+// import KeyFeatures from "@/app/Components/HomePage/KeyFeatures";
 
 export const metadata: Metadata = {
   title: "SC Worker's Compensation App | Professional Calculators for Comp Claims",
@@ -39,7 +41,7 @@ export default function HomePage() {
       {/* Alternating background example: */}
       {/* <div className="bg-muted py-16 md:py-20">
            <div className="container mx-auto px-4"> */}
-            <KeyFeatures />
+            <FeaturesCallout />
       {/* </div>
          </div> */}
 

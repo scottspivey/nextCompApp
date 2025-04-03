@@ -1,21 +1,45 @@
-import Link from "next/link";
-import { featuredCalculators } from "./data";
+// app/Components/HomePage/FeaturedCalculators.tsx
+
+// Make it a client component to use hooks
+"use client";
+
+import Link from "next/link"; // Keep Link if needed elsewhere, but not for the button
+import { useRouter } from 'next/navigation'; // Import useRouter
+// Assuming featuredCalculators data is imported correctly
+import { featuredCalculators } from "./data"; // Adjust path if needed
+import { Button } from "@/app/Components/ui/button"; // Import the Button component
+import { ArrowRight } from "lucide-react"; // Import icon
 
 export default function FeaturedCalculators() {
+  // Initialize router
+  const router = useRouter();
+
   return (
-    <section className="bg-gray-50 py-10 px-4 md:px-6 lg:px-8 rounded-lg">
-      <h2 className="text-3xl font-bold text-center mb-8">Featured Calculators</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    // Use muted background for the section, add vertical padding
+    <section className="bg-muted py-16 md:py-20 lg:py-24 px-4 md:px-6 lg:px-8 rounded-lg">
+      {/* Section Title - Use theme text color */}
+      <h2 className="text-3xl md:text-4xl font-bold text-center mb-10 md:mb-12 text-foreground">
+        Featured Calculators
+      </h2>
+      {/* Grid for calculator cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
         {featuredCalculators.map((calc) => (
-          <div key={calc.id} className="bg-white rounded-lg shadow-md p-6 flex flex-col">
-            <h3 className="text-xl font-semibold mb-3 text-blue-700">{calc.name}</h3>
-            <p className="text-gray-600 mb-4 flex-grow">{calc.description}</p>
-            <Link
-              href={calc.path}
-              className="text-blue-600 font-medium hover:text-blue-800 hover:underline"
+          // Apply card styling
+          <div key={calc.id} className="bg-card border border-border rounded-lg shadow-sm p-6 flex flex-col transition-shadow hover:shadow-md">
+            {/* Card Title - Use theme text color */}
+            <h3 className="text-xl font-semibold mb-3 text-foreground">{calc.name}</h3>
+            {/* Card Description - Use theme muted text color */}
+            {/* Use flex-grow to push button to the bottom */}
+            <p className="text-muted-foreground text-sm mb-4 flex-grow">{calc.description}</p>
+            {/* Use Button with onClick for navigation */}
+            <Button
+              variant="default" // Or "outline" or "default" depending on desired emphasis
+              size="sm"
+              onClick={() => router.push(calc.path)}
+              className="mt-auto" // Ensure button aligns nicely if description lengths vary slightly
             >
-              Try Calculator →
-            </Link>
+              Try Calculator
+            </Button>
           </div>
         ))}
       </div>

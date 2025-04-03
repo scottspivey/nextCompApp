@@ -3,8 +3,6 @@
 // Add 'use client' directive because we need the useRouter hook
 "use client";
 
-import Link from "next/link";
-// Import useRouter for navigation
 import { useRouter } from 'next/navigation';
 
 // Assuming faqs data is imported correctly and has structure:

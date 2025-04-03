@@ -3,12 +3,11 @@
 // Make it a client component to use hooks
 "use client";
 
-import Link from "next/link"; // Keep Link if needed elsewhere, but not for the button
 import { useRouter } from 'next/navigation'; // Import useRouter
 // Assuming featuredCalculators data is imported correctly
 import { featuredCalculators } from "./data"; // Adjust path if needed
 import { Button } from "@/app/Components/ui/button"; // Import the Button component
-import { ArrowRight } from "lucide-react"; // Import icon
+
 
 export default function FeaturedCalculators() {
   // Initialize router

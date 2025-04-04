@@ -78,7 +78,10 @@ const config = {
     },
   },
   // Use the imported variable here
-  plugins: [tailwindcssAnimate],
+  plugins: [
+    tailwindcssAnimate,
+    require("@tailwindcss/typography")
+  ],
 
 } satisfies Config
 

@@ -77,6 +77,7 @@ export default function Navbar() {
       ]
     },
     { name: "About", href: "/About" },
+    { name: "Dashboard", href: "/dashboard" },
   ];
 
   return (

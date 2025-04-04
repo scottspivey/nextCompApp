@@ -1,4 +1,4 @@
-/* app/globals.css */
+/* app/styles/globals.css */
 
 /* Import Tailwind directives */
 @tailwind base;
@@ -11,79 +11,118 @@
   :root {
     --background: 0 0% 100%; /* White */
     --foreground: 224 71.4% 4.1%; /* Dark Slate Gray */
-
-    --card: 0 0% 100%; /* White */
+    --card: 0 0% 100%;
     --card-foreground: 224 71.4% 4.1%;
-
-    --popover: 0 0% 100%; /* White */
+    --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
-
     --primary: 173.5 80.1% 38.2%; /* Teal */
     --primary-foreground: 180 100% 97%; /* Very Light Cyan/White */
-
     --secondary: 220 13% 91%; /* Light Gray */
     --secondary-foreground: 224 71.4% 4.1%;
-
-    --muted: 220 13% 91%; /* Light Gray */
+    --muted: 220 13% 91%;
     --muted-foreground: 220 8.9% 46.1%; /* Medium Gray */
-
     --accent: 220 13% 91%; /* Light Gray */
     --accent-foreground: 224 71.4% 4.1%;
-
     --destructive: 0 84.2% 60.2%; /* Red */
-    --destructive-foreground: 210 20% 98%; /* Almost White */
-
-    --border: 220 13% 91%; /* Light Gray Border */
-    --input: 220 13% 91%; /* Light Gray Input Border */
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
     --ring: 173.5 80.1% 38.2%; /* Teal Focus Ring */
-
-    --radius: 0.5rem; /* Default border radius */
+    --radius: 0.5rem;
   }
 
   /* Dark Mode - Teal & Gray */
-  /* Applied when the 'dark' class is present (usually on the <html> tag) */
   .dark {
     --background: 224 71.4% 4.1%; /* Dark Slate Gray */
     --foreground: 210 20% 98%; /* Almost White */
-
     --card: 224 71.4% 4.1%;
     --card-foreground: 210 20% 98%;
-
     --popover: 224 71.4% 4.1%;
     --popover-foreground: 210 20% 98%;
-
     --primary: 174.6 73.3% 46.5%; /* Brighter Teal */
-    --primary-foreground: 180 100% 97%; /* Very Light Cyan/White */
-
+    --primary-foreground: 180 100% 97%;
     --secondary: 215 27.9% 16.9%; /* Darker Gray */
     --secondary-foreground: 210 20% 98%;
-
-    --muted: 215 27.9% 16.9%; /* Darker Gray */
+    --muted: 215 27.9% 16.9%;
     --muted-foreground: 217.5 16.7% 61%; /* Lighter Gray */
-
-    --accent: 215 27.9% 16.9%; /* Darker Gray */
+    --accent: 215 27.9% 16.9%;
     --accent-foreground: 210 20% 98%;
-
     --destructive: 0 62.8% 30.6%; /* Darker Red */
     --destructive-foreground: 210 20% 98%;
-
-    --border: 215 27.9% 16.9%; /* Darker Gray Border */
-    --input: 215 27.9% 16.9%; /* Darker Gray Input Border */
+    --border: 215 27.9% 16.9%;
+    --input: 215 27.9% 16.9%;
     --ring: 174.6 73.3% 46.5%; /* Brighter Teal Focus Ring */
+  }
 
-    /* --radius is usually the same for both modes */
+  /* --- NEW: Apply caret color --- */
+  input,
+  textarea {
+    @apply caret-primary; /* Sets caret color to --primary */
+  }
+  /* Ensure caret color applies in dark mode too if needed */
+  .dark input,
+  .dark textarea {
+     @apply caret-primary;
   }
 }
 
 /* Apply base body styles */
 @layer base {
   * {
-    @apply border-border; /* Apply border color by default */
+    @apply border-border;
   }
   body {
-    @apply bg-background text-foreground; /* Apply background/text colors */
-    /* Add font smoothing */
+    @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* --- NEW: Custom Selection Styles --- */
+::selection {
+  @apply bg-primary text-primary-foreground;
+}
+::-moz-selection { /* Firefox prefix */
+  @apply bg-primary text-primary-foreground;
+}
+/* --- End Custom Selection Styles --- */
+
+/* Custom overrides for react-day-picker (Calendar) */
+/* Apply outside of @layer base to ensure higher specificity */
+/* Make sure these rules are near the END of your globals.css */
+
+/* Selected day(s) background and text */
+.rdp-day_selected,
+.rdp-day_selected:focus-visible,
+.rdp-day_selected:hover {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Style for "today" */
+.rdp-day_today:not(.rdp-day_outside) {
+   font-weight: bold;
+   background-color: transparent !important; /* Ensure no background */
+   color: hsl(var(--primary)) !important; /* Use primary color for text */
+   border: 1px solid hsl(var(--primary)) !important; /* Use primary color for border */
+}
+/* Ensure 'today' text color is correct in dark mode (already handled by variable, but keep border override) */
+.dark .rdp-day_today:not(.rdp-day_outside) {
+    /* color: hsl(var(--primary)) !important; */ /* Color should inherit from variable */
+    border-color: hsl(var(--primary)) !important;
+}
+
+/* Optional: Style range selection */
+.rdp-day_range_middle {
+    background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
+}
+.dark .rdp-day_range_middle {
+     background-color: hsl(var(--accent)) !important;
+     color: hsl(var(--accent-foreground)) !important;
+}
+.rdp-day_range_start,
+.rdp-day_range_end {
+     background-color: hsl(var(--primary)) !important;
+     color: hsl(var(--primary-foreground)) !important;
 }

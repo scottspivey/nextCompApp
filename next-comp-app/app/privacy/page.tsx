@@ -1,6 +1,6 @@
 // app/privacy/page.tsx
 import { Metadata } from "next";
-import Link from "next/link"; // Keep Link import for potential internal links
+
 
 export const metadata: Metadata = {
   title: "Privacy Policy | SC Worker's Compensation App",

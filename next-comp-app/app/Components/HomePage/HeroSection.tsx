@@ -12,9 +12,18 @@ export default function HeroSection() {
     <section className="relative text-center px-4 md:px-6 lg:px-8 py-20 md:py-28 lg:py-32">
 
       {/* Animated Form SVG - Positioned absolutely */}
-      {/* No responsive hiding for debugging */}
-      <div aria-hidden="true" className="absolute top-0 right-0 overflow-visible form-animation opacity-0 scale-75 rotate-[25deg]">
-        {/* Simplified SVG representing a form - Size 350x460 */}
+      {/* responsive hiding and scaling */}
+      <div
+        aria-hidden="true"
+        className={
+          "absolute top-0 right-0 overflow-x-hidden overflow-y-visible form-animation " +
+          "opacity-0 scale-75 rotate-[25deg] " + // Initial animation state
+          "hidden sm:block " + // Hide below small, display as block at md+
+          "sm:scale-50 md:scale-75 lg:scale-100 " + // Scale down on sm to 50, md to 75, back to normal on lg+
+          "origin-top-right" // Set transform origin for scaling
+        }
+      >
+        {/* SVG representing a form - Size 350x460 */}
         <svg
           width="350"
           height="460"
@@ -203,7 +212,7 @@ export default function HeroSection() {
           }
           100% {
             /* End position on-screen, rotated, scaled, opaque */
-            top: 5%;
+            top: -5%;
             right: 10%;
             transform: rotate(-8deg) scale(1); /* Final transform state */
             opacity: 1;

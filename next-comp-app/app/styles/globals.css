@@ -1,5 +1,6 @@
 /* app/styles/globals.css */
 
+@import "tailwindcss";
 /* Import Tailwind directives */
 @tailwind base;
 @tailwind components;

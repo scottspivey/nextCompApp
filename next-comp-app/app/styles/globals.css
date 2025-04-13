@@ -68,11 +68,13 @@
 
 /* --- NEW: Custom Selection Styles --- */
 ::selection {
-  @apply bg-primary text-primary-foreground;
-}
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  }
 ::-moz-selection { /* Firefox prefix */
-  @apply bg-primary text-primary-foreground;
-}
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  }
 /* --- End Custom Selection Styles --- */
 
 /* Custom overrides for react-day-picker (Calendar) */

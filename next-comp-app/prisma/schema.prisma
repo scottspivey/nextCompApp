@@ -1,0 +1,331 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "app/generated/prisma/client"
+}
+
+// --- NextAuth.js Models ---
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  password      String?   // For Credentials provider (hashed)
+  accounts      Account[]
+  sessions      Session[]
+  profile       Profile?      // One-to-one link to Profile
+  subscriptions Subscription? // One-to-one link to Subscription
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// --- Your Application Models (Modified/Added) ---
+
+model Profile {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @unique @map("user_id") @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  full_name String?
+  avatar_url String?
+  role      String?
+  firm_name String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  injuredWorkers InjuredWorker[] @relation("ProfileToInjuredWorkers")
+  claims         Claim[]         @relation("ProfileToClaims")
+  savedCalculations SavedCalculation[] @relation("ProfileToSavedCalculations")
+  notes          Note[]          @relation("ProfileToNotes")
+  userProgress   UserProgress[]  @relation("ProfileToUserProgress")
+
+  @@map("profiles")
+}
+
+model Subscription {
+  id                     String    @id @default(uuid()) @db.Uuid
+  userId                 String    @unique @map("user_id") @db.Uuid
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stripe_customer_id     String?   @unique
+  stripe_subscription_id String?   @unique
+  plan_id                String?
+  status                 String?
+  current_period_end     DateTime?
+  trial_end              DateTime?
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+model InjuredWorker {
+  id              String    @id @default(uuid()) @db.Uuid
+  profileId       String    @map("profile_id") @db.Uuid
+  profile         Profile   @relation("ProfileToInjuredWorkers", fields: [profileId], references: [id], onDelete: Cascade)
+
+  first_name      String
+  last_name       String
+  date_of_birth   DateTime? @db.Date
+  ssn             String?
+  address_line1   String?
+  address_line2   String?
+  city            String?
+  state           String?
+  zip_code        String?
+  phone_number    String?
+  email           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  last_accessed_at DateTime? @map("last_accessed_at")
+
+  claims Claim[]
+  notes  Note[]
+  // Added back-relation for SavedCalculation
+  savedCalculations SavedCalculation[]
+
+  @@map("injured_workers")
+}
+
+model Claim {
+  id                   String    @id @default(uuid()) @db.Uuid
+  injuredWorkerId      String    @map("injured_worker_id") @db.Uuid
+  injuredWorker        InjuredWorker @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
+
+  profileId            String    @map("profile_id") @db.Uuid
+  profile              Profile   @relation("ProfileToClaims", fields: [profileId], references: [id], onDelete: Cascade)
+
+  wcc_file_number      String?
+  carrier_file_number  String?
+  carrier_code         String?
+  employer_name        String?
+  employer_fein        String?
+  employer_address     String?   @db.Text // Changed to Text
+  insurance_carrier    String?
+  date_of_injury       DateTime  @db.Date
+  injury_type          String?
+  body_parts_injured   String?   @db.Text // Changed to Text
+  accident_description String?   @db.Text
+  notice_given_date    DateTime? @db.Date
+  claim_status         String?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  notes             Note[]
+  savedCalculations SavedCalculation[]
+
+  @@map("claims")
+}
+
+model RateSetting {
+  year           Int
+  rate_type      String
+  value          Decimal  // Removed @db.Numeric - Prisma maps Decimal correctly
+  effective_date DateTime? @db.Date
+  description    String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@id([year, rate_type])
+  @@map("rate_settings")
+}
+
+model SavedCalculation {
+  id                 String    @id @default(uuid()) @db.Uuid
+  profileId          String    @map("profile_id") @db.Uuid
+  profile            Profile   @relation("ProfileToSavedCalculations", fields: [profileId], references: [id], onDelete: Cascade)
+
+  claimId            String?   @map("claim_id") @db.Uuid
+  claim              Claim?    @relation(fields: [claimId], references: [id], onDelete: SetNull)
+
+  injuredWorkerId    String?   @map("injured_worker_id") @db.Uuid
+  // Relation field now has a corresponding field 'savedCalculations' in InjuredWorker model
+  injuredWorker      InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: SetNull)
+
+  calculator_type    String
+  calculation_name   String?
+  input_data         Json
+  result_data        Json
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@map("saved_calculations")
+}
+
+model Note {
+  id               String    @id @default(uuid()) @db.Uuid
+  profileId        String    @map("profile_id") @db.Uuid
+  profile          Profile   @relation("ProfileToNotes", fields: [profileId], references: [id], onDelete: Cascade)
+
+  injuredWorkerId  String?   @map("injured_worker_id") @db.Uuid
+  injuredWorker    InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
+
+  claimId          String?   @map("claim_id") @db.Uuid
+  claim            Claim?    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  note_type        String?
+  content          String?   @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@map("notes")
+}
+
+// --- Training Models ---
+
+model Course {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String    @unique
+  description String?   @db.Text
+  cle_credits Decimal?  // Removed @db.Numeric - Prisma maps Decimal correctly
+  is_premium  Boolean   @default(false)
+  published   Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  modules Module[]
+
+  @@map("courses")
+}
+
+model Module {
+  id           String    @id @default(uuid()) @db.Uuid
+  courseId     String    @map("course_id") @db.Uuid
+  course       Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  title        String
+  description  String?   @db.Text
+  content_type String
+  content_url  String?   @db.Text
+  content_body String?   @db.Text
+  order        Int       @map("order")
+  published    Boolean   @default(false)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  quizzes      Quiz[]
+  userProgress UserProgress[] @relation("ModuleToUserProgress")
+
+  @@map("modules")
+}
+
+model Quiz {
+  id            String    @id @default(uuid()) @db.Uuid
+  moduleId      String?   @map("module_id") @db.Uuid
+  module        Module?   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  title         String
+  description   String?   @db.Text
+  passing_score Int?
+  published     Boolean   @default(false)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  questions    QuizQuestion[]
+  userProgress UserProgress[] @relation("QuizToUserProgress")
+
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id            String   @id @default(uuid()) @db.Uuid
+  quizId        String   @map("quiz_id") @db.Uuid
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  question_text String   @db.Text
+  question_type String
+  order         Int      @map("order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  answers QuizAnswer[]
+
+  @@map("quiz_questions")
+}
+
+model QuizAnswer {
+  id          String   @id @default(uuid()) @db.Uuid
+  questionId  String   @map("question_id") @db.Uuid
+  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  answer_text String   @db.Text
+  is_correct  Boolean  @default(false)
+  order       Int?     @map("order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("quiz_answers")
+}
+
+model UserProgress {
+  id           String   @id @default(uuid()) @db.Uuid
+  profileId    String   @map("profile_id") @db.Uuid
+  profile      Profile  @relation("ProfileToUserProgress", fields: [profileId], references: [id], onDelete: Cascade)
+
+  moduleId     String?  @map("module_id") @db.Uuid
+  module       Module?  @relation("ModuleToUserProgress", fields: [moduleId], references: [id], onDelete: Cascade)
+
+  quizId       String?  @map("quiz_id") @db.Uuid
+  quiz         Quiz?    @relation("QuizToUserProgress", fields: [quizId], references: [id], onDelete: Cascade)
+
+  status       String
+  score        Int?
+  completed_at DateTime? @map("completed_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([profileId, moduleId], name: "user_progress_module_unique")
+  @@unique([profileId, quizId], name: "user_progress_quiz_unique")
+  // @@check constraint removed - handle logic in application or via manual SQL
+
+  @@map("user_progress")
+}
+

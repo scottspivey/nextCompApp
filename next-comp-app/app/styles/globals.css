@@ -1,8 +1,8 @@
 /* app/styles/globals.css */
 
-@import 'tailwindcss' layer(base);
-/* Import Tailwind directives */
-@import 'tailwindcss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Define CSS Variables for Theming */
 @layer base {

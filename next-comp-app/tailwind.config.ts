@@ -8,9 +8,7 @@ const config = {
   darkMode: "class",
   // Corrected content paths:
   content: [
-    "./app/**/*.{js,ts,jsx,tsx,mdx}", // Scans layout, pages, and subfolders within app
-    "./app/Components/**/*.{js,ts,jsx,tsx,mdx}", // Explicitly scans your components folder
-    // Add any other top-level directories if needed, e.g. './lib/**/*.{js,ts}'
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   prefix: "",
   theme: {
@@ -83,7 +81,7 @@ const config = {
       },
     },
   },
-  // Temporarily comment out plugins for testing:
+
   plugins: [
     tailwindcssAnimate,
     typography,

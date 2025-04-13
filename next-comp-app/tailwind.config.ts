@@ -2,6 +2,7 @@
 import type { Config } from "tailwindcss"
 // Import the plugin using ES Module syntax
 import tailwindcssAnimate from "tailwindcss-animate"
+import typography from "@tailwindcss/typography"
 
 const config = {
   darkMode: ["class"],
@@ -56,6 +57,11 @@ const config = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      // Add the caretColor extension here:
+      caretColor: ({ theme }) => ({
+        primary: theme('colors.primary.DEFAULT', '#000000'),
+        secondary: theme('colors.secondary.DEFAULT', '#ffffff'),
+      }),
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -80,7 +86,7 @@ const config = {
   // Use the imported variable here
   plugins: [
     tailwindcssAnimate,
-    require("@tailwindcss/typography")
+    typography,
   ],
 
 } satisfies Config

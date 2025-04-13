@@ -53,17 +53,6 @@
     --input: 215 27.9% 16.9%;
     --ring: 174.6 73.3% 46.5%; /* Brighter Teal Focus Ring */
   }
-
-  /* --- NEW: Apply caret color --- */
-  input,
-  textarea {
-    @apply caret-primary; /* Sets caret color to --primary */
-  }
-  /* Ensure caret color applies in dark mode too if needed */
-  .dark input,
-  .dark textarea {
-     @apply caret-primary;
-  }
 }
 
 /* Apply base body styles */

@@ -1,8 +1,8 @@
 // tailwind.config.ts
 import type { Config } from "tailwindcss"
 // Import the plugin using ES Module syntax
-import tailwindcssAnimate from "tailwindcss-animate"
-import typography from "@tailwindcss/typography"
+//import tailwindcssAnimate from "tailwindcss-animate"
+//import typography from "@tailwindcss/typography"
 
 const config = {
   darkMode: ["class"],
@@ -83,10 +83,10 @@ const config = {
       },
     },
   },
-  // Use the imported variable here
+  // Temporarily comment out plugins for testing:
   plugins: [
-    tailwindcssAnimate,
-    typography,
+    // tailwindcssAnimate,
+    // typography,
   ],
 
 } satisfies Config

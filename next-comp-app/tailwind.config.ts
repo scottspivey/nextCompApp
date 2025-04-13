@@ -57,11 +57,11 @@ const config = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
-      // Add the caretColor extension here:
-      caretColor: ({ theme }) => ({
-        primary: theme('colors.primary.DEFAULT', '#000000'),
-        secondary: theme('colors.secondary.DEFAULT', '#ffffff'),
-      }),
+      caretColor: {
+        // Use a simple, direct hex color value for testing
+        primary: '#E11D48', // Example: A distinct pink/red color
+        // secondary: '#3B82F6', // Example: Blue
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

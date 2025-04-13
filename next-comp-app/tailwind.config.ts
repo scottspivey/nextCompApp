@@ -8,6 +8,7 @@ const config = {
   darkMode: ["class"],
   // Corrected content paths:
   content: [
+    "./**/*.{js,ts,jsx,tsx, mdx}", // Scans all pages, layouts, etc files in the project
     "./app/**/*.{js,ts,jsx,tsx,mdx}", // Scans layout, pages, and subfolders within app
     "./app/Components/**/*.{js,ts,jsx,tsx,mdx}", // Explicitly scans your components folder
     // Add any other top-level directories if needed, e.g. './lib/**/*.{js,ts}'

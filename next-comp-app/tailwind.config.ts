@@ -5,7 +5,7 @@ import tailwindcssAnimate from "tailwindcss-animate"
 import typography from "@tailwindcss/typography"
 
 const config = {
-  darkMode: ["class"],
+  darkMode: "class",
   // Corrected content paths:
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}", // Scans layout, pages, and subfolders within app

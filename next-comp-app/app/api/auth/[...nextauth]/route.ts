@@ -3,7 +3,7 @@
 import NextAuth, { AuthOptions } from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import prisma from 'prisma'; // Adjust path as needed
+import prisma from '@/lib/prisma'; // Adjust path as needed
 import bcrypt from 'bcryptjs'; // Import bcryptjs
 
 // Define your authentication options

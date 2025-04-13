@@ -31,12 +31,11 @@ export default function FAQSection() {
       <h2 className="text-3xl md:text-4xl font-bold text-center mb-10 md:mb-12 text-foreground">
         Frequently Asked Questions
       </h2>
-
       {/* Use Accordion component */}
       <div className="max-w-3xl mx-auto">
         <Accordion type="single" collapsible className="w-full">
           {faqs.map((faq, index) => ( // Using index for potential value if id isn't unique string/number
-            <AccordionItem key={faq.id} value={`item-${index + 1}`}>
+            (<AccordionItem key={faq.id} value={`item-${index + 1}`}>
               {/* Trigger contains the question */}
               <AccordionTrigger className="text-left text-lg hover:text-primary"> {/* Left align text, adjust size */}
                   {faq.question}
@@ -45,11 +44,10 @@ export default function FAQSection() {
               <AccordionContent className="text-base"> {/* Adjust text size if needed */}
                 {faq.answer}
               </AccordionContent>
-            </AccordionItem>
+            </AccordionItem>)
           ))}
         </Accordion>
       </div>
-
       {/* "View All" Link - Use themed Button with onClick */}
       <div className="text-center mt-10 md:mt-12">
         <Button

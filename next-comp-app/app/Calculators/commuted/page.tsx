@@ -23,14 +23,12 @@ export default function CommutedValuePage() {
           discount rate based on remaining weeks. Used for lump sum settlements and benefit commutations.
         </p>
       </div>
-
       {/* Main Calculator Component Area */}
       {/* Wrap the calculator in a themed card */}
       <div className="bg-card text-card-foreground p-6 md:p-8 rounded-lg shadow-sm border border-border">
         {/* Assuming CommutedValueCalculator component handles its internal layout */}
         <CommutedValueCalculator maxCompensationRates={maxCompensationRates} />
       </div>
-
       {/* Informational "About" Section */}
       {/* Use muted background for contrast */}
       <div className="mt-12 bg-muted text-muted-foreground p-6 md:p-8 rounded-lg border border-border/50">

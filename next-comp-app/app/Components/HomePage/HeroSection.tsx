@@ -10,7 +10,6 @@ export default function HeroSection() {
   return (
     // Keep relative
     <section className="relative text-center px-4 md:px-6 lg:px-8 py-20 md:py-28 lg:py-32">
-
       {/* Animated Form SVG - Positioned absolutely */}
       {/* responsive hiding and scaling */}
       <div
@@ -172,7 +171,6 @@ export default function HeroSection() {
           </text>
         </svg>
       </div>
-
       {/* Main Content */}
       <div className="relative z-10">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6 text-foreground animate-in fade-in slide-in-from-top-10 duration-700">
@@ -198,7 +196,6 @@ export default function HeroSection() {
             </Button>
           </div>
       </div>
-
       {/* Scoped CSS for the animation */}
       <style jsx>{`
         @keyframes floatIn {

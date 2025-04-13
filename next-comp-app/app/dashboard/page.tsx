@@ -29,7 +29,6 @@ export default function DashboardPage() {
              <Settings className="mr-2 h-4 w-4" /> Settings
         </Button>
       </div>
-
       {/* Dashboard Grid - Adjusted layout */}
       {/* Using 3 columns on large screens */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -111,11 +110,11 @@ export default function DashboardPage() {
                 </TableHeader>
                 <TableBody>
                   {recentWorkersData.slice(0, 5).map((worker) => ( // Show top 5
-                    <TableRow key={worker.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/workers/${worker.id}`)}>
+                    (<TableRow key={worker.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/workers/${worker.id}`)}>
                       <TableCell className="font-medium">{worker.name}</TableCell>
                       <TableCell>{worker.claimNumber ?? '-'}</TableCell>
                       <TableCell className="text-right text-muted-foreground">{worker.lastAccessed}</TableCell>
-                    </TableRow>
+                    </TableRow>)
                   ))}
                 </TableBody>
               </Table>
@@ -136,7 +135,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
              {calculatorLinks.slice(0, 4).map(calc => ( // Show first 4 for example
-                <Button
+                (<Button
                     key={calc.id}
                     variant="outline"
                     size="sm"
@@ -144,9 +143,9 @@ export default function DashboardPage() {
                     onClick={() => router.push(calc.path)}
                     disabled={calc.premium && !hasPremiumAccess()}
                 >
-                    {calc.name}
-                    {calc.premium && <span className="ml-auto text-xs font-semibold text-primary">(Premium)</span>}
-                </Button>
+                  {calc.name}
+                  {calc.premium && <span className="ml-auto text-xs font-semibold text-primary">(Premium)</span>}
+                </Button>)
              ))}
               <Button variant="link" size="sm" className="mt-2 px-0 justify-start" onClick={() => router.push('/Calculators')}>View All Calculators</Button>
           </CardContent>

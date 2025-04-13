@@ -18,7 +18,7 @@ export default function HowItWorksSection() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {howItWorks.map((step, index) => (
             // Apply card styling to each step
-            <div key={step.id} className="bg-card border border-border rounded-lg p-6 flex flex-col items-center text-center shadow-sm transition-shadow hover:shadow-md">
+            (<div key={step.id} className="bg-card border border-border rounded-lg p-6 flex flex-col items-center text-center shadow-sm transition-shadow hover:shadow-md">
               {/* Numbered Circle - Use theme primary colors */}
               <div className="bg-primary text-primary-foreground text-xl font-bold rounded-full w-12 h-12 flex items-center justify-center mb-5 shadow">
                 {index + 1}
@@ -27,7 +27,7 @@ export default function HowItWorksSection() {
               <h3 className="text-xl font-semibold mb-2 text-foreground">{step.title}</h3>
               {/* Step Description - Use theme muted text color */}
               <p className="text-muted-foreground text-sm">{step.description}</p>
-            </div>
+            </div>)
           ))}
         </div>
       </div>

@@ -24,7 +24,7 @@ export default function FeaturedCalculators() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
         {featuredCalculators.map((calc) => (
           // Apply card styling
-          <div key={calc.id} className="bg-card border border-border rounded-lg shadow-sm p-6 flex flex-col transition-shadow hover:shadow-md">
+          (<div key={calc.id} className="bg-card border border-border rounded-lg shadow-sm p-6 flex flex-col transition-shadow hover:shadow-md">
             {/* Card Title - Use theme text color */}
             <h3 className="text-xl font-semibold mb-3 text-foreground">{calc.name}</h3>
             {/* Card Description - Use theme muted text color */}
@@ -39,7 +39,7 @@ export default function FeaturedCalculators() {
             >
               Try Calculator
             </Button>
-          </div>
+          </div>)
         ))}
       </div>
     </section>

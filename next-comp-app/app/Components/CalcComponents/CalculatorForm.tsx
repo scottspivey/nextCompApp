@@ -88,7 +88,6 @@ export function CalculatorForm({
             Please enter the date when the work-related injury occurred.
           </p>
         </div>
-
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Label htmlFor="dateOfInjury" className="font-medium">
@@ -120,7 +119,7 @@ export function CalculatorForm({
           />
 
           {errors.dateOfInjury && (
-            <p id="dateOfInjury-error" className="text-sm text-destructive mt-1">{errors.dateOfInjury}</p> // Use text-destructive
+            (<p id="dateOfInjury-error" className="text-sm text-destructive mt-1">{errors.dateOfInjury}</p>) // Use text-destructive
           )}
         </div>
       </div>
@@ -137,7 +136,6 @@ export function CalculatorForm({
             Select if any of these special employment situations apply. These may affect how your compensation is calculated.
           </p>
         </div>
-
         <RadioGroup
           value={specialCase}
           onValueChange={(value) => handleInputChange("specialCase", value)}
@@ -164,9 +162,8 @@ export function CalculatorForm({
             </div>
           ))}
         </RadioGroup>
-
         {errors.specialCase && (
-          <p className="text-sm text-destructive mt-1">{errors.specialCase}</p> // Use text-destructive
+          (<p className="text-sm text-destructive mt-1">{errors.specialCase}</p>) // Use text-destructive
         )}
       </div>
     );
@@ -182,7 +179,6 @@ export function CalculatorForm({
             Were you employed by the employer where the injury occurred for all of the four quarters immediately prior to your injury?
           </p>
         </div>
-
         <RadioGroup
           value={employedFourQuarters}
           onValueChange={(value) => handleInputChange("employedFourQuarters", value)}
@@ -208,9 +204,8 @@ export function CalculatorForm({
             </div>
           ))}
         </RadioGroup>
-
         {errors.employedFourQuarters && (
-          <p className="text-sm text-destructive mt-1">{errors.employedFourQuarters}</p> // Use text-destructive
+          (<p className="text-sm text-destructive mt-1">{errors.employedFourQuarters}</p>) // Use text-destructive
         )}
       </div>
     );
@@ -235,7 +230,6 @@ export function CalculatorForm({
              )}
            </p>
          </div>
-
          {/* Map through quarters 1 to 4 */}
          {[1, 2, 3, 4].map((q, index) => {
            // Dynamically create the key for accessing props and errors
@@ -272,7 +266,7 @@ export function CalculatorForm({
                </div>
                {/* Display error message if exists */}
                {errors[errorKey] && (
-                 <p id={`${errorKey}-error`} className="text-sm text-destructive mt-1">{errors[errorKey]}</p> // Use text-destructive
+                 (<p id={`${errorKey}-error`} className="text-sm text-destructive mt-1">{errors[errorKey]}</p>) // Use text-destructive
                )}
              </div>
            );

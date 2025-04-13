@@ -22,63 +22,51 @@ export default function HomePage() {
   return (
     // Apply base background color and consistent vertical spacing/padding
     <main className="flex flex-col gap-16 md:gap-20 lg:gap-24 py-8 md:py-12 bg-background">
-
       {/* Hero Section */}
       <div className="container mx-auto px-4">
         <HeroSection />
       </div>
-
       {/* Trusted By Section (Assuming this component handles its own background/styling) */}
       <TrustedBy />
-
       {/* Featured Calculators Section */}
       <div className="container mx-auto px-4">
         <FeaturedCalculators />
       </div>
-
       {/* Key Features Section (Assuming this component handles its own background/styling) */}
       {/* Alternating background example: */}
       {/* <div className="bg-muted py-16 md:py-20">
            <div className="container mx-auto px-4"> */}
-            <FeaturesCallout />
+      <FeaturesCallout />
       {/* </div>
          </div> */}
-
-
       {/* Benefits Section */}
       <div className="container mx-auto px-4">
         <BenefitsSection />
       </div>
-
       {/* How It Works Section - Use muted background */}
       <div className="bg-muted py-12 md:py-16 rounded-lg"> {/* Apply theme color, padding, optional rounding */}
         <div className="container mx-auto px-4">
             <HowItWorksSection />
         </div>
       </div>
-
       {/* Testimonials Section */}
       <div className="container mx-auto px-4">
         <TestimonialsSection />
       </div>
-
       {/* FAQ Section */}
       <div className="container mx-auto px-4">
         <FAQSection />
       </div>
-
       {/* Newsletter Signup - Use muted background */}
-       <div className="bg-muted py-12 md:py-16 rounded-lg">
-          <div className="container mx-auto px-4">
-            <NewsletterSignup />
-          </div>
-       </div>
-
+      <div className="bg-muted py-12 md:py-16 rounded-lg">
+         <div className="container mx-auto px-4">
+           <NewsletterSignup />
+         </div>
+      </div>
       {/* CTA Section */}
       <div className="container mx-auto px-4">
         <CTASection />
       </div>
-
       {/* Latest Updates Section */}
       <div className="container mx-auto px-4 pb-16">
         {/* Use card styling for the section wrapper */}

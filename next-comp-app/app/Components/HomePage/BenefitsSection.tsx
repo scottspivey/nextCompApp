@@ -42,7 +42,7 @@ export default function BenefitsSection() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {benefitsList.map((benefit) => (
           // Apply card styling to each benefit item
-          <div key={benefit.id} className="bg-card border border-border rounded-lg p-6 text-center flex flex-col items-center shadow-sm hover:shadow-md transition-shadow duration-200">
+          (<div key={benefit.id} className="bg-card border border-border rounded-lg p-6 text-center flex flex-col items-center shadow-sm hover:shadow-md transition-shadow duration-200">
             {/* Icon Wrapper - Use themed background */}
             <div className="bg-primary/10 p-4 rounded-full mb-5 inline-flex">
               {/* Render the Lucide icon */}
@@ -52,7 +52,7 @@ export default function BenefitsSection() {
             <h3 className="text-xl font-semibold mb-2 text-foreground">{benefit.title}</h3>
             {/* Benefit Description - Use theme muted text color */}
             <p className="text-muted-foreground text-sm">{benefit.description}</p>
-          </div>
+          </div>)
         ))}
       </div>
     </section>

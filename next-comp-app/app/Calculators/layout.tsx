@@ -78,7 +78,6 @@ export default function CalculatorsLayout({
           Professional-grade calculators specifically designed for South Carolina workers&apos; compensation claims. Select a calculator below to begin.
         </p>
       </div>
-
       {/* Calculator Grid Section */}
       {/* Note: This layout shows *all* calculators. The CalculatorsPage component handles filtering. */}
       {/* This layout might be better suited for just wrapping {children} if the page handles the grid */}
@@ -118,7 +117,7 @@ export default function CalculatorsLayout({
                     size="sm" // Smaller button
                     className="w-full" // Make button full width
                   >
-                    <Link href={calc.path}>
+                    <Link href={calc.path} legacyBehavior>
                       {calc.premiumOnly ? 'View Details' : 'Open Calculator'}
                     </Link>
                   </Button>
@@ -127,7 +126,6 @@ export default function CalculatorsLayout({
             ))}
           </div>
       </div>
-
       {/* Content Area for Specific Calculator Page */}
       <div className="mt-8">
         {/* The actual page content (e.g., AwwCalculatorPage) will be rendered here */}

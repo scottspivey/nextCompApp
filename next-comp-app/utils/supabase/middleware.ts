@@ -52,7 +52,8 @@ export async function updateSession(request: NextRequest) {
     !user &&
     !request.nextUrl.pathname.startsWith('/login') && // Allow access to login page
     !request.nextUrl.pathname.startsWith('/auth') &&// Allow access to auth callback routes
-    !request.nextUrl.pathname.startsWith('/dashboard')  // Allow access to dashboard page DEVELOPMENT ONLY
+    !request.nextUrl.pathname.startsWith('/dashboard') &&  // Allow access to dashboard page DEVELOPMENT ONLY
+    !request.nextUrl.pathname.startsWith('/')
     // Add any other public routes here (e.g., pricing, about)
     // !request.nextUrl.pathname.startsWith('/pricing')
   ) {

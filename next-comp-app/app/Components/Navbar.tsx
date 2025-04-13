@@ -88,7 +88,10 @@ export default function Navbar() {
           {/* Logo and Desktop Links */}
           <div className="flex items-center">
             {/* Logo */}
-            <Link href="/" className="flex-shrink-0 flex items-center space-x-2">
+            <Link
+              href="/"
+              className="flex-shrink-0 flex items-center space-x-2"
+              legacyBehavior>
               {/* Optional: Add an actual logo SVG or Image here */}
               {/* <img className="h-8 w-auto" src="/logo.svg" alt="Logo"/> */}
               <span className="font-bold text-xl">SC Workers&apos; Comp</span>
@@ -101,7 +104,7 @@ export default function Navbar() {
                 <div key={link.name} className="relative group">
                   {link.submenu ? (
                     // Dropdown Button
-                    <button
+                    (<button
                       onClick={() => toggleDropdown(link.name)}
                       // Use aria-expanded for accessibility
                       aria-expanded={activeDropdown === link.name}
@@ -119,10 +122,10 @@ export default function Navbar() {
                         }`}
                         aria-hidden="true" // Icon is decorative
                       />
-                    </button>
+                    </button>)
                   ) : (
                     // Regular Link
-                    <Link
+                    (<Link
                       href={link.href}
                       // Consistent padding and styling
                       className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out ${
@@ -130,9 +133,9 @@ export default function Navbar() {
                           ? "bg-primary-foreground/10 text-primary-foreground"
                           : "text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
                       }`}
-                    >
+                      legacyBehavior>
                       {link.name}
-                    </Link>
+                    </Link>)
                   )}
 
                   {/* Desktop Dropdown Menu */}
@@ -153,7 +156,8 @@ export default function Navbar() {
                           <Link
                             key={sublink.name}
                             href={sublink.href}
-                            role="menuitem" // Accessibility
+                            // Accessibility
+                            role="menuitem"
                             className={`block px-4 py-2 text-sm transition-colors duration-150 ease-in-out ${
                               isSublinkActive(sublink.href) // Exact match for sublink active state
                                 ? "bg-accent text-accent-foreground font-medium" // Use accent colors
@@ -161,7 +165,7 @@ export default function Navbar() {
                             }`}
                             // Close dropdown when a sublink is clicked
                             onClick={() => setActiveDropdown(null)}
-                          >
+                            legacyBehavior>
                             {sublink.name}
                           </Link>
                         ))}
@@ -208,7 +212,6 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-
       {/* Mobile menu */}
       {/* Use transition for smoother open/close */}
       <div
@@ -253,7 +256,7 @@ export default function Navbar() {
                             }`}
                             // Close entire mobile menu when sublink clicked
                             onClick={() => setIsMenuOpen(false)}
-                          >
+                            legacyBehavior>
                             {sublink.name}
                           </Link>
                         ))}
@@ -262,7 +265,7 @@ export default function Navbar() {
                 </>
               ) : (
                 // Mobile Regular Link
-                <Link
+                (<Link
                   href={link.href}
                   className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-150 ease-in-out ${
                     isActive(link.href)
@@ -270,9 +273,9 @@ export default function Navbar() {
                       : "text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
                   }`}
                   onClick={() => setIsMenuOpen(false)}
-                >
+                  legacyBehavior>
                   {link.name}
-                </Link>
+                </Link>)
               )}
             </div>
           ))}

@@ -28,7 +28,7 @@ export default function TestimonialsSection() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-5xl mx-auto"> {/* Limit max width */}
         {testimonials.map((testimonial) => (
           // Apply card styling
-          <div key={testimonial.id} className="bg-card text-card-foreground p-6 rounded-lg shadow-sm border border-border flex flex-col">
+          (<div key={testimonial.id} className="bg-card text-card-foreground p-6 rounded-lg shadow-sm border border-border flex flex-col">
             {/* Author Info */}
             <div className="flex items-center mb-4">
               {/* Use Avatar component */}
@@ -46,7 +46,7 @@ export default function TestimonialsSection() {
             </div>
             {/* Quote - Use theme text color, maybe slightly less emphasis */}
             <p className="text-card-foreground/90 italic flex-grow">&ldquo;{testimonial.quote}&rdquo;</p>
-          </div>
+          </div>)
         ))}
       </div>
     </section>

@@ -6,12 +6,12 @@ import typography from "@tailwindcss/typography"
 
 const config = {
   darkMode: ["class"],
+  // Corrected content paths:
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
-	],
+    "./app/**/*.{js,ts,jsx,tsx,mdx}", // Scans layout, pages, and subfolders within app
+    "./app/Components/**/*.{js,ts,jsx,tsx,mdx}", // Explicitly scans your components folder
+    // Add any other top-level directories if needed, e.g. './lib/**/*.{js,ts}'
+  ],
   prefix: "",
   theme: {
     container: {
@@ -57,10 +57,10 @@ const config = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      // Using direct color for caret as per previous diagnostic step
       caretColor: {
-        // Use a simple, direct hex color value for testing
-        primary: '#E11D48', // Example: A distinct pink/red color
-        // secondary: '#3B82F6', // Example: Blue
+        primary: '#E11D48', // Keep this direct color for now until styling works
+        // secondary: '#3B82F6',
       },
       borderRadius: {
         lg: "var(--radius)",

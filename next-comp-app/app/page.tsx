@@ -11,8 +11,7 @@ import FAQSection from "@/app/Components/HomePage/FAQSection";
 import NewsletterSignup from "@/app/Components/HomePage/NewsletterSignup";
 import TrustedBy from "@/app/Components/HomePage/TrustedBy";
 import FeaturesCallout from "@/app/Components/HomePage/FeaturesCallout";
-// no longer used 
-// import KeyFeatures from "@/app/Components/HomePage/KeyFeatures";
+
 
 export const metadata: Metadata = {
   title: "SC Worker's Compensation App | Professional Calculators for Comp Claims",

@@ -1,16 +1,13 @@
 // tailwind.config.ts
 import type { Config } from "tailwindcss"
-// Remove v3 plugin imports if they were here
-// import tailwindcssAnimate from "tailwindcss-animate"
-// import typography from "@tailwindcss/typography"
 
 const config = {
   darkMode: ["class", "dark"],
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/Components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
-  prefix: "",
   theme: {
     container: {
       center: true,
@@ -20,7 +17,6 @@ const config = {
       },
     },
     extend: {
-      // Your color definitions using CSS variables should still work
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -56,15 +52,12 @@ const config = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
-      // Keep caretColor (using direct value for now)
-      caretColor: {
-        primary: '#E11D48',
-      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      // Need to add keyframes that your components are using
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -74,20 +67,30 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "fade-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "slide-in-from-top-10": {
+          from: { transform: "translateY(-10%)" },
+          to: { transform: "translateY(0)" },
+        },
+        "zoom-in-95": {
+          from: { transform: "scale(0.95)" },
+          to: { transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.5s ease-out",
+        "slide-in-from-top-10": "slide-in-from-top-10 0.5s ease-out",
+        "zoom-in-95": "zoom-in-95 0.5s ease-out",
+        "in": "fade-in 0.5s ease-out",
       },
     },
   },
-  // Ensure plugins array is empty or contains only v4 compatible plugins
-  plugins: [
-    // Remove v3 plugins for now
-    // tailwindcssAnimate,
-    // typography,
-  ],
-
+  plugins: [],
 } satisfies Config
 
 export default config

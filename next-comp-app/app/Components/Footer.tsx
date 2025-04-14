@@ -176,7 +176,7 @@ export default function Footer() {
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="Your email address"
+                        placeholder="youraddress@email.com"
                         className="bg-background/5 border-border text-background placeholder:text-muted" // Input styling for dark bg
                         disabled={isSubmitting}
                         aria-label="Email address for newsletter"

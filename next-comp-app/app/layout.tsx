@@ -1,9 +1,10 @@
 // app/layout.tsx
+import "@/app/styles/globals.css";
 import { Metadata } from "next";
 import Navbar from "@/app/Components/Navbar";
 import Footer from "@/app/Components/Footer";
 import { Toaster } from "@/app/Components/ui/toaster";
-import "@/app/styles/globals.css"; // Keep this import
+
 import { ThemeProvider } from "@/app/Components/providers/theme-provider"; // Import the ThemeProvider
 // Import your font if needed
 // import { Inter } from "next/font/google";

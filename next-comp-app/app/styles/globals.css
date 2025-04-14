@@ -1,9 +1,7 @@
 /* app/styles/globals.css */
 
-/* Import Tailwind directives - MUST be at the top */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Import Tailwind v4 styles - MUST be at the top */
+@import "tailwindcss";
 
 /* Define CSS Variables for Theming */
 @layer base {
@@ -71,7 +69,6 @@
   }
 
   /* Apply base body styles using direct CSS variables */
-  /* Moved inside the first @layer base */
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
@@ -79,13 +76,11 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Removed the * rule that applied border-border */
-
-} /* End of first @layer base */
+} /* End of @layer base */
 
 
 /* --- Custom Selection Styles --- */
-/* These are fine outside @layer base */
+/* Apply outside @layer base */
 ::selection {
   background-color: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
@@ -98,8 +93,8 @@
 
 
 /* Custom overrides for react-day-picker (Calendar) */
-/* These are fine outside @layer base */
-/* ... your rdp styles ... */
+/* Apply outside of @layer base */
+
 /* Selected day(s) background and text */
 .rdp-day_selected,
 .rdp-day_selected:focus-visible,
@@ -111,17 +106,15 @@
 /* Style for "today" */
 .rdp-day_today:not(.rdp-day_outside) {
     font-weight: bold;
-    background-color: transparent !important; /* Ensure no background */
-    color: hsl(var(--primary)) !important; /* Use primary color for text */
-    border: 1px solid hsl(var(--primary)) !important; /* Use primary color for border */
+    background-color: transparent !important;
+    color: hsl(var(--primary)) !important;
+    border: 1px solid hsl(var(--primary)) !important;
 }
-/* Ensure 'today' text color is correct in dark mode (already handled by variable, but keep border override) */
 .dark .rdp-day_today:not(.rdp-day_outside) {
-    /* color: hsl(var(--primary)) !important; */ /* Color should inherit from variable */
     border-color: hsl(var(--primary)) !important;
 }
 
-/* Optional: Style range selection */
+/* Style range selection */
 .rdp-day_range_middle {
     background-color: hsl(var(--accent)) !important;
     color: hsl(var(--accent-foreground)) !important;
@@ -135,6 +128,4 @@
      background-color: hsl(var(--primary)) !important;
      color: hsl(var(--primary-foreground)) !important;
 }
-
-/* REMOVED the duplicate @layer base block from the end */
 

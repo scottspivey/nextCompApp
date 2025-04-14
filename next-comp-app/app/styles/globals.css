@@ -14,20 +14,25 @@
     --card-foreground: 224 71.4% 4.1%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
-    --primary: 173.5 80.1% 38.2%; /* Teal */
-    --primary-foreground: 180 100% 97%; /* Very Light Cyan/White */
-    --secondary: 220 13% 91%; /* Light Gray */
-    --secondary-foreground: 224 71.4% 4.1%;
-    --muted: 220 13% 91%;
+    --primary: 220.9 39.3% 11%; /* Teal */
+    --primary-foreground: 210 20% 98%; /* Very Light Cyan/White */
+    --secondary: 220 14.3% 95.9%; /* Light Gray */
+    --secondary-foreground: 220.9 39.3% 11%;
+    --muted: 220 14.3% 95.9%;
     --muted-foreground: 220 8.9% 46.1%; /* Medium Gray */
-    --accent: 220 13% 91%; /* Light Gray */
-    --accent-foreground: 224 71.4% 4.1%;
+    --accent: 220 14.3% 95.9%; /* Light Gray */
+    --accent-foreground: 220.9 39.3% 11%;
     --destructive: 0 84.2% 60.2%; /* Red */
     --destructive-foreground: 210 20% 98%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 173.5 80.1% 38.2%; /* Teal Focus Ring */
+    --ring: 224 71.4% 4.1%; /* Teal Focus Ring */
     --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
   }
 
   /* Dark Mode - Teal & Gray */
@@ -38,19 +43,19 @@
     --card-foreground: 210 20% 98%;
     --popover: 224 71.4% 4.1%;
     --popover-foreground: 210 20% 98%;
-    --primary: 174.6 73.3% 46.5%; /* Brighter Teal */
-    --primary-foreground: 180 100% 97%;
+    --primary: 210 20% 98%; /* Brighter Teal */
+    --primary-foreground: 220.9 39.3% 11%;
     --secondary: 215 27.9% 16.9%; /* Darker Gray */
     --secondary-foreground: 210 20% 98%;
     --muted: 215 27.9% 16.9%;
-    --muted-foreground: 217.5 16.7% 61%; /* Lighter Gray */
+    --muted-foreground: 217.9 10.6% 64.9%; /* Lighter Gray */
     --accent: 215 27.9% 16.9%;
     --accent-foreground: 210 20% 98%;
     --destructive: 0 62.8% 30.6%; /* Darker Red */
     --destructive-foreground: 210 20% 98%;
     --border: 215 27.9% 16.9%;
     --input: 215 27.9% 16.9%;
-    --ring: 174.6 73.3% 46.5%; /* Brighter Teal Focus Ring */
+    --ring: 216 12.2% 83.9%; /* Brighter Teal Focus Ring */ --chart-1: 220 70% 50%; --chart-2: 160 60% 45%; --chart-3: 30 80% 55%; --chart-4: 280 65% 60%; --chart-5: 340 75% 55%;
   }
 }
 
@@ -114,4 +119,13 @@
 .rdp-day_range_end {
      background-color: hsl(var(--primary)) !important;
      color: hsl(var(--primary-foreground)) !important;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

@@ -90,8 +90,7 @@ export default function Navbar() {
             {/* Logo */}
             <Link
               href="/"
-              className="flex-shrink-0 flex items-center space-x-2"
-              legacyBehavior>
+              className="flex-shrink-0 flex items-center space-x-2">
               {/* Optional: Add an actual logo SVG or Image here */}
               {/* <img className="h-8 w-auto" src="/logo.svg" alt="Logo"/> */}
               <span className="font-bold text-xl">SC Workers&apos; Comp</span>
@@ -132,8 +131,7 @@ export default function Navbar() {
                         isActive(link.href) // Use simpler check for non-submenu links
                           ? "bg-primary-foreground/10 text-primary-foreground"
                           : "text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                      }`}
-                      legacyBehavior>
+                      }`}>
                       {link.name}
                     </Link>)
                   )}
@@ -164,8 +162,7 @@ export default function Navbar() {
                                 : "text-foreground/80 hover:bg-accent hover:text-accent-foreground"
                             }`}
                             // Close dropdown when a sublink is clicked
-                            onClick={() => setActiveDropdown(null)}
-                            legacyBehavior>
+                            onClick={() => setActiveDropdown(null)}>
                             {sublink.name}
                           </Link>
                         ))}
@@ -255,8 +252,7 @@ export default function Navbar() {
                                 : "text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/5"
                             }`}
                             // Close entire mobile menu when sublink clicked
-                            onClick={() => setIsMenuOpen(false)}
-                            legacyBehavior>
+                            onClick={() => setIsMenuOpen(false)}>
                             {sublink.name}
                           </Link>
                         ))}
@@ -272,8 +268,7 @@ export default function Navbar() {
                       ? "bg-primary-foreground/10 text-primary-foreground"
                       : "text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
                   }`}
-                  onClick={() => setIsMenuOpen(false)}
-                  legacyBehavior>
+                  onClick={() => setIsMenuOpen(false)}>
                   {link.name}
                 </Link>)
               )}

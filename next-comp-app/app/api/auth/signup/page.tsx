@@ -2,7 +2,7 @@
 // Creates the page route for /signup
 
 import Link from 'next/link';
-import { SignUpForm } from '@/app/api/auth/[...nextauth]/signup/signup-form'; // Assuming form is in a separate file
+import { SignUpForm } from '@/app/api/auth/signup/signup-form'; // Assuming form is in a separate file
 import {
   Card,
   CardContent,

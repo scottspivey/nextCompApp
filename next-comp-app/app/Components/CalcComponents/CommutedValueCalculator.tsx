@@ -139,7 +139,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
 
   const handleStep2Submit = (data: CompRateValues) => {
     const year = parseInt(yearOfInjury);
-    const maxRate = maxCompensationRates[year] || 1134.43;
+    const maxRate = maxCompensationRates[year] || 0;
 
     if (data.compRate > maxRate) {
       compRateForm.setError("compRate", {
@@ -268,7 +268,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
                        <FormControl>
                          <Input
                            type="number"
-                           step="0.01"
+                           step="any"
                            min="0"
                            max="500"
                            placeholder="e.g., 52.14"
@@ -291,7 +291,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
                        <FormControl>
                          <Input
                            type="number"
-                           step="0.01"
+                           step="any"
                            min="0"
                            max="500"
                            placeholder="e.g., 10"

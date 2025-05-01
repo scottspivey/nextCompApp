@@ -144,7 +144,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
     if (data.compRate > maxRate) {
       compRateForm.setError("compRate", {
         type: "manual",
-        message: `Rate cannot exceed max of $${maxRate.toLocaleString('en-US')} for ${yearOfInjury}`
+        message: `The compensation rate cannot exceed the maximum rate of $${maxRate.toLocaleString('en-US')} for ${yearOfInjury}.`
       });
       return;
     }
@@ -197,10 +197,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
               )}
             />
             {customStepError && <p className="text-sm font-medium text-destructive">{customStepError}</p>}
-            <div className="flex justify-end space-x-3">
-              <Button type="button" variant="destructive" onClick={resetCalculator}>
-                 <RotateCcw className="mr-2 h-4 w-4" /> Reset
-              </Button>
+            <div className="flex flex-wrap justify-start gap-3 pt-4">
               <Button type="submit">
                  Next <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -221,14 +218,14 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
                 <FormItem>
                   <FormLabel>Compensation Rate ($)</FormLabel>
                    <FormDescription>
-                     Max Rate for {yearOfInjury}: ${(maxCompensationRates[parseInt(yearOfInjury)] || 1134.43).toLocaleString('en-US')}
+                     Max Rate for {yearOfInjury}: ${(maxCompensationRates[parseInt(yearOfInjury)] || 75).toLocaleString('en-US')}
                    </FormDescription>
                   <FormControl>
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder="Enter weekly comp rate"
+                      placeholder="Enter weekly compensation rate..."
                       {...field}
                       // Ensure undefined is passed if input is empty
                       onChange={event => field.onChange(event.target.value === '' ? undefined : event.target.value)}
@@ -240,10 +237,13 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
               )}
             />
              {customStepError && <p className="text-sm font-medium text-destructive">{customStepError}</p>}
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-start gap-3 pt-4">
                <Button type="button" variant="outline" onClick={prevStep}>
                  <ArrowLeft className="mr-2 h-4 w-4" /> Back
                </Button>
+               <Button type="button" variant="destructive" onClick={resetCalculator}>
+                 <RotateCcw className="mr-2 h-4 w-4" /> Reset
+                </Button>
                <Button type="submit">
                  Next <ArrowRight className="ml-2 h-4 w-4" />
                </Button>
@@ -275,7 +275,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
                             {...field}
                             // Ensure undefined is passed if input is empty
                             onChange={event => field.onChange(event.target.value === '' ? undefined : event.target.value)}
-                            value={field.value ?? ''} // Display state value or empty string
+                            value={field.value ?? ''}
                          />
                        </FormControl>
                        <FormMessage />
@@ -311,10 +311,13 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
              {weeksForm.formState.errors.ttdPaidToDate?.type === 'refine' && (
                  <p className="text-sm font-medium text-destructive">{weeksForm.formState.errors.ttdPaidToDate.message}</p>
              )}
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-start gap-3 pt-4">
                <Button type="button" variant="outline" onClick={prevStep}>
                  <ArrowLeft className="mr-2 h-4 w-4" /> Back
                </Button>
+               <Button type="button" variant="destructive" onClick={resetCalculator}>
+                 <RotateCcw className="mr-2 h-4 w-4" /> Reset
+                </Button>
                <Button type="submit">
                  Calculate Results <ArrowRight className="ml-2 h-4 w-4" />
                </Button>
@@ -332,9 +335,9 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
                 <h4 className="font-semibold text-foreground mb-3">Input Values</h4>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <span className="text-muted-foreground">Year of Injury:</span> <span className="font-medium text-foreground">{yearOfInjury}</span>
-                    <span className="text-muted-foreground">Comp Rate:</span> <span className="font-medium text-foreground">${compRate?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? 'N/A'}</span>
+                    <span className="text-muted-foreground">Compensation Rate:</span> <span className="font-medium text-foreground">${compRate?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? 'N/A'}</span>
                     {/* Use ?? 0 for display if needed, as store might hold number */}
-                    <span className="text-muted-foreground">TTD Weeks Paid:</span> <span className="font-medium text-foreground">{ttdPaidToDate ?? 0}</span>
+                    <span className="text-muted-foreground">TTD Weeks Paid to Date:</span> <span className="font-medium text-foreground">{ttdPaidToDate ?? 0}</span>
                     <span className="text-muted-foreground">Other Credit Weeks:</span> <span className="font-medium text-foreground">{otherCredit ?? 0}</span>
                 </div>
            </div>
@@ -344,13 +347,13 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <span className="text-muted-foreground">TTD Value Paid:</span> <span className="font-medium text-foreground">${ttdPaidToDateValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? 'N/A'}</span>
                     <span className="text-muted-foreground">Weeks Remaining:</span> <span className="font-medium text-foreground">{weeksRemaining?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? 'N/A'}</span>
-                    <span className="text-muted-foreground">Discount Rate:</span> <span className="font-medium text-foreground">{(discountRate != null ? discountRate * 100 : NaN).toFixed(2)}%</span>
-                    <span className="text-muted-foreground">Discounted Weeks:</span> <span className="font-medium text-foreground">{discountedWeeks?.toFixed(4) ?? 'N/A'}</span>
+                    <span className="text-muted-foreground">Discount Rate for {currentYear}:</span> <span className="font-medium text-foreground">{(discountRate != null ? discountRate * 100 : NaN).toFixed(2)}%</span>
+                    <span className="text-muted-foreground">Discounted Weeks:</span> <span className="font-medium text-foreground">{discountedWeeks?.toFixed(6) ?? 'N/A'}</span>
                 </div>
            </div>
-           {/* Settlement Values Card */}
+           {/* Key Values Card */}
            <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
-                <h4 className="font-semibold text-primary mb-3">Settlement Values</h4>
+                <h4 className="font-semibold text-primary mb-3">Key Values</h4>
                  <div className="space-y-2 text-sm">
                     <div className="flex justify-between items-center">
                         <span className="text-primary font-semibold">Commuted Value (100%):</span>

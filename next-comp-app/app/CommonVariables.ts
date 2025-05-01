@@ -1,4 +1,4 @@
-export const maxCompensationRates: Record<number, number> = {
+/* export const maxCompensationRates: Record<number, number> = {
     2025: 1134.43,
     2024: 1093.67,
     2023: 1035.78,
@@ -46,4 +46,4 @@ export const maxCompensationRates: Record<number, number> = {
     1981: 216.0,
     1980: 197.0,
     1979: 185.0,
-  };
+  }; */

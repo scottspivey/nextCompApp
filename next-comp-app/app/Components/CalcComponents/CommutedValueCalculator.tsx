@@ -32,6 +32,7 @@ import { ArrowLeft, ArrowRight, RotateCcw, Printer } from "lucide-react";
 type MaxCompensationRates = Record<number, number>;
 interface CommutedValueCalculatorProps {
   maxCompensationRates: MaxCompensationRates;
+  currentMarketDiscountRate: number | null;
 }
 
 // --- Zod Schemas ---
@@ -78,7 +79,7 @@ type WeeksValues = z.infer<typeof WeeksSchema>; // { ttdPaidToDate?: number | un
 
 
 // --- Component ---
-const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCompensationRates }) => {
+const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCompensationRates, currentMarketDiscountRate }) => {
   // Zustand store state and actions...
   const {
     yearOfInjury, compRate, ttdPaidToDate, otherCredit, currentStep,
@@ -159,7 +160,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
     setTtdPaidToDate(data.ttdPaidToDate ?? 0);
     setOtherCredit(data.otherCredit ?? 0);
     setCustomStepError(null);
-    calculateResults();
+    calculateResults(currentMarketDiscountRate);
     nextStep();
   };
 
@@ -338,17 +339,17 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({ maxCo
                     <span className="text-muted-foreground">Compensation Rate:</span> <span className="font-medium text-foreground">${compRate?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? 'N/A'}</span>
                     {/* Use ?? 0 for display if needed, as store might hold number */}
                     <span className="text-muted-foreground">TTD Weeks Paid to Date:</span> <span className="font-medium text-foreground">{ttdPaidToDate ?? 0}</span>
-                    <span className="text-muted-foreground">Other Credit Weeks:</span> <span className="font-medium text-foreground">{otherCredit ?? 0}</span>
+                    <span className="text-muted-foreground">Other Credit in Weeks:</span> <span className="font-medium text-foreground">{otherCredit ?? 0}</span>
                 </div>
            </div>
             {/* Calculation Results Card */}
            <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
                 <h4 className="font-semibold text-foreground mb-3">Calculation Details</h4>
                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <span className="text-muted-foreground">TTD Value Paid:</span> <span className="font-medium text-foreground">${ttdPaidToDateValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? 'N/A'}</span>
-                    <span className="text-muted-foreground">Weeks Remaining:</span> <span className="font-medium text-foreground">{weeksRemaining?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? 'N/A'}</span>
+                    <span className="text-muted-foreground">TTD Value Paid to Date:</span> <span className="font-medium text-foreground">${ttdPaidToDateValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? 'N/A'}</span>
+                    <span className="text-muted-foreground">Number of Weeks Remaining:</span> <span className="font-medium text-foreground">{weeksRemaining?.toLocaleString(undefined, { maximumFractionDigits: 10 }) ?? 'N/A'}</span>
                     <span className="text-muted-foreground">Discount Rate for {currentYear}:</span> <span className="font-medium text-foreground">{(discountRate != null ? discountRate * 100 : NaN).toFixed(2)}%</span>
-                    <span className="text-muted-foreground">Discounted Weeks:</span> <span className="font-medium text-foreground">{discountedWeeks?.toFixed(6) ?? 'N/A'}</span>
+                    <span className="text-muted-foreground">Discounted Weeks:</span> <span className="font-medium text-foreground">{discountedWeeks?.toFixed(10) ?? 'N/A'}</span>
                 </div>
            </div>
            {/* Key Values Card */}

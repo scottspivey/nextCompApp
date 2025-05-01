@@ -1,13 +1,19 @@
 // lib/prisma.ts
+import { PrismaClient } from '@prisma/client';
 
-import { PrismaClient } from '@prisma/client'
-
-const globalForPrisma = global as unknown as { 
-    prisma: PrismaClient
+// Define the type for the globalThis object to include an optional prisma property
+// Use 'var' to allow redeclaration across modules in development
+declare global {
+  var prisma: PrismaClient | undefined;
 }
 
-const prisma = globalForPrisma.prisma || new PrismaClient()
+// Initialize Prisma Client, reusing the existing instance in development
+// or creating a new one in production or if it doesn't exist
+const prisma = globalThis.prisma ?? new PrismaClient();
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// In development, assign the new instance to the global variable
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.prisma = prisma;
+}
 
-export default prisma
+export default prisma;

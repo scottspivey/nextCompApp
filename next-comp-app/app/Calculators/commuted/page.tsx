@@ -1,50 +1,113 @@
 // app/Calculators/commuted/page.tsx
 import React from "react";
 import { Metadata } from "next";
-import CommutedValueCalculator from "@/app/Components/CalcComponents/CommutedValueCalculator"; // Adjust path if needed
-import { maxCompensationRates } from "@/app/CommonVariables"; // Adjust path if needed
+import prisma from "@/lib/prisma";
+import CommutedValueCalculator from "@/app/Components/CalcComponents/CommutedValueCalculator";
 
-// Metadata remains the same
 export const metadata: Metadata = {
   title: "Commuted Value Calculator | SC Worker's Compensation App",
   description: "Calculate the present value of future workers' compensation benefits using court-approved discount rates.",
 };
 
-export default function CommutedValuePage() {
+/**
+ * Fetches all max compensation rates from the database.
+ * @returns A promise resolving to a Record mapping year to max rate.
+ */
+async function getMaxCompRates(): Promise<Record<number, number>> {
+  const ratesData = await prisma.rateSetting.findMany({
+      where: { rate_type: "MAX_COMPENSATION" },
+      select: { year: true, value: true }, // Select only needed fields
+      orderBy: { year: 'asc' } // Optional: order by year
+  });
+
+  const ratesRecord: Record<number, number> = {};
+  
+  ratesData.forEach((rate: { year: number; value: { toNumber(): number } }) => {
+      ratesRecord[rate.year] = rate.value.toNumber();
+  });
+  return ratesRecord;
+}
+
+/**
+ * Fetches the applicable discount rate for 101+ weeks for the current calculation year.
+ * @returns A promise resolving to the discount rate (e.g., 0.0438) or null if not found.
+ */
+async function getCurrentDiscountRate(): Promise<number | null> {
+  // Determine the year for which the discount rate should apply (usually the current year)
+  const currentCalcYear = new Date().getFullYear(); // e.g., 2025
+
+  const discountRateSetting = await prisma.rateSetting.findUnique({
+      where: {
+          // Use the composite key defined in the schema (@@id([year, rate_type]))
+          year_rate_type: {
+              year: currentCalcYear,
+              rate_type: "DISCOUNT_RATE_101_PLUS" // The identifier for the variable rate
+          }
+      },
+      select: { value: true } // Select only the rate value
+  });
+
+  return discountRateSetting ? discountRateSetting.value.toNumber() : null;
+}
+
+
+export default async function CommutedValuePage() {
+
+  // Fetch data on the server when the page component renders
+  const maxCompRates = await getMaxCompRates();
+  const currentDiscountRate = await getCurrentDiscountRate(); // e.g., 0.0438 for 2025
+
+  // Log an error if the crucial discount rate for the current year is missing
+  // You might want more robust error handling depending on requirements
+  if (currentDiscountRate === null) {
+      console.error(`CRITICAL: Discount rate ('DISCOUNT_RATE_101_PLUS') for year ${new Date().getFullYear()} not found in database! Calculator may use fallback.`);
+      // Consider throwing an error or displaying a message to the user
+  }
+
+  // Format the fetched discount rate for display (or show 'N/A')
+  const displayDiscountRate = currentDiscountRate !== null
+    ? `${(currentDiscountRate * 100).toFixed(2)}%`
+    : 'N/A (Rate missing)';
+
   return (
-    // No outer container needed if rendered within CalculatorsLayout which has one
+    // Main container for the page content
     <div>
       {/* Page-specific Header */}
       <div className="mb-8">
-        {/* Use theme text colors */}
         <h2 className="text-2xl font-bold mb-2 text-foreground">Commuted Value Calculator</h2>
         <p className="text-muted-foreground max-w-3xl">
           Calculate the present value of future workers&apos; compensation benefits, applying the appropriate
           discount rate based on remaining weeks. Used for lump sum settlements and benefit commutations.
         </p>
       </div>
+
       {/* Main Calculator Component Area */}
-      {/* Wrap the calculator in a themed card */}
       <div className="bg-card text-card-foreground p-6 md:p-8 rounded-lg shadow-sm border border-border">
-        {/* Assuming CommutedValueCalculator component handles its internal layout */}
-        <CommutedValueCalculator maxCompensationRates={maxCompensationRates} />
+        {/* Pass the fetched data down to the client component */}
+        <CommutedValueCalculator
+          maxCompensationRates={maxCompRates}
+          currentMarketDiscountRate={currentDiscountRate}
+        />
       </div>
+
       {/* Informational "About" Section */}
-      {/* Use muted background for contrast */}
       <div className="mt-12 bg-muted text-muted-foreground p-6 md:p-8 rounded-lg border border-border/50">
         <h3 className="text-xl font-semibold mb-4 text-foreground">About This Calculator</h3>
-        <div className="space-y-3 text-sm"> {/* Add spacing between paragraphs */}
+        <div className="space-y-3 text-sm">
           <p>
             Under South Carolina Code § 42-9-301, parties may agree to commute future compensation payments to
             present value when approved by the Workers&apos; Compensation Commission.
           </p>
           <p>
-            This calculator uses the current court-approved discount rates: <strong>4.38%</strong> for claims with more than 100 weeks
+            {/* Dynamically display the fetched discount rate */}
+            This calculator uses the current court-approved discount rates: <strong>{displayDiscountRate}</strong> for claims with more than 100 weeks
             remaining and <strong>2%</strong> for claims with 100 weeks or fewer remaining.
           </p>
           <p>
-            The calculator also provides values at <strong>95%</strong> and <strong>90%</strong> of the commuted value, which are common settlement
-            percentages used in South Carolina workers&apos; compensation cases.
+            The calculator also provides values at <strong>95%</strong> and <strong>90%</strong> of the commuted value, which may be helpful in the evaluation of claims.
+          </p>
+          <p>
+            Need a good disclaimer here....
           </p>
         </div>
       </div>

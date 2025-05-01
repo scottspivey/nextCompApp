@@ -8,7 +8,7 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  output = "./node_modules/@prisma/client"
+  output   = "../node_modules/.prisma/client"
 }
 
 // --- NextAuth.js Models ---
@@ -168,7 +168,7 @@ model Claim {
 model RateSetting {
   year           Int
   rate_type      String
-  value          Decimal  // Removed @db.Numeric - Prisma maps Decimal correctly
+  value          Decimal
   effective_date DateTime? @db.Date
   description    String?  @db.Text
   createdAt      DateTime @default(now()) @map("created_at")

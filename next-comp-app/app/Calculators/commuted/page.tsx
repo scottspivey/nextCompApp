@@ -95,22 +95,17 @@ export default async function CommutedValuePage() {
         <h3 className="text-xl font-semibold mb-4 text-foreground">About This Calculator</h3>
         <div className="space-y-3 text-sm">
           <p>
-            Under South Carolina Code § 42-9-301, parties may agree to commute future compensation payments to
+            <strong>General Information:</strong> Under South Carolina Code § 42-9-301, parties may agree to commute future compensation payments to
             present value when approved by the Workers&apos; Compensation Commission.
-          </p>
-          <p>
-            {/* Dynamically display the fetched discount rate */}
             This calculator uses the current S.C. Workers&apos; Compensation Commission approved discount rates: <strong>{displayDiscountRate}</strong> for claims with more than 100 weeks
             remaining and <strong>2%</strong> for claims with 100 weeks or fewer remaining.
-          </p>
-          <p>
             The calculator also provides values at <strong>95%</strong> and <strong>90%</strong> of the commuted value, which may be helpful in the evaluation of claims.
           </p>
           <p>
             <strong>Disclaimer:</strong> This calculator is intended for informational purposes only and does not constitute legal advice.
-                    While efforts have been made to ensure accuracy based on current South Carolina regulations and rates, users should independently
-                    verify all calculations and consult with qualified legal counsel before making any decisions based on these results. 
-                    <strong>Reliance on this tool is solely at the user&apos;s own risk.</strong>          
+            While efforts have been made to ensure accuracy based on current South Carolina regulations and rates, users should independently
+            verify all calculations and consult with qualified legal counsel before making any decisions based on these results.  
+            <strong> Reliance on this tool is solely at the user&apos;s own risk.</strong>          
           </p>
           <p>
             <strong>Note on Rounding:</strong> The South Carolina Workers&apos; Compensation Commission&apos;s official Net Present Value (NPV) tables

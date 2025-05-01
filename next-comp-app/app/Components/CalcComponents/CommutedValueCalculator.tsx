@@ -1,7 +1,7 @@
 // app/Components/CalcComponents/CommutedValueCalculator.tsx
 'use client';
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react"; // Added useRef
 import { useCommutedValueStore } from "@/app/stores/commutedValueStore"; // Adjust path if needed
 // Import Controller from react-hook-form for manual input control
 import { useForm, Controller } from "react-hook-form";
@@ -69,6 +69,9 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
     { length: currentYear - 1979 + 1 },
     (_, i) => (currentYear - i).toString()
   );
+
+  // Ref to store original body content for restoring after print
+  const originalBodyContent = useRef<string | null>(null);
 
   // --- Forms Setup ---
   // Initialize forms with static defaults to prevent hydration mismatch.
@@ -173,63 +176,80 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
     nextStep(); // Move to the results step
   };
 
+  // --- Print Handler ---
+  const handlePrint = () => {
+    const resultsElement = document.getElementById('commuted-value-results');
+    if (resultsElement) {
+      // Store the current body content
+      originalBodyContent.current = document.body.innerHTML;
+      // Replace body content with only the results content
+      // Adding basic styles for printing
+      document.body.innerHTML = `
+        <style>
+          /* Apply styles directly to the body for printing */
+          @page {
+             /* Standard paper margins - adjust if needed */
+             margin: 0.75in;
+          }
+          body {
+            margin: 0; /* Body margin handled by @page */
+            font-family: sans-serif;
+            font-size: 9.5pt; /* Slightly larger than previous attempt */
+            line-height: 1.3; /* Improve line spacing */
+          }
+          #commuted-value-results { width: 100%; border: none; box-shadow: none; }
+          /* Reduce spacing between cards */
+          #commuted-value-results > div { margin-bottom: 0.4rem; padding: 0.4rem; border: 1px solid #eee; page-break-inside: avoid; }
+          #commuted-value-results h3, #commuted-value-results h4 { margin-bottom: 0.2rem; padding-bottom: 0; border-bottom: none; font-size: 1.1em; }
+          /* Reduce vertical space within grid items */
+          #commuted-value-results .space-y-1 > div { padding-bottom: 0.05rem; }
+          /* Grid layout for label/value */
+          #commuted-value-results .grid { display: grid; grid-template-columns: 11rem 1fr; gap: 0 0.5rem; align-items: baseline; }
+          #commuted-value-results .text-left { text-align: left; }
+          #commuted-value-results .text-muted-foreground { color: #555; } /* Slightly darker for print */
+          #commuted-value-results .font-medium { font-weight: 500; }
+          #commuted-value-results .font-semibold { font-weight: 600; }
+          #commuted-value-results .font-bold { font-weight: 700; }
+          #commuted-value-results .text-primary { color: black; font-weight: 600; } /* Black for print */
+          #commuted-value-results .text-lg { font-size: 1.05em; } /* Relative font size */
+          .print-hide-button { display: none; } /* Hide buttons */
+          .print-only { margin-top: 0.8rem; padding-top: 0.4rem; border-top: 1px solid #ccc; page-break-before: auto; font-size: 8.5pt; } /* Smaller font for disclaimers */
+          .print-only p { margin-bottom: 0.2rem; }
+          .print-only strong { font-weight: bold; }
+        </style>
+        ${resultsElement.innerHTML}
+      `;
+      // Trigger the print dialog
+      window.print();
+      // Restore the original body content after printing (or cancellation)
+      // Using setTimeout to allow print dialog to process
+      setTimeout(() => {
+        if (originalBodyContent.current) {
+          document.body.innerHTML = originalBodyContent.current;
+          originalBodyContent.current = null; // Clear the stored content
+          // Re-attach any necessary global event listeners if needed
+        }
+         // Force React Hook Form to re-evaluate state after DOM manipulation
+         yearForm.trigger();
+         compRateForm.trigger();
+         weeksForm.trigger();
+      }, 500); // Adjust timeout if needed
+    } else {
+      console.error("Could not find results element to print.");
+    }
+  };
+
+
   // --- Render Logic ---
   // Note: The initial render uses static defaults, useEffects sync with store for client interaction
   return (
     // Add a container ID for print styling parent
     <div id="commuted-value-calculator-container">
-      {/* Inject CSS for printing */}
-      <style jsx global>{`
-        /* Default screen styles */
-        .print-only {
-          display: none; /* Hide elements marked for print only */
-        }
+      {/* Remove the print-specific CSS block - using JS now */}
+      {/* <style jsx global>{` ... `}</style> */}
 
-        @media print {
-          body * {
-            visibility: hidden; /* Hide everything by default */
-          }
-          /* Make only the results area and its children visible */
-          #commuted-value-results, #commuted-value-results * {
-            visibility: visible;
-          }
-          /* Position the results area at the top left of the print page */
-          #commuted-value-results {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%; /* Ensure it takes full width */
-            padding: 1rem; /* Add some padding for print */
-            border: none; /* Remove borders for print */
-            box-shadow: none; /* Remove shadows for print */
-            margin: 0; /* Reset margin */
-            font-size: 10pt; /* Adjust font size for print */
-          }
-          /* Hide buttons specifically within the results area when printing */
-          #commuted-value-results .print-hide-button {
-             visibility: hidden;
-             display: none;
-          }
-           /* Ensure result cards stack nicely */
-           #commuted-value-results > div:not(.print-only) { /* Exclude disclaimer div from margin */
-             margin-bottom: 1rem; /* Add space between cards */
-           }
-           /* Show elements marked as print-only */
-           #commuted-value-results .print-only {
-             display: block !important; /* Override default 'display: none' */
-             visibility: visible !important;
-             margin-top: 2rem; /* Add space above disclaimers */
-             padding-top: 1rem; /* Add padding above disclaimers */
-             border-top: 1px solid #ccc; /* Add separator line */
-           }
-           /* Ensure paragraphs within print-only are visible */
-            #commuted-value-results .print-only p {
-              visibility: visible !important;
-            }
-        }
-      `}</style>
-
-      <div className="space-y-8">
+      {/* This div now contains steps 1-3 */}
+      <div className={`calculator-steps-container space-y-8`}>
 
         {/* Step 1: Year of Injury */}
         {currentStep === 1 && (
@@ -407,95 +427,128 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
             </form>
           </Form>
         )}
+      </div> {/* End of the div containing steps 1-3 */}
 
-        {/* Step 4: Results Display */}
-        {/* Add id="commuted-value-results" for print styling target */}
-        {currentStep === 4 && weeksRemaining !== null && (
-          <div id="commuted-value-results" className="space-y-6">
-            <h3 className="text-xl font-bold text-foreground mb-4 border-b border-border pb-2">Commuted Value Calculation Results</h3>
-            {/* Input Summary Card */}
-            <div className="bg-muted border border-border/50 rounded-lg p-4">
-                <h4 className="font-semibold text-foreground mb-3">Input Values</h4>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <span className="text-muted-foreground">Year of Injury:</span> <span className="font-medium text-foreground">{useCommutedValueStore.getState().yearOfInjury}</span>
-                    <span className="text-muted-foreground">Compensation Rate:</span> <span className="font-medium text-foreground">{formatCurrency(useCommutedValueStore.getState().compRate) || 'N/A'}</span>
-                    <span className="text-muted-foreground">TTD Weeks Paid to Date:</span> <span className="font-medium text-foreground">{useCommutedValueStore.getState().ttdPaidToDate ?? 0}</span>
-                    <span className="text-muted-foreground">Other Credit Weeks:</span> <span className="font-medium text-foreground">{useCommutedValueStore.getState().otherCredit ?? 0}</span>
-                </div>
-            </div>
-            {/* Calculation Results Card */}
-            <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
-                <h4 className="font-semibold text-foreground mb-3">Calculation Details</h4>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <span className="text-muted-foreground">Calculation Date:</span>
-                    <span className="font-medium text-foreground">
-                      {calculationDate ? new Date(calculationDate).toLocaleDateString() : 'N/A'}
-                    </span>
-                    <span className="text-muted-foreground">TTD Value Paid:</span> <span className="font-medium text-foreground">{formatCurrency(ttdPaidToDateValue) || 'N/A'}</span>
-                    <span className="text-muted-foreground">Weeks Remaining:</span> <span className="font-medium text-foreground">{weeksRemaining?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? 'N/A'}</span>
-                    <span className="text-muted-foreground">Discount Rate Applied:</span> <span className="font-medium text-foreground">{(discountRate != null ? discountRate * 100 : NaN).toFixed(2)}%</span>
-                    <span className="text-muted-foreground">Discounted Weeks:</span> <span className="font-medium text-foreground">{discountedWeeks?.toFixed(6) ?? 'N/A'}</span>
-                </div>
-            </div>
-            {/* Key Values Card */}
-            <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
-                <h4 className="font-semibold text-primary mb-3">Key Values</h4>
-                <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center">
-                        <span className="text-primary font-semibold">Commuted Value (100%):</span>
-                        <span className="font-bold text-lg text-primary">{formatCurrency(commutedValue) || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-muted-foreground">
-                        <span>95% of Commuted Value:</span>
-                        <span className="font-medium">{formatCurrency(commutedValue95) || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-muted-foreground">
-                        <span>90% of Commuted Value:</span>
-                        <span className="font-medium">{formatCurrency(commutedValue90) || 'N/A'}</span>
-                    </div>
-                </div>
-            </div>
-            {/* Action Buttons for Step 4 */}
-            {/* Add 'print-hide-button' class to buttons we want to hide when printing */}
-            <div className="flex flex-wrap justify-start gap-3 pt-4 print-hide-button">
-              <Button variant="outline" onClick={prevStep}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back
-              </Button>
-              <Button variant="destructive" onClick={resetCalculator}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Start New
-              </Button>
-              {/* Use standard window.print() - CSS handles what's printed */}
-              <Button variant="secondary" onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" /> Print Results
-              </Button>
-            </div>
+      {/* Step 4: Results Display */}
+      {/* This div is now targeted by the JS print handler */}
+      {currentStep === 4 && weeksRemaining !== null && (
+        <div id="commuted-value-results" className="space-y-6">
+          <h3 className="text-xl font-bold text-foreground mb-4 border-b border-border pb-2">Commuted Value Calculation Results</h3>
 
-            {/* Disclaimers Section - Moved inside results div, styled for print only */}
-            <div className="print-only text-xs text-muted-foreground space-y-2">
-                <p>
-                    <strong>Disclaimer:</strong> This calculator is intended for informational purposes only and does not constitute legal advice.
-                    While efforts have been made to ensure accuracy based on current South Carolina regulations and rates, users should independently
-                    verify all calculations and consult with qualified legal counsel before making any decisions based on these results. <strong>Reliance on
-                    this tool is solely at the user&apos;s own risk.</strong>
-                </p>
-                <p>
-                    <strong>Note on Rounding:</strong> The South Carolina Workers&apos; Compensation Commission&apos;s official Net Present Value (NPV) tables
-                    round conversion factors to four decimal places. This calculator performs calculations using higher precision, which may result
-                    in minor variations compared to the official WCC published values.
-                </p>
-                <p>
-                    <strong>Note on NPV Formula Adjustment:</strong> To align with the methodology used in the official South Carolina Workers&apos; 
-                    Compensation Commission&apos;s Net Present Value (NPV) tables, this calculator incorporates an adjustment to the standard present value annuity 
-                    formula for calculations involving 101 to 500 weeks. Specifically, an additional week is included in the time period exponent, 
-                    mirroring the Commission&apos;s published factors. While this differs from standard financial calculations, it ensures results are consistent 
-                    with those expected based on the Commission&apos;s tables.
-                </p>
-            </div>
-
+          {/* Input Summary Card */}
+          <div className="bg-muted border border-border/50 rounded-lg p-4">
+              <h4 className="font-semibold text-foreground mb-3">Input Values</h4>
+              <div className="space-y-1 text-sm">
+                  {/* Use explicit width like w-44 (11rem) or w-48 (12rem) */}
+                  <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">Year of Injury:</span>
+                      <span className="font-medium text-foreground text-left">{useCommutedValueStore.getState().yearOfInjury}</span>
+                  </div>
+                   <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">Compensation Rate:</span>
+                      <span className="font-medium text-foreground text-left">{formatCurrency(useCommutedValueStore.getState().compRate) || 'N/A'}</span>
+                  </div>
+                   <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">TTD Weeks Paid:</span>
+                      <span className="font-medium text-foreground text-left">{useCommutedValueStore.getState().ttdPaidToDate ?? 0}</span>
+                  </div>
+                   <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">Other Credit Weeks:</span>
+                      <span className="font-medium text-foreground text-left">{useCommutedValueStore.getState().otherCredit ?? 0}</span>
+                  </div>
+              </div>
           </div>
-        )}
-      </div>
-    </div>
+
+          {/* Calculation Results Card */}
+          <div className="bg-card border border-border rounded-lg p-4 shadow-sm">
+              <h4 className="font-semibold text-foreground mb-3">Calculation Details</h4>
+              <div className="space-y-1 text-sm">
+                  <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">Calculation Date:</span>
+                      <span className="font-medium text-foreground text-left">
+                        {calculationDate ? new Date(calculationDate).toLocaleDateString() : 'N/A'}
+                      </span>
+                  </div>
+                  <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">TTD Value Paid:</span>
+                      <span className="font-medium text-foreground text-left">{formatCurrency(ttdPaidToDateValue) || 'N/A'}</span>
+                  </div>
+                  <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">Weeks Remaining:</span>
+                      <span className="font-medium text-foreground text-left">{weeksRemaining?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? 'N/A'}</span>
+                  </div>
+                  <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">Discount Rate Applied:</span>
+                      <span className="font-medium text-foreground text-left">{(discountRate != null ? discountRate * 100 : NaN).toFixed(2)}%</span>
+                  </div>
+                  <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">Discounted Weeks:</span>
+                      <span className="font-medium text-foreground text-left">{discountedWeeks?.toFixed(6) ?? 'N/A'}</span>
+                  </div>
+              </div>
+          </div>
+
+          {/* Key Values Card */}
+          <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+              <h4 className="font-semibold text-primary mb-3">Key Values</h4>
+              <div className="space-y-1 text-sm">
+                  <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-center">
+                      <span className="text-primary font-semibold text-left">Commuted Value (100%):</span>
+                      <span className="font-bold text-lg text-primary text-left">{formatCurrency(commutedValue) || 'N/A'}</span>
+                  </div>
+                  <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">95% of Commuted Value:</span>
+                      <span className="font-medium text-foreground text-left">{formatCurrency(commutedValue95) || 'N/A'}</span>
+                  </div>
+                  <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
+                      <span className="text-muted-foreground text-left">90% of Commuted Value:</span>
+                      <span className="font-medium text-foreground text-left">{formatCurrency(commutedValue90) || 'N/A'}</span>
+                  </div>
+              </div>
+          </div>
+
+          {/* Action Buttons for Step 4 */}
+          {/* Add 'print-hide-button' class to buttons we want to hide when printing */}
+          <div className="flex flex-wrap justify-start gap-3 pt-4 print-hide-button">
+            <Button variant="outline" onClick={prevStep}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+            <Button variant="destructive" onClick={resetCalculator}>
+              <RotateCcw className="mr-2 h-4 w-4" /> Start New
+            </Button>
+            {/* Updated onClick to call the new handlePrint function */}
+            <Button variant="secondary" onClick={handlePrint}>
+              <Printer className="mr-2 h-4 w-4" /> Print Results
+            </Button>
+          </div>
+
+          {/* Disclaimers Section - Now part of the results div */}
+          {/* Removed print-only class, will be included by default */}
+          <div className="print-only text-xs text-muted-foreground space-y-2 pt-4 border-t border-border/50 mt-4">
+              <p>
+                  <strong>Disclaimer:</strong> This calculator is intended for informational purposes only and does not constitute legal advice.
+                  While efforts have been made to ensure accuracy based on current South Carolina regulations and rates, users should independently
+                  verify all calculations and consult with qualified legal counsel before making any decisions based on these results. <strong>Reliance on
+                  this tool is solely at the user&apos;s own risk.</strong>
+              </p>
+              <p>
+                  <strong>Note on Rounding:</strong> The South Carolina Workers&apos; Compensation Commission&apos;s official Net Present Value (NPV) tables
+                  round conversion factors to four decimal places. This calculator performs calculations using higher precision, which may result
+                  in minor variations compared to the official WCC published values.
+              </p>
+              <p>
+                  <strong>Note on NPV Formula Adjustment:</strong> To align with the methodology used in the official South Carolina Workers&apos;
+                  Compensation Commission&apos;s Net Present Value (NPV) tables, this calculator incorporates an adjustment to the standard present value annuity
+                  formula for calculations involving 101 to 500 weeks. Specifically, an additional week is included in the time period exponent,
+                  mirroring the Commission&apos;s published factors. While this differs from standard financial calculations, it ensures results are consistent
+                  with those expected based on the Commission&apos;s tables.
+              </p>
+          </div>
+
+        </div> // End of #commuted-value-results div
+      )}
+
+    </div> // End of main container div
   );
 };
 

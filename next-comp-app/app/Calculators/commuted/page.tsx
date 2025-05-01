@@ -100,14 +100,29 @@ export default async function CommutedValuePage() {
           </p>
           <p>
             {/* Dynamically display the fetched discount rate */}
-            This calculator uses the current court-approved discount rates: <strong>{displayDiscountRate}</strong> for claims with more than 100 weeks
+            This calculator uses the current S.C. Workers&apos; Compensation Commission approved discount rates: <strong>{displayDiscountRate}</strong> for claims with more than 100 weeks
             remaining and <strong>2%</strong> for claims with 100 weeks or fewer remaining.
           </p>
           <p>
             The calculator also provides values at <strong>95%</strong> and <strong>90%</strong> of the commuted value, which may be helpful in the evaluation of claims.
           </p>
           <p>
-            Need a good disclaimer here....
+            <strong>Disclaimer:</strong> This calculator is intended for informational purposes only and does not constitute legal advice.
+                    While efforts have been made to ensure accuracy based on current South Carolina regulations and rates, users should independently
+                    verify all calculations and consult with qualified legal counsel before making any decisions based on these results. 
+                    <strong>Reliance on this tool is solely at the user&apos;s own risk.</strong>          
+          </p>
+          <p>
+            <strong>Note on Rounding:</strong> The South Carolina Workers&apos; Compensation Commission&apos;s official Net Present Value (NPV) tables
+            round conversion factors to four decimal places. This calculator performs calculations using higher precision, which may result
+            in minor variations compared to the official WCC published values.
+          </p>
+          <p>
+            <strong>Note on NPV Formula Adjustment:</strong> To align with the methodology used in the official South Carolina Workers&apos; 
+            Compensation Commission&apos;s Net Present Value (NPV) tables, this calculator incorporates an adjustment to the standard present value annuity 
+            formula for calculations involving 101 to 500 weeks. Specifically, an additional week is included in the time period exponent, 
+            mirroring the Commission&apos;s published factors. While this differs from standard financial calculations, it ensures results are consistent 
+            with those expected based on the Commission&apos;s tables.
           </p>
         </div>
       </div>

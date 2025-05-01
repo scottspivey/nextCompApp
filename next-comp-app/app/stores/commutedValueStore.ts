@@ -20,6 +20,7 @@ interface CommutedValueState {
   ttdPaidToDateValue: number | null;
   commutedValue95: number | null;
   commutedValue90: number | null;
+  calculationDate: Date | null; // *** Added calculationDate state ***
 
   // Step tracking
   currentStep: number;
@@ -54,6 +55,7 @@ export const useCommutedValueStore = create<CommutedValueState>()(
       ttdPaidToDateValue: null,
       commutedValue95: null,
       commutedValue90: null,
+      calculationDate: null, // *** Initialize calculationDate to null ***
 
       // Start at step 1
       currentStep: 1,
@@ -81,35 +83,23 @@ export const useCommutedValueStore = create<CommutedValueState>()(
         // Determine the discount rate to apply based on weeks remaining and fetched market rate
         let calculatedDiscountRate: number;
         if (weeksRemaining < 101) {
-          // Use 2% if 100 weeks or less remaining (as per SC rules)
           calculatedDiscountRate = 0.02;
         } else if (marketRate !== null) {
-          // Use the fetched market rate if 101+ weeks and the rate was found
           calculatedDiscountRate = marketRate;
         } else {
-          // Fallback if 101+ weeks but the market rate was null (not found in DB)
-          // Logged error in the page component already. Define fallback behavior here.
           console.warn(`Using fallback discount rate 0.0438 for calculation as current year's rate was missing.`);
-          calculatedDiscountRate = 0.0438; // Using last known good rate as fallback
-          // Consider if another fallback (e.g., 0.02) or throwing an error is more appropriate
+          calculatedDiscountRate = 0.0438;
         }
 
         // Calculate the weekly discount rate
         const weeklyDiscountRate = calculatedDiscountRate / 52;
 
         // Calculate discounted weeks using present value of annuity formula
-        // Handle edge case of zero discount rate or zero weeks remaining
         let discountedWeeks = 0;
         if (weeklyDiscountRate > 0 && weeksRemaining > 0) {
-          // Standard formula: (1 - (1 + i)^-n) / i
-          // Note: The previous formula had -(weeksRemaining + 1) for >100 weeks.
-          // Verify if that "+1" is correct based on specific annuity timing (ordinary vs. due).
-          // Using standard ordinary annuity formula here:
-          discountedWeeks = (1 - Math.pow(1 + weeklyDiscountRate, -weeksRemaining)) / weeklyDiscountRate;
-
+          const exponent = weeksRemaining > 100 ? -(weeksRemaining + 1) : -weeksRemaining;
+          discountedWeeks = (1 - Math.pow(1 + weeklyDiscountRate, exponent)) / weeklyDiscountRate;
         } else if (weeksRemaining > 0) {
-          // If discount rate is zero, present value is just the sum (n * payment)
-          // Here, we just need the number of weeks
           discountedWeeks = weeksRemaining;
         }
 
@@ -118,32 +108,33 @@ export const useCommutedValueStore = create<CommutedValueState>()(
         const commutedValue95 = commutedValue * 0.95;
         const commutedValue90 = commutedValue * 0.90;
 
+        // *** Get the current date when calculation runs ***
+        const calculationDate = new Date();
+
         // Update the store state with all calculated results
         set({
           weeksRemaining,
-          discountRate: calculatedDiscountRate, // Store the rate actually used
+          discountRate: calculatedDiscountRate,
           discountedWeeks,
           commutedValue,
           ttdPaidToDateValue,
           commutedValue95,
-          commutedValue90
+          commutedValue90,
+          calculationDate // *** Store the calculation date ***
         });
       },
 
       nextStep: () => {
         const currentStep = get().currentStep;
-        // Ensure not going beyond step 4
         set({ currentStep: Math.min(4, currentStep + 1) });
       },
 
       prevStep: () => {
         const currentStep = get().currentStep;
-        // Ensure not going below step 1
         set({ currentStep: Math.max(1, currentStep - 1) });
       },
 
       goToStep: (step) => {
-        // Ensure step is within valid range (1-4)
         const validStep = Math.max(1, Math.min(4, step));
         set({ currentStep: validStep });
       },
@@ -161,8 +152,10 @@ export const useCommutedValueStore = create<CommutedValueState>()(
         ttdPaidToDateValue: null,
         commutedValue95: null,
         commutedValue90: null,
+        calculationDate: null, // *** Reset calculationDate to null ***
         currentStep: 1
       })
     }),
+    // { name: "commuted-value-store" } // Optional devtools options
   )
 );

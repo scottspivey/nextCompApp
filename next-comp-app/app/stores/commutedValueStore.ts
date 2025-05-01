@@ -1,12 +1,12 @@
 // app/store/commutedValueStore.ts
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { devtools } from 'zustand/middleware';
 
 interface CommutedValueState {
   yearOfInjury: string;
-  compRate: number;
-  ttdPaidToDate: number;
-  otherCredit: number;
+  compRate: number | null;
+  ttdPaidToDate: number | null;
+  otherCredit: number | null;
   
   // Results
   weeksRemaining: number | null;
@@ -22,9 +22,9 @@ interface CommutedValueState {
   
   // Actions
   setYearOfInjury: (year: string) => void;
-  setCompRate: (rate: number) => void;
-  setTtdPaidToDate: (weeks: number) => void;
-  setOtherCredit: (weeks: number) => void;
+  setCompRate: (rate: number | null) => void;
+  setTtdPaidToDate: (weeks: number | null) => void;
+  setOtherCredit: (weeks: number | null) => void;
   calculateResults: () => void;
   nextStep: () => void;
   prevStep: () => void;
@@ -34,13 +34,12 @@ interface CommutedValueState {
 
 export const useCommutedValueStore = create<CommutedValueState>()(
   devtools(
-    persist(
       (set, get) => ({
         // Initial state
         yearOfInjury: new Date().getFullYear().toString(),
-        compRate: 75,
-        ttdPaidToDate: 0,
-        otherCredit: 0,
+        compRate: null,
+        ttdPaidToDate: null,
+        otherCredit: null,
         
         // Results initialized as null
         weeksRemaining: null,
@@ -65,9 +64,14 @@ export const useCommutedValueStore = create<CommutedValueState>()(
         
         calculateResults: () => {
           const { compRate, ttdPaidToDate, otherCredit } = get();
+
+          // Add safety checks for calculation, defaulting nulls to 0
+          const currentCompRate = compRate ?? 0;
+          const currentTtdPaid = ttdPaidToDate ?? 0;
+          const currentOtherCredit = otherCredit ?? 0;
           
-          const weeksRemaining = 500 - (ttdPaidToDate + otherCredit);
-          const ttdPaidToDateValue = ttdPaidToDate * compRate;
+          const weeksRemaining = Math.max(0, 500 - (currentTtdPaid + currentOtherCredit)); // Ensure not negative
+          const ttdPaidToDateValue = currentTtdPaid * currentCompRate;
           
           // Apply appropriate discount rate based on remaining weeks
           const discountRate = weeksRemaining > 100 ? 0.0438 : 0.02;
@@ -78,7 +82,7 @@ export const useCommutedValueStore = create<CommutedValueState>()(
             ? ((1 - Math.pow(1 + weeklyDiscountRate, -(weeksRemaining + 1))) / weeklyDiscountRate)
             : ((1 - Math.pow(1 + weeklyDiscountRate, -weeksRemaining)) / weeklyDiscountRate);
           
-          const commutedValue = discountedWeeks * compRate;
+          const commutedValue = discountedWeeks * currentCompRate;
           const commutedValue95 = commutedValue * 0.95;
           const commutedValue90 = commutedValue * 0.90;
           
@@ -97,11 +101,6 @@ export const useCommutedValueStore = create<CommutedValueState>()(
           const currentStep = get().currentStep;
           const nextStep = currentStep + 1;
           
-          // If moving to results page, calculate results
-          if (nextStep === 4) {
-            get().calculateResults();
-          }
-          
           set({ currentStep: nextStep });
         },
         
@@ -114,9 +113,9 @@ export const useCommutedValueStore = create<CommutedValueState>()(
         
         resetCalculator: () => set({
           yearOfInjury: new Date().getFullYear().toString(),
-          compRate: 75,
-          ttdPaidToDate: 0,
-          otherCredit: 0,
+          compRate: null,
+          ttdPaidToDate: null,
+          otherCredit: null,
           weeksRemaining: null,
           discountRate: null,
           discountedWeeks: null,
@@ -127,16 +126,5 @@ export const useCommutedValueStore = create<CommutedValueState>()(
           currentStep: 1
         })
       }),
-      {
-        name: 'commuted-value-storage',
-        // Only persist the input data, not the calculated results
-        partialize: (state) => ({ 
-          yearOfInjury: state.yearOfInjury,
-          compRate: state.compRate,
-          ttdPaidToDate: state.ttdPaidToDate,
-          otherCredit: state.otherCredit
-        }),
-      }
-    )
   )
 );

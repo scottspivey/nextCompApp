@@ -1,4 +1,4 @@
-// app/Components/AwwCRCalculator.tsx
+// app/Components/CalcComponents/AwwCRCalculator.tsx
 "use client";
 
 import React from "react";
@@ -10,11 +10,17 @@ import { useAWWCalculatorStore } from "@/app/stores/awwCalculatorstore"; // Adju
 import { specialCaseOptions } from "./awwConstants"; // Import specialCaseOptions
 import Big from 'big.js'; // Import Big for potential calculations in results if needed
 
+// Define Prop Types for the component
+interface AwwCRCalculatorProps {
+  maxCompensationRates: Record<number, number>; // Accept fetched rates as a prop
+}
+
 /**
  * Main component for the Average Weekly Wage & Compensation Rate Calculator.
  * Orchestrates the form steps, state management, and results display.
  */
-export function AwwCRCalculator() {
+// Update component signature to accept props
+export function AwwCRCalculator({ maxCompensationRates }: AwwCRCalculatorProps) {
   // Get state and actions from the Zustand store
   const {
     // Form Data
@@ -34,24 +40,30 @@ export function AwwCRCalculator() {
     averageWeeklyWage,
     compensationRate,
     yearOfInjury,
-    maxCompRate,
+    maxCompRate, // This is the max rate *for the specific calculation*, stored after calculation
     // Actions
     setField,
-    goToNextStep,
+    goToNextStep, // This likely triggers validation internally in the store
     goToPreviousStep,
     resetCalculator,
-    // validateStep, // We might not need validateStep directly here anymore
+    calculateAndShowResults // Renamed store action for clarity
   } = useAWWCalculatorStore();
 
   // Determine if there are any errors relevant to the *current* step or previous steps.
-  // This logic might need refinement depending on exact UX desired for disabling 'Next'.
-  // For now, check if *any* error exists in the errors object.
-   const hasErrors = Object.values(errors).some(error => error != null); // Check for non-null/undefined errors
+  const hasErrors = Object.values(errors).some(error => error != null); // Check for non-null/undefined errors
 
   // Handle input changes - directly calls the store's setField action
   const handleInputChange = (name: string, value: string) => {
     setField(name as keyof ReturnType<typeof useAWWCalculatorStore>, value);
   };
+
+  // --- Handler for the final step's "Calculate" button ---
+  const handleCalculate = () => {
+      // Call the store action, passing the fetched max rates
+      calculateAndShowResults(maxCompensationRates);
+      // Note: The store action now handles moving to the results step (step 5)
+  };
+
 
   // --- Render Calculation Results ---
   const renderResults = () => {
@@ -112,7 +124,7 @@ export function AwwCRCalculator() {
      try {
          // Ensure averageWeeklyWage is a valid number string before using Big
          if (averageWeeklyWage && !isNaN(Number(averageWeeklyWage))) {
-            unadjustedWeeklyComp = new Big(averageWeeklyWage).times(2 / 3);
+             unadjustedWeeklyComp = new Big(averageWeeklyWage).times(2).div(3); // Use Big.js division
          } else {
              throw new Error("Invalid averageWeeklyWage value for calculation");
          }
@@ -121,7 +133,12 @@ export function AwwCRCalculator() {
      }
 
     // Determine if the rate was limited by the maximum
-    const wasLimited = maxCompRate !== null && compensationRate !== null && new Big(compensationRate).eq(new Big(maxCompRate));
+    // Use Big.js for comparison to handle potential floating point issues
+    const wasLimited = maxCompRate !== null &&
+                       compensationRate !== null &&
+                       !isNaN(Number(maxCompRate)) && // Ensure maxCompRate is valid number string
+                       !isNaN(Number(compensationRate)) && // Ensure compensationRate is valid number string
+                       new Big(compensationRate).eq(new Big(maxCompRate));
 
     // Find the label for the selected special case
     const specialCaseLabel = specialCase === "none"
@@ -145,7 +162,7 @@ export function AwwCRCalculator() {
             <div className="bg-card p-4 rounded-lg shadow-sm border"> {/* Use card background */}
               <h4 className="text-sm font-medium text-muted-foreground">Average Weekly Wage (AWW)</h4>
               <p className="text-xl font-semibold text-primary"> {/* Use primary theme color */}
-                ${averageWeeklyWage}
+                ${averageWeeklyWage} {/* Assume AWW is already formatted string */}
               </p>
             </div>
 
@@ -153,7 +170,7 @@ export function AwwCRCalculator() {
             <div className="bg-card p-4 rounded-lg shadow-sm border"> {/* Use card background */}
               <h4 className="text-sm font-medium text-muted-foreground">Compensation Rate (CR)</h4>
               <p className="text-xl font-semibold text-primary"> {/* Use primary theme color */}
-                ${compensationRate}
+                ${compensationRate} {/* Assume CR is already formatted string */}
                  {wasLimited && <span className="text-xs text-orange-600 block">(Limited by state maximum)</span>}
               </p>
             </div>
@@ -170,6 +187,7 @@ export function AwwCRCalculator() {
                 Maximum CR for {yearOfInjury}
               </h4>
               <p className="text-xl font-semibold">
+                {/* Assume maxCompRate is stored as formatted string or null */}
                 {maxCompRate !== null ? `$${maxCompRate}` : 'N/A*'}
               </p>
                {maxCompRate === null && <p className="text-xs text-muted-foreground mt-1">*Max rate data unavailable for this year.</p>}
@@ -252,11 +270,17 @@ export function AwwCRCalculator() {
               hasErrors={hasErrors}
               isCalculating={isCalculating}
               // Pass actions
-              onNext={goToNextStep}
+              // Update onNext to call handleCalculate on the final input step
+              onNext={
+                (currentStep === 4 && employedFourQuarters === 'yes') ||
+                (currentStep === 3 && employedFourQuarters === 'no')
+                ? handleCalculate // Call calculation handler
+                : goToNextStep // Otherwise, just go to next step
+              }
               onPrevious={goToPreviousStep}
               onReset={resetCalculator}
               // Pass display options
-              // Show "Calculate" on the last input step (step 4 if 'yes', step 3 if 'no')
+              // Show "Calculate" on the last input step
               nextButtonText={
                   (currentStep === 4 && employedFourQuarters === 'yes') ||
                   (currentStep === 3 && employedFourQuarters === 'no')
@@ -288,5 +312,3 @@ export function AwwCRCalculator() {
     </div>
   );
 }
-
-// Removed the placeholder StepNavigationProps interface comment

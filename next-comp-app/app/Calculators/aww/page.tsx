@@ -1,5 +1,4 @@
 // app/Calculators/aww/page.tsx
-// 'use client' // Required if you add paywall checks directly here
 
 import React from "react";
 import Link from "next/link";
@@ -7,61 +6,52 @@ import { Metadata } from "next";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/app/Components/ui/button"; // Adjust path
 import { AwwCRCalculator } from "@/app/Components/CalcComponents/AwwCRCalculator"; // Adjust path
-// Import authentication/subscription checking hooks or functions if needed
-// import { useAuth, useSubscription } from '@/app/hooks/...' // Example
+import prisma from "@/lib/prisma";
+import { Decimal } from '@prisma/client/runtime/library'; // Import Decimal type for safety
+
+/**
+ * Fetches all max compensation rates from the database.
+ * @returns A promise resolving to a Record mapping year to max rate.
+ */
+async function getMaxCompRates(): Promise<Record<number, number>> {
+  const ratesData = await prisma.rateSetting.findMany({
+      where: { rate_type: "MAX_COMPENSATION" },
+      select: { year: true, value: true }, // Select only needed fields
+      orderBy: { year: 'asc' } // Optional: order by year
+  });
+
+  const ratesRecord: Record<number, number> = {};
+  // Explicitly type the 'rate' parameter to ensure 'value' has 'toNumber'
+  ratesData.forEach((rate: { year: number; value: Decimal | null }) => {
+      if (rate.value !== null) { // Check if value is not null
+         ratesRecord[rate.year] = rate.value.toNumber();
+      }
+  });
+  return ratesRecord;
+}
 
 export const metadata: Metadata = {
-  title: "Average Weekly Wage Calculator | SC Workers&apos; Compensation",
-  description: "Calculate your Average Weekly Wage (AWW) and Compensation Rate (CR) according to South Carolina workers&apos; compensation laws.",
-  // Add other relevant meta tags if desired
+  title: "Average Weekly Wage Calculator | SC Workers' Compensation",
+  description: "Calculate your Average Weekly Wage (AWW) and Compensation Rate (CR) according to South Carolina workers' compensation laws.",
 };
 
-export default function AwwCalculatorPage() {
-  // --- Paywall Check Example ---
-  // This is where you would typically check authentication and subscription status.
-  // The exact implementation depends on your auth/subscription setup (e.g., context, hooks, server-side checks).
+export default async function AwwCalculatorPage() {
 
-  // Example using hypothetical hooks:
-  // const { isAuthenticated, isLoading: authLoading } = useAuth();
-  // const { hasActiveSubscription, isLoading: subLoading } = useSubscription();
+  // Fetch data on the server when the page component renders
+  const maxCompRates = await getMaxCompRates();
 
-  // if (authLoading || subLoading) {
-  //   return <div>Loading...</div>; // Or a proper loading skeleton
+  // Optional: Check if the fetched object is empty if needed, but passing it anyway is fine.
+  // The component receiving it should handle cases where a specific year might be missing.
+  // if (Object.keys(maxCompRates).length === 0) {
+  //   console.warn("Warning: No maximum compensation rates found in the database.");
   // }
 
-  // if (!isAuthenticated) {
-  //   // Redirect to login or show a message/component prompting login
-  //   // return <RedirectToLogin />;
-  //   return (
-  //       <div className="container mx-auto p-6 text-center">
-  //           <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
-  //           <p className="mb-4">Please log in to use the calculators.</p>
-  //           <Link href="/login">
-  //               <Button>Log In</Button>
-  //           </Link>
-  //       </div>
-  //   );
-  // }
-
-  // if (!hasActiveSubscription) {
-  //   // Show a message/component prompting subscription
-  //   return (
-  //       <div className="container mx-auto p-6 text-center">
-  //           <h1 className="text-2xl font-semibold mb-4">Subscription Required</h1>
-  //           <p className="mb-4">Access to calculators requires an active subscription.</p>
-  //           <Link href="/subscribe">
-  //               <Button>Subscribe Now</Button>
-  //           </Link>
-  //       </div>
-  //   );
-  // }
-
-  // If authenticated and subscribed (or if it's a public calculator), render the content:
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8"> {/* Added responsive padding */}
       {/* Back Button */}
       <div className="mb-6">
-        <Link href="/Calculators" passHref legacyBehavior>
+        {/* Removed legacyBehavior from Link */}
+        <Link href="/Calculators" passHref>
           <Button variant="outline" className="inline-flex items-center gap-2 rounded-md transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
             <ChevronLeft className="h-4 w-4" />
             Back to All Calculators
@@ -78,8 +68,8 @@ export default function AwwCalculatorPage() {
         </p>
       </div>
 
-      {/* Calculator Component */}
-      <AwwCRCalculator />
+      {/* Calculator Component - Pass fetched data as prop */}
+      <AwwCRCalculator maxCompensationRates={maxCompRates} />
 
       {/* Informational Section */}
       <div className="mt-12 bg-muted/50 p-6 rounded-lg border">

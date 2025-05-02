@@ -2,13 +2,12 @@
 import Big from 'big.js';
 // Import the state type
 import { AWWCalculatorState } from '@/app/stores/awwCalculatorstore'; // Adjust path as needed
-// Corrected import path for maxCompensationRates
-import { maxCompensationRates } from '@/app/CommonVariables'; // User provided correct path
+// --- Removed incorrect import ---
+// import { maxCompensationRates } from '@/app/CommonVariables';
 // Import other constants from awwConstants
 import { COMPENSATION_RATE_PERCENTAGE, WEEKS_IN_YEAR } from '@/app/Components/CalcComponents/awwConstants'; // Adjust path as needed
 import { getYearFromDate } from './dateUtils'; // Adjust path as needed
 
-// Removed unused ShortEmploymentFormData type alias
 
 /**
  * Placeholder for calculating Average Weekly Wage (AWW) when employed for less than four quarters.
@@ -63,6 +62,7 @@ export function calculateAWWFourQuarters(q1Pay: string, q2Pay: string, q3Pay: st
         console.error("WEEKS_IN_YEAR constant must be positive.");
         return new Big(0);
     }
+    // Ensure division results in at least 2 decimal places for currency later
     const averageWeeklyWage = totalPay.div(WEEKS_IN_YEAR);
 
     return averageWeeklyWage;
@@ -79,9 +79,14 @@ export function calculateAWWFourQuarters(q1Pay: string, q2Pay: string, q3Pay: st
  *
  * @param {Big} averageWeeklyWage - The calculated AWW as a Big.js object.
  * @param {string} dateOfInjury - Date of injury string 'YYYY-MM-DD'.
+ * @param {Record<number, number>} maxCompensationRates - The fetched max rates object.
  * @returns {{ compensationRate: Big; maxCompRateForYear: Big | null }} An object containing the calculated CR and the maximum rate for the year, or defaults if calculation fails.
  */
-export function calculateCompensationRate(averageWeeklyWage: Big, dateOfInjury: string): { compensationRate: Big; maxCompRateForYear: Big | null } {
+export function calculateCompensationRate(
+    averageWeeklyWage: Big,
+    dateOfInjury: string,
+    maxCompensationRates: Record<number, number> // Added parameter
+): { compensationRate: Big; maxCompRateForYear: Big | null } {
   const defaultReturn = { compensationRate: new Big(0), maxCompRateForYear: null };
   if (!averageWeeklyWage || averageWeeklyWage.lt(0) || !dateOfInjury) {
      console.error("Invalid input for calculateCompensationRate: AWW must be non-negative and dateOfInjury provided.");
@@ -95,32 +100,38 @@ export function calculateCompensationRate(averageWeeklyWage: Big, dateOfInjury: 
       return defaultReturn;
     }
 
-    // Removed unused currentYear variable
+    // Use the passed-in maxCompensationRates parameter
     const availableYears = Object.keys(maxCompensationRates).map(Number).filter(year => !isNaN(year));
     if (availableYears.length === 0) {
         console.error("maxCompensationRates data is empty or invalid.");
+        // Calculate rate without capping if no max rates available
         const calculatedRate = averageWeeklyWage.times(COMPENSATION_RATE_PERCENTAGE);
         return { compensationRate: calculatedRate.lt(0) ? new Big(0) : calculatedRate, maxCompRateForYear: null };
     }
 
+    // Determine the effective year (year of injury or latest available if specific year missing)
     const latestYearWithRate = Math.max(...availableYears);
     const effectiveYear = maxCompensationRates[yearOfInjury] !== undefined ? yearOfInjury : latestYearWithRate;
 
     const maxRateValue = maxCompensationRates[effectiveYear];
 
-    if (maxRateValue === undefined || maxRateValue === null) {
-         console.error(`Maximum compensation rate not found or invalid for year ${yearOfInjury} (effective year ${effectiveYear}).`);
+    // Check if a valid max rate exists for the effective year
+    if (maxRateValue === undefined || maxRateValue === null || isNaN(maxRateValue)) {
+         console.warn(`Maximum compensation rate not found or invalid for year ${yearOfInjury} (using effective year ${effectiveYear}). Calculating rate without cap.`);
          const calculatedRate = averageWeeklyWage.times(COMPENSATION_RATE_PERCENTAGE);
          return { compensationRate: calculatedRate.lt(0) ? new Big(0) : calculatedRate, maxCompRateForYear: null };
     }
 
+    // Proceed with calculation and capping
     const maxCompRateForYear = new Big(maxRateValue);
     let compensationRate = averageWeeklyWage.times(COMPENSATION_RATE_PERCENTAGE);
 
+    // Apply the cap if the calculated rate exceeds the maximum
     if (compensationRate.gt(maxCompRateForYear)) {
       compensationRate = maxCompRateForYear;
     }
 
+    // Ensure rate is not negative
      if (compensationRate.lt(0)) {
          compensationRate = new Big(0);
      }

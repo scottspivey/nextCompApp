@@ -64,7 +64,7 @@
         "@types/react-dom": "^19",
         "@types/stripe": "^8.0.416",
         "autoprefixer": "^10.4.21",
-        "eslint": "^9",
+        "eslint": "^9.25.1",
         "eslint-config-next": "15.1.7",
         "prisma": "^6.6.0",
         "supabase": "^2.20.12",

@@ -16,8 +16,6 @@ import {
 
 // --- Import Helper Functions ---
 import { formatCurrency, parseCurrency } from "@/app/utils/formatting"; // Adjust path if needed
-// --- Import Only PDF Utility ---
-
 
 // Import shadcn/ui components (adjust paths as needed)
 import { Button } from "@/app/Components/ui/button";
@@ -38,8 +36,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/app/Components/ui/form";
-// Import icons
-import { ArrowLeft, ArrowRight, RotateCcw, Printer, FileDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCcw, Printer } from "lucide-react";
 
 // --- Prop Types ---
 // Interface defining the props expected by this component
@@ -72,10 +69,6 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
     { length: currentYear - 1979 + 1 },
     (_, i) => (currentYear - i).toString()
   );
-
-  // State to manage loading state for PDF generation
-  const [isSavingPdf, setIsSavingPdf] = useState(false);
-
 
   // --- Forms Setup ---
   // Initialize forms with static defaults to prevent hydration mismatch.
@@ -188,7 +181,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
     window.print(); // Use standard print, CSS handles layout
   };
 
-  // --- Render Logic ---
+   // --- Render Logic ---
   // Note: The initial render uses static defaults, useEffects sync with store for client interaction
   return (
     // Add a container ID for print styling parent
@@ -472,7 +465,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
       </div> {/* End of the div containing steps 1-3 */}
 
       {/* Step 4: Results Display */}
-      {/* This div's ID is used by the PDF handler, but not directly for printing */}
+      {/* This div's ID is used by the CSS print rules */}
       {currentStep === 4 && weeksRemaining !== null && (
         <div id="commuted-value-results" className="space-y-6">
           <h3 className="text-xl font-bold text-foreground mb-4 border-b border-border pb-2">Commuted Value Calculation Results</h3>
@@ -561,12 +554,10 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
             <Button variant="secondary" onClick={handlePrintClick}>
               <Printer className="mr-2 h-4 w-4" /> Print Results
             </Button>
-            {/* Removed Save as PDF button */}
 
           </div>
 
           {/* Disclaimers Section - Added class for print targeting */}
-          {/* This content is included in the iframe content for printing */}
           <div className="print-only-disclaimers text-xs text-muted-foreground space-y-2 pt-4 border-t border-border/50 mt-4">
               <p>
                   <strong>Disclaimer:</strong> This calculator is intended for informational purposes only and does not constitute legal advice.

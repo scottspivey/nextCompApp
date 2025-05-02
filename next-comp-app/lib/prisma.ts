@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 // Define the type for the globalThis object to include an optional prisma property
 // Use 'var' to allow redeclaration across modules in development
 declare global {
+  // eslint-disable-next-line no-var -- Using var is necessary for global augmentation here.
   var prisma: PrismaClient | undefined;
 }
 

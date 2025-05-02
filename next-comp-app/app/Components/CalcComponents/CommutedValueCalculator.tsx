@@ -1,8 +1,7 @@
 // app/Components/CalcComponents/CommutedValueCalculator.tsx
 'use client';
 
-// Removed useRef as it's no longer needed for print
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react"; // Removed useRef
 import { useCommutedValueStore } from "@/app/stores/commutedValueStore"; // Adjust path if needed
 // Import Controller from react-hook-form for manual input control
 import { useForm, Controller } from "react-hook-form";
@@ -18,7 +17,6 @@ import {
 // --- Import Helper Functions ---
 import { formatCurrency, parseCurrency } from "@/app/utils/formatting"; // Adjust path if needed
 // --- Removed PDF Utility Import ---
-// import { saveResultsAsPdf } from "@/app/utils/printPdfUtils";
 
 // Import shadcn/ui components (adjust paths as needed)
 import { Button } from "@/app/Components/ui/button";
@@ -268,7 +266,8 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
     }, 500); // Adjust delay if needed for content loading
   };
 
-  // Removed handleSavePdfClick
+  // --- Removed Save PDF Handler ---
+  // const handleSavePdfClick = async () => { ... };
 
 
   // --- Render Logic ---
@@ -460,7 +459,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
       </div> {/* End of the div containing steps 1-3 */}
 
       {/* Step 4: Results Display */}
-      {/* This div is now targeted by the JS print handler */}
+      {/* This div's ID is used by the iframe print handler */}
       {currentStep === 4 && weeksRemaining !== null && (
         <div id="commuted-value-results" className="space-y-6">
           <h3 className="text-xl font-bold text-foreground mb-4 border-b border-border pb-2">Commuted Value Calculation Results</h3>
@@ -504,7 +503,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
                   </div>
                   <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
                       <span className="text-muted-foreground text-left">Weeks Remaining:</span>
-                      <span className="font-medium text-foreground text-left">{weeksRemaining?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? 'N/A'}</span>
+                      <span className="font-medium text-foreground text-left">{weeksRemaining?.toLocaleString(undefined, { maximumFractionDigits: 10 }) ?? 'N/A'}</span>
                   </div>
                   <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
                       <span className="text-muted-foreground text-left">Discount Rate Applied:</span>
@@ -512,7 +511,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
                   </div>
                   <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
                       <span className="text-muted-foreground text-left">Discounted Weeks:</span>
-                      <span className="font-medium text-foreground text-left">{discountedWeeks?.toFixed(6) ?? 'N/A'}</span>
+                      <span className="font-medium text-foreground text-left">{discountedWeeks?.toFixed(4) ?? 'N/A'}</span>
                   </div>
               </div>
           </div>
@@ -545,24 +544,16 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
             <Button variant="destructive" onClick={resetCalculator}>
               <RotateCcw className="mr-2 h-4 w-4" /> Start New
             </Button>
-            {/* Updated onClick to call the new JS print handler */}
+            {/* Updated onClick to call the iframe print handler */}
             <Button variant="secondary" onClick={handlePrintClick}>
               <Printer className="mr-2 h-4 w-4" /> Print Results
             </Button>
             {/* Removed Save as PDF button */}
-            {/*
-            <Button
-              variant="secondary"
-              onClick={handleSavePdfClick}
-              disabled={isSavingPdf}
-            >
-              <FileDown className="mr-2 h-4 w-4" />
-              {isSavingPdf ? 'Saving...' : 'Save as PDF'}
-            </Button>
-            */}
+
           </div>
 
           {/* Disclaimers Section - Added class for print targeting */}
+          {/* This content is included in the iframe content for printing */}
           <div className="print-only-disclaimers text-xs text-muted-foreground space-y-2 pt-4 border-t border-border/50 mt-4">
               <p>
                   <strong>Disclaimer:</strong> This calculator is intended for informational purposes only and does not constitute legal advice.

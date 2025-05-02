@@ -1,7 +1,8 @@
 // app/Components/CalcComponents/CommutedValueCalculator.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from "react"; // Added useRef
+// Removed useRef as it's no longer needed for print
+import React, { useState, useEffect } from "react";
 import { useCommutedValueStore } from "@/app/stores/commutedValueStore"; // Adjust path if needed
 // Import Controller from react-hook-form for manual input control
 import { useForm, Controller } from "react-hook-form";
@@ -16,6 +17,8 @@ import {
 
 // --- Import Helper Functions ---
 import { formatCurrency, parseCurrency } from "@/app/utils/formatting"; // Adjust path if needed
+// --- Removed PDF Utility Import ---
+// import { saveResultsAsPdf } from "@/app/utils/printPdfUtils";
 
 // Import shadcn/ui components (adjust paths as needed)
 import { Button } from "@/app/Components/ui/button";
@@ -36,6 +39,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/app/Components/ui/form";
+// Removed FileDown icon
 import { ArrowLeft, ArrowRight, RotateCcw, Printer } from "lucide-react";
 
 // --- Prop Types ---
@@ -70,8 +74,9 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
     (_, i) => (currentYear - i).toString()
   );
 
-  // Ref to store original body content for restoring after print
-  const originalBodyContent = useRef<string | null>(null);
+  // Removed PDF loading state
+  // const [isSavingPdf, setIsSavingPdf] = useState(false);
+
 
   // --- Forms Setup ---
   // Initialize forms with static defaults to prevent hydration mismatch.
@@ -176,68 +181,94 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
     nextStep(); // Move to the results step
   };
 
-  // --- Print Handler ---
-  const handlePrint = () => {
+  // --- Print Handler (using Iframe) ---
+  const handlePrintClick = () => {
     const resultsElement = document.getElementById('commuted-value-results');
-    if (resultsElement) {
-      // Store the current body content
-      originalBodyContent.current = document.body.innerHTML;
-      // Replace body content with only the results content
-      // Adding basic styles for printing
-      document.body.innerHTML = `
-        <style>
-          /* Apply styles directly to the body for printing */
-          @page {
-             /* Standard paper margins - adjust if needed */
-             margin: 0.75in;
-          }
-          body {
-            margin: 0; /* Body margin handled by @page */
-            font-family: sans-serif;
-            font-size: 9.5pt; /* Slightly larger than previous attempt */
-            line-height: 1.3; /* Improve line spacing */
-          }
-          #commuted-value-results { width: 100%; border: none; box-shadow: none; }
-          /* Reduce spacing between cards */
-          #commuted-value-results > div { margin-bottom: 0.4rem; padding: 0.4rem; border: 1px solid #eee; page-break-inside: avoid; }
-          #commuted-value-results h3, #commuted-value-results h4 { margin-bottom: 0.2rem; padding-bottom: 0; border-bottom: none; font-size: 1.1em; }
-          /* Reduce vertical space within grid items */
-          #commuted-value-results .space-y-1 > div { padding-bottom: 0.05rem; }
-          /* Grid layout for label/value */
-          #commuted-value-results .grid { display: grid; grid-template-columns: 11rem 1fr; gap: 0 0.5rem; align-items: baseline; }
-          #commuted-value-results .text-left { text-align: left; }
-          #commuted-value-results .text-muted-foreground { color: #555; } /* Slightly darker for print */
-          #commuted-value-results .font-medium { font-weight: 500; }
-          #commuted-value-results .font-semibold { font-weight: 600; }
-          #commuted-value-results .font-bold { font-weight: 700; }
-          #commuted-value-results .text-primary { color: black; font-weight: 600; } /* Black for print */
-          #commuted-value-results .text-lg { font-size: 1.05em; } /* Relative font size */
-          .print-hide-button { display: none; } /* Hide buttons */
-          .print-only { margin-top: 0.8rem; padding-top: 0.4rem; border-top: 1px solid #ccc; page-break-before: auto; font-size: 8.5pt; } /* Smaller font for disclaimers */
-          .print-only p { margin-bottom: 0.2rem; }
-          .print-only strong { font-weight: bold; }
-        </style>
-        ${resultsElement.innerHTML}
-      `;
-      // Trigger the print dialog
-      window.print();
-      // Restore the original body content after printing (or cancellation)
-      // Using setTimeout to allow print dialog to process
-      setTimeout(() => {
-        if (originalBodyContent.current) {
-          document.body.innerHTML = originalBodyContent.current;
-          originalBodyContent.current = null; // Clear the stored content
-          // Re-attach any necessary global event listeners if needed
-        }
-         // Force React Hook Form to re-evaluate state after DOM manipulation
-         yearForm.trigger();
-         compRateForm.trigger();
-         weeksForm.trigger();
-      }, 500); // Adjust timeout if needed
-    } else {
+    if (!resultsElement) {
       console.error("Could not find results element to print.");
+      return;
     }
+
+    // Create a hidden iframe
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden'; // Hide the iframe itself
+    document.body.appendChild(iframe);
+
+    // Get the iframe's document context
+    const frameDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!frameDoc) {
+        console.error("Could not access iframe document.");
+        document.body.removeChild(iframe);
+        return;
+    }
+
+    // Clone the results content to avoid modifying the original
+    const contentToPrint = resultsElement.cloneNode(true) as HTMLElement;
+
+    // Remove the print buttons from the cloned content
+    const buttonsToHide = contentToPrint.querySelector('.print-hide-button');
+    buttonsToHide?.remove();
+
+    // Basic styles for the print iframe content
+    const printStyles = `
+        body { margin: 0.75in; font-family: sans-serif; font-size: 9.5pt; line-height: 1.3; }
+        #commuted-value-results { width: 100%; border: none; box-shadow: none; }
+        #commuted-value-results > div { margin-bottom: 0.4rem; padding: 0.4rem; border: 1px solid #eee; page-break-inside: avoid; }
+        #commuted-value-results h3, #commuted-value-results h4 { margin-bottom: 0.2rem; padding-bottom: 0; border-bottom: none; font-size: 1.1em; color: black; }
+        #commuted-value-results .space-y-1 > div { padding-bottom: 0.05rem; }
+        #commuted-value-results .grid { display: grid; grid-template-columns: 11rem 1fr; gap: 0 0.5rem; align-items: baseline; }
+        #commuted-value-results .text-left { text-align: left; }
+        #commuted-value-results span { color: black; } /* Ensure all span text is black */
+        #commuted-value-results .text-muted-foreground { color: #555; }
+        #commuted-value-results .text-primary { color: black; font-weight: 600; }
+        #commuted-value-results .font-medium { font-weight: 500; }
+        #commuted-value-results .font-semibold { font-weight: 600; }
+        #commuted-value-results .font-bold { font-weight: 700; }
+        #commuted-value-results .text-lg { font-size: 1.05em; }
+        .print-only-disclaimers { display: block; margin-top: 0.8rem; padding-top: 0.4rem; border-top: 1px solid #ccc; page-break-before: auto; font-size: 8.5pt; color: #444; }
+        .print-only-disclaimers p { margin-bottom: 0.2rem; }
+        .print-only-disclaimers strong { font-weight: bold; }
+    `;
+
+    // Write the content and styles to the iframe
+    frameDoc.open();
+    frameDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Print Results</title>
+            <style>${printStyles}</style>
+        </head>
+        <body>
+            ${contentToPrint.outerHTML}
+        </body>
+        </html>
+    `);
+    frameDoc.close();
+
+    // Wait briefly for content to load in iframe, then print
+    setTimeout(() => {
+        try {
+            iframe.contentWindow?.focus(); // Focus iframe for printing
+            iframe.contentWindow?.print(); // Print iframe content
+        } catch (error) {
+            console.error("Error printing iframe:", error);
+            // Fallback to printing the main window if iframe fails
+            window.print();
+        } finally {
+            // Clean up the iframe after printing (or attempting to)
+            setTimeout(() => {
+                 document.body.removeChild(iframe);
+            }, 1000); // Delay removal slightly
+        }
+    }, 500); // Adjust delay if needed for content loading
   };
+
+  // Removed handleSavePdfClick
 
 
   // --- Render Logic ---
@@ -245,8 +276,7 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
   return (
     // Add a container ID for print styling parent
     <div id="commuted-value-calculator-container">
-      {/* Remove the print-specific CSS block - using JS now */}
-      {/* <style jsx global>{` ... `}</style> */}
+      {/* Removed the print-specific CSS block */}
 
       {/* This div now contains steps 1-3 */}
       <div className={`calculator-steps-container space-y-8`}>
@@ -439,7 +469,6 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
           <div className="bg-muted border border-border/50 rounded-lg p-4">
               <h4 className="font-semibold text-foreground mb-3">Input Values</h4>
               <div className="space-y-1 text-sm">
-                  {/* Use explicit width like w-44 (11rem) or w-48 (12rem) */}
                   <div className="grid grid-cols-[11rem_1fr] gap-x-2 items-baseline">
                       <span className="text-muted-foreground text-left">Year of Injury:</span>
                       <span className="font-medium text-foreground text-left">{useCommutedValueStore.getState().yearOfInjury}</span>
@@ -516,15 +545,25 @@ const CommutedValueCalculator: React.FC<CommutedValueCalculatorProps> = ({
             <Button variant="destructive" onClick={resetCalculator}>
               <RotateCcw className="mr-2 h-4 w-4" /> Start New
             </Button>
-            {/* Updated onClick to call the new handlePrint function */}
-            <Button variant="secondary" onClick={handlePrint}>
+            {/* Updated onClick to call the new JS print handler */}
+            <Button variant="secondary" onClick={handlePrintClick}>
               <Printer className="mr-2 h-4 w-4" /> Print Results
             </Button>
+            {/* Removed Save as PDF button */}
+            {/*
+            <Button
+              variant="secondary"
+              onClick={handleSavePdfClick}
+              disabled={isSavingPdf}
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              {isSavingPdf ? 'Saving...' : 'Save as PDF'}
+            </Button>
+            */}
           </div>
 
-          {/* Disclaimers Section - Now part of the results div */}
-          {/* Removed print-only class, will be included by default */}
-          <div className="print-only text-xs text-muted-foreground space-y-2 pt-4 border-t border-border/50 mt-4">
+          {/* Disclaimers Section - Added class for print targeting */}
+          <div className="print-only-disclaimers text-xs text-muted-foreground space-y-2 pt-4 border-t border-border/50 mt-4">
               <p>
                   <strong>Disclaimer:</strong> This calculator is intended for informational purposes only and does not constitute legal advice.
                   While efforts have been made to ensure accuracy based on current South Carolina regulations and rates, users should independently

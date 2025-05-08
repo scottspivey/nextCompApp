@@ -11,7 +11,7 @@ generator client {
   output   = "../node_modules/.prisma/client"
 }
 
-// --- NextAuth.js Models ---
+// --- NextAuth.js Models --- (Assumed Unchanged)
 
 model Account {
   id                String  @id @default(cuid())
@@ -44,16 +44,16 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(uuid()) @db.Uuid
+  id            String        @id @default(uuid()) @db.Uuid
   name          String?
-  email         String?   @unique
-  emailVerified DateTime? @map("email_verified")
+  email         String?       @unique
+  emailVerified DateTime?     @map("email_verified")
   image         String?
-  password      String?   // For Credentials provider (hashed)
+  password      String?
   accounts      Account[]
   sessions      Session[]
-  profile       Profile?      // One-to-one link to Profile
-  subscriptions Subscription? // One-to-one link to Subscription
+  profile       Profile?
+  subscriptions Subscription?
 
   @@map("users")
 }
@@ -67,33 +67,34 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-// --- Your Application Models (Modified/Added) ---
+// --- Your Application Models ---
 
 model Profile {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @unique @map("user_id") @db.Uuid
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  full_name String?
+  full_name  String?
   avatar_url String?
-  role      String?
-  firm_name String?
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  role       String?
+  firm_name  String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  injuredWorkers InjuredWorker[] @relation("ProfileToInjuredWorkers")
-  claims         Claim[]         @relation("ProfileToClaims")
+  injuredWorkers    InjuredWorker[]    @relation("ProfileToInjuredWorkers")
+  claims            Claim[]            @relation("ProfileToClaims")
   savedCalculations SavedCalculation[] @relation("ProfileToSavedCalculations")
-  notes          Note[]          @relation("ProfileToNotes")
-  userProgress   UserProgress[]  @relation("ProfileToUserProgress")
+  notes             Note[]             @relation("ProfileToNotes")
+  userProgress      UserProgress[]     @relation("ProfileToUserProgress")
+  formsGenerated    FormGenerated[]    @relation("ProfileToFormGenerated")
 
   @@map("profiles")
 }
 
 model Subscription {
-  id                     String    @id @default(uuid()) @db.Uuid
-  userId                 String    @unique @map("user_id") @db.Uuid
-  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   stripe_customer_id     String?   @unique
   stripe_subscription_id String?   @unique
@@ -108,61 +109,180 @@ model Subscription {
 }
 
 model InjuredWorker {
-  id              String    @id @default(uuid()) @db.Uuid
-  profileId       String    @map("profile_id") @db.Uuid
-  profile         Profile   @relation("ProfileToInjuredWorkers", fields: [profileId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid()) @db.Uuid
+  profileId String  @map("profile_id") @db.Uuid
+  profile   Profile @relation("ProfileToInjuredWorkers", fields: [profileId], references: [id], onDelete: Cascade)
 
-  first_name      String
-  last_name       String
-  date_of_birth   DateTime? @db.Date
-  ssn             String?
-  address_line1   String?
-  address_line2   String?
-  city            String?
-  state           String?
-  zip_code        String?
-  phone_number    String?
-  email           String?
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  last_accessed_at DateTime? @map("last_accessed_at")
+  first_name     String
+  middle_name    String?
+  last_name      String
+  suffix         String?
+  ssn            String?
+  date_of_birth  DateTime? @db.Date
+  gender         String?
+  marital_status String?
 
-  claims Claim[]
-  notes  Note[]
-  // Added back-relation for SavedCalculation
+  address_line1 String?
+  address_line2 String?
+  city          String?
+  state         String?
+  zip_code      String?
+  phone_number  String?
+  email         String?
+
+  occupation     String?
+  num_dependents Int?
+
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  last_accessed_at DateTime? @default(now()) @map("last_accessed_at")
+
+  claims            Claim[]
+  notes             Note[]
   savedCalculations SavedCalculation[]
+  formsGenerated    FormGenerated[]
 
   @@map("injured_workers")
 }
 
+model Employer {
+  id                      String   @id @default(uuid()) @db.Uuid
+  name                    String
+  fein                    String?  @unique
+  address_line1           String?
+  address_line2           String?
+  city                    String?
+  state                   String?
+  zip_code                String?
+  phone_number            String?
+  insurance_carrier_name  String?
+  insurance_policy_number String?
+  contact_person_name     String?
+  contact_person_phone    String?
+  contact_person_email    String?
+  created_at              DateTime @default(now()) @map("created_at")
+  updated_at              DateTime @updatedAt @map("updated_at")
+
+  claims Claim[]
+
+  @@map("employers")
+}
+
 model Claim {
-  id                   String    @id @default(uuid()) @db.Uuid
-  injuredWorkerId      String    @map("injured_worker_id") @db.Uuid
-  injuredWorker        InjuredWorker @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
+  id              String        @id @default(uuid()) @db.Uuid
+  injuredWorkerId String        @map("injured_worker_id") @db.Uuid
+  injuredWorker   InjuredWorker @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
 
-  profileId            String    @map("profile_id") @db.Uuid
-  profile              Profile   @relation("ProfileToClaims", fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String  @map("profile_id") @db.Uuid
+  profile   Profile @relation("ProfileToClaims", fields: [profileId], references: [id], onDelete: Cascade)
 
-  wcc_file_number      String?
-  carrier_file_number  String?
-  carrier_code         String?
-  employer_name        String?
-  employer_fein        String?
-  employer_address     String?   @db.Text // Changed to Text
-  insurance_carrier    String?
+  employerId String?   @map("employer_id") @db.Uuid
+  employer   Employer? @relation(fields: [employerId], references: [id], onDelete: SetNull)
+
+  wcc_file_number     String? @unique
+  carrier_file_number String?
+
   date_of_injury       DateTime  @db.Date
-  injury_type          String?
-  body_parts_injured   String?   @db.Text // Changed to Text
+  time_of_injury       String?
+  place_of_injury      String?   @db.Text
   accident_description String?   @db.Text
+  part_of_body_injured String?   @db.Text
+  nature_of_injury     String?   @db.Text
+  cause_of_injury      String?   @db.Text
   notice_given_date    DateTime? @db.Date
-  claim_status         String?
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  average_weekly_wage   Decimal?  @db.Decimal(10, 2)
+  compensation_rate     Decimal?  @db.Decimal(10, 2)
+  date_disability_began DateTime? @db.Date
+  date_returned_to_work DateTime? @db.Date
+
+  initial_treatment_desc      String? @db.Text
+  current_work_status         String?
+  permanent_impairment_rating Int?
+
+  claimant_attorney_name    String?
+  claimant_attorney_firm    String?
+  claimant_attorney_address String? @db.Text
+  claimant_attorney_phone   String?
+  claimant_attorney_email   String?
+
+  claim_status String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   notes             Note[]
   savedCalculations SavedCalculation[]
+  formsGenerated    FormGenerated[]
+
+  // Corrected relation to ClaimMedicalProvider
+  claimMedicalProviderEntries ClaimMedicalProvider[] @relation("ClaimToClaimMedicalProvider")
 
   @@map("claims")
+}
+
+model MedicalProvider {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  type          String?
+  specialty     String?
+  address_line1 String?
+  address_line2 String?
+  city          String?
+  state         String?
+  zip_code      String?
+  phone_number  String?
+  fax_number    String?
+  email_address String?
+  npi_number    String?  @unique
+  created_at    DateTime @default(now()) @map("created_at")
+  updated_at    DateTime @updatedAt @map("updated_at")
+
+  // Corrected relation to ClaimMedicalProvider
+  associatedClaimEntries ClaimMedicalProvider[] @relation("MedicalProviderToClaimMedicalProvider")
+
+  @@map("medical_providers")
+}
+
+model ClaimMedicalProvider {
+  claimId String @map("claim_id") @db.Uuid
+  // Corrected relation name to match Claim.claimMedicalProviderEntries
+  claim   Claim  @relation("ClaimToClaimMedicalProvider", fields: [claimId], references: [id], onDelete: Cascade)
+
+  medicalProviderId String          @map("medical_provider_id") @db.Uuid
+  // Corrected relation name to match MedicalProvider.associatedClaimEntries
+  medicalProvider   MedicalProvider @relation("MedicalProviderToClaimMedicalProvider", fields: [medicalProviderId], references: [id], onDelete: Cascade)
+
+  date_of_first_visit DateTime? @db.Date
+  date_of_last_visit  DateTime? @db.Date
+  notes               String?   @db.Text // Notes specific to this provider for this claim
+
+  @@id([claimId, medicalProviderId])
+  @@map("claim_medical_providers")
+}
+
+model FormGenerated {
+  id          String  @id @default(uuid()) @db.Uuid
+  form_type   String
+  description String?
+
+  injuredWorkerId String        @map("injured_worker_id") @db.Uuid
+  injuredWorker   InjuredWorker @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
+
+  claimId String? @map("claim_id") @db.Uuid
+  claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: SetNull)
+
+  generated_at         DateTime @default(now()) @map("generated_at")
+  generatedByProfileId String   @map("generated_by_profile_id") @db.Uuid
+  generatedByProfile   Profile  @relation("ProfileToFormGenerated", fields: [generatedByProfileId], references: [id], onDelete: Restrict)
+
+  file_path          String?
+  file_name          String?
+  form_data_snapshot Json?
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@map("forms_generated")
 }
 
 model RateSetting {
@@ -170,51 +290,50 @@ model RateSetting {
   rate_type      String
   value          Decimal
   effective_date DateTime? @db.Date
-  description    String?  @db.Text
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  description    String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@id([year, rate_type])
   @@map("rate_settings")
 }
 
 model SavedCalculation {
-  id                 String    @id @default(uuid()) @db.Uuid
-  profileId          String    @map("profile_id") @db.Uuid
-  profile            Profile   @relation("ProfileToSavedCalculations", fields: [profileId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid()) @db.Uuid
+  profileId String  @map("profile_id") @db.Uuid
+  profile   Profile @relation("ProfileToSavedCalculations", fields: [profileId], references: [id], onDelete: Cascade)
 
-  claimId            String?   @map("claim_id") @db.Uuid
-  claim              Claim?    @relation(fields: [claimId], references: [id], onDelete: SetNull)
+  claimId String? @map("claim_id") @db.Uuid
+  claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: SetNull)
 
-  injuredWorkerId    String?   @map("injured_worker_id") @db.Uuid
-  // Relation field now has a corresponding field 'savedCalculations' in InjuredWorker model
-  injuredWorker      InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: SetNull)
+  injuredWorkerId String?        @map("injured_worker_id") @db.Uuid
+  injuredWorker   InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: SetNull)
 
-  calculator_type    String
-  calculation_name   String?
-  input_data         Json
-  result_data        Json
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  calculator_type  String
+  calculation_name String?
+  input_data       Json
+  result_data      Json
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("saved_calculations")
 }
 
 model Note {
-  id               String    @id @default(uuid()) @db.Uuid
-  profileId        String    @map("profile_id") @db.Uuid
-  profile          Profile   @relation("ProfileToNotes", fields: [profileId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid()) @db.Uuid
+  profileId String  @map("profile_id") @db.Uuid
+  profile   Profile @relation("ProfileToNotes", fields: [profileId], references: [id], onDelete: Cascade)
 
-  injuredWorkerId  String?   @map("injured_worker_id") @db.Uuid
-  injuredWorker    InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
+  injuredWorkerId String?        @map("injured_worker_id") @db.Uuid
+  injuredWorker   InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
 
-  claimId          String?   @map("claim_id") @db.Uuid
-  claim            Claim?    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claimId String? @map("claim_id") @db.Uuid
+  claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: Cascade)
 
-  note_type        String?
-  content          String?   @db.Text
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  note_type String?
+  content   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("notes")
 }
@@ -222,14 +341,14 @@ model Note {
 // --- Training Models ---
 
 model Course {
-  id          String    @id @default(uuid()) @db.Uuid
-  title       String    @unique
-  description String?   @db.Text
-  cle_credits Decimal?  // Removed @db.Numeric - Prisma maps Decimal correctly
-  is_premium  Boolean   @default(false)
-  published   Boolean   @default(false)
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @unique
+  description String?  @db.Text
+  cle_credits Decimal?
+  is_premium  Boolean  @default(false)
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   modules Module[]
 
@@ -237,19 +356,19 @@ model Course {
 }
 
 model Module {
-  id           String    @id @default(uuid()) @db.Uuid
-  courseId     String    @map("course_id") @db.Uuid
-  course       Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid()) @db.Uuid
+  courseId String @map("course_id") @db.Uuid
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   title        String
-  description  String?   @db.Text
+  description  String?  @db.Text
   content_type String
-  content_url  String?   @db.Text
-  content_body String?   @db.Text
-  order        Int       @map("order")
-  published    Boolean   @default(false)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  content_url  String?  @db.Text
+  content_body String?  @db.Text
+  order        Int      @map("module_order")
+  published    Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   quizzes      Quiz[]
   userProgress UserProgress[] @relation("ModuleToUserProgress")
@@ -258,16 +377,16 @@ model Module {
 }
 
 model Quiz {
-  id            String    @id @default(uuid()) @db.Uuid
-  moduleId      String?   @map("module_id") @db.Uuid
-  module        Module?   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  id       String  @id @default(uuid()) @db.Uuid
+  moduleId String? @map("module_id") @db.Uuid
+  module   Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   title         String
-  description   String?   @db.Text
+  description   String?  @db.Text
   passing_score Int?
-  published     Boolean   @default(false)
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  published     Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   questions    QuizQuestion[]
   userProgress UserProgress[] @relation("QuizToUserProgress")
@@ -276,13 +395,13 @@ model Quiz {
 }
 
 model QuizQuestion {
-  id            String   @id @default(uuid()) @db.Uuid
-  quizId        String   @map("quiz_id") @db.Uuid
-  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid()) @db.Uuid
+  quizId String @map("quiz_id") @db.Uuid
+  quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   question_text String   @db.Text
   question_type String
-  order         Int      @map("order")
+  order         Int      @map("question_order")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -292,13 +411,13 @@ model QuizQuestion {
 }
 
 model QuizAnswer {
-  id          String   @id @default(uuid()) @db.Uuid
-  questionId  String   @map("question_id") @db.Uuid
-  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id         String       @id @default(uuid()) @db.Uuid
+  questionId String       @map("question_id") @db.Uuid
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   answer_text String   @db.Text
   is_correct  Boolean  @default(false)
-  order       Int?     @map("order")
+  order       Int?     @map("answer_order")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -306,26 +425,23 @@ model QuizAnswer {
 }
 
 model UserProgress {
-  id           String   @id @default(uuid()) @db.Uuid
-  profileId    String   @map("profile_id") @db.Uuid
-  profile      Profile  @relation("ProfileToUserProgress", fields: [profileId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid()) @db.Uuid
+  profileId String  @map("profile_id") @db.Uuid
+  profile   Profile @relation("ProfileToUserProgress", fields: [profileId], references: [id], onDelete: Cascade)
 
-  moduleId     String?  @map("module_id") @db.Uuid
-  module       Module?  @relation("ModuleToUserProgress", fields: [moduleId], references: [id], onDelete: Cascade)
+  moduleId String? @map("module_id") @db.Uuid
+  module   Module? @relation("ModuleToUserProgress", fields: [moduleId], references: [id], onDelete: Cascade)
 
-  quizId       String?  @map("quiz_id") @db.Uuid
-  quiz         Quiz?    @relation("QuizToUserProgress", fields: [quizId], references: [id], onDelete: Cascade)
+  quizId String? @map("quiz_id") @db.Uuid
+  quiz   Quiz?   @relation("QuizToUserProgress", fields: [quizId], references: [id], onDelete: Cascade)
 
   status       String
   score        Int?
   completed_at DateTime? @map("completed_at")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   @@unique([profileId, moduleId], name: "user_progress_module_unique")
   @@unique([profileId, quizId], name: "user_progress_quiz_unique")
-  // @@check constraint removed - handle logic in application or via manual SQL
-
   @@map("user_progress")
 }
-

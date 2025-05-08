@@ -74,12 +74,14 @@ model Profile {
   userId String @unique @map("user_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  full_name  String?
-  avatar_url String?
-  role       String?
-  firm_name  String?
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  full_name    String?
+  avatar_url   String?
+  role         String?
+  firm_name    String?
+  // Added phone number for preparer/issuing officer info
+  phone_number String? // Store preparer's phone here
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   injuredWorkers    InjuredWorker[]    @relation("ProfileToInjuredWorkers")
   claims            Claim[]            @relation("ProfileToClaims")
@@ -122,13 +124,15 @@ model InjuredWorker {
   gender         String?
   marital_status String?
 
-  address_line1 String?
-  address_line2 String?
-  city          String?
-  state         String?
-  zip_code      String?
-  phone_number  String?
-  email         String?
+  address_line1     String?
+  address_line2     String?
+  city              String?
+  state             String?
+  zip_code          String?
+  phone_number      String? // Primary/Home phone
+  // Added work phone number
+  work_phone_number String?
+  email             String?
 
   occupation     String?
   num_dependents Int?
@@ -157,6 +161,8 @@ model Employer {
   phone_number            String?
   insurance_carrier_name  String?
   insurance_policy_number String?
+  // Added carrier code
+  carrier_code            String? // For WCC forms
   contact_person_name     String?
   contact_person_phone    String?
   contact_person_email    String?
@@ -195,6 +201,8 @@ model Claim {
   compensation_rate     Decimal?  @db.Decimal(10, 2)
   date_disability_began DateTime? @db.Date
   date_returned_to_work DateTime? @db.Date
+  // Added MMI date
+  mmi_date              DateTime? @db.Date // Maximum Medical Improvement date
 
   initial_treatment_desc      String? @db.Text
   current_work_status         String?
@@ -214,11 +222,12 @@ model Claim {
   savedCalculations SavedCalculation[]
   formsGenerated    FormGenerated[]
 
-  // Corrected relation to ClaimMedicalProvider
   claimMedicalProviderEntries ClaimMedicalProvider[] @relation("ClaimToClaimMedicalProvider")
 
   @@map("claims")
 }
+
+// --- Other models (MedicalProvider, ClaimMedicalProvider, FormGenerated, RateSetting, etc.) remain the same ---
 
 model MedicalProvider {
   id            String   @id @default(uuid()) @db.Uuid
@@ -237,7 +246,6 @@ model MedicalProvider {
   created_at    DateTime @default(now()) @map("created_at")
   updated_at    DateTime @updatedAt @map("updated_at")
 
-  // Corrected relation to ClaimMedicalProvider
   associatedClaimEntries ClaimMedicalProvider[] @relation("MedicalProviderToClaimMedicalProvider")
 
   @@map("medical_providers")
@@ -245,16 +253,14 @@ model MedicalProvider {
 
 model ClaimMedicalProvider {
   claimId String @map("claim_id") @db.Uuid
-  // Corrected relation name to match Claim.claimMedicalProviderEntries
   claim   Claim  @relation("ClaimToClaimMedicalProvider", fields: [claimId], references: [id], onDelete: Cascade)
 
   medicalProviderId String          @map("medical_provider_id") @db.Uuid
-  // Corrected relation name to match MedicalProvider.associatedClaimEntries
   medicalProvider   MedicalProvider @relation("MedicalProviderToClaimMedicalProvider", fields: [medicalProviderId], references: [id], onDelete: Cascade)
 
   date_of_first_visit DateTime? @db.Date
   date_of_last_visit  DateTime? @db.Date
-  notes               String?   @db.Text // Notes specific to this provider for this claim
+  notes               String?   @db.Text
 
   @@id([claimId, medicalProviderId])
   @@map("claim_medical_providers")
@@ -338,7 +344,7 @@ model Note {
   @@map("notes")
 }
 
-// --- Training Models ---
+// --- Training Models --- (Assumed Unchanged)
 
 model Course {
   id          String   @id @default(uuid()) @db.Uuid

@@ -1,71 +1,83 @@
 /* app/styles/globals.css */
 
 @import "tailwindcss";
-
 @layer base {
   @theme {
-    --color-background: hsl(0,0%,100%);
-    --color-foreground: hsl(224,71.4%,4.1%);
-    --color-card: hsl(0,0%,100%);
-    --color-card-foreground: hsl(224,71.4%,4.1%);
-    --color-popover: hsl(0,0%,100%);
-    --color-popover-foreground: 224 71.4% 4.1%;
-    --color-primary: hsl(173.5,80.1%,38.2%);
-    --color-primary-foreground: hsl(180,100%,97%);
-    --color-secondary: hsl(220,13%,91%);
-    --color-secondary-foreground: hsl(224,71.4%,4.1%);
-    --color-muted: hsl(220,13%,91%);
-    --color-muted-foreground: hsl(220,8.9%,46.1%);
-    --color-accent: hsl(220,13%,91%);
-    --color-accent-foreground: hsl(224,71.4%,4.1%);
-    --color-destructive: hsl(0,84.2%,60.2%);
-    --color-destructive-foreground: hsl(210,20%,98%);
-    --color-border: hsl(220,13%,91%);
-    --color-input: hsl(220,13%,91%);
-    --color-ring: hsl(173.5,80.1%,38.2%);
-    --color-chart-1: hsl(12,76%,61%);
-    --color-chart-2: hsl(173,58%,39%);
-    --color-chart-3: hsl(197,37%,24%);
-    --color-chart-4: hsl(43,74%,66%);
-    --color-chart-5: hsl(27,87%,67%);
+    --color-background: hsl(0, 0%, 100%);
+    --color-foreground: hsl(210, 6%, 20%);
+    --color-card: hsl(0, 0%, 100%);
+    --color-card-foreground: hsl(210, 6%, 20%);
+    --color-popover: hsl(0, 0%, 100%);
+    --color-popover-foreground: hsl(210, 6%, 20%);
+    
+    --color-primary: hsl(210, 46%, 74%); /* Dusty Blue */
+    --color-primary-foreground: hsl(0, 0%, 100%);
+    
+    --color-secondary: hsl(340, 38%, 74%); /* Muted Rose */
+    --color-secondary-foreground: hsl(0, 0%, 100%);
+    
+    --color-muted: hsl(210, 6%, 85%); /* Lighter Warm Gray */
+    --color-muted-foreground: hsl(210, 6%, 35%);
+    
+    --color-accent: hsl(42, 23%, 95%); /* Soft Cream */
+    --color-accent-foreground: hsl(210, 6%, 20%);
+    
+    --color-destructive: hsl(0, 70%, 55%);
+    --color-destructive-foreground: hsl(0, 0%, 100%);
+    
+    --color-border: hsl(210, 6%, 70%);
+    --color-input: hsl(210, 6%, 85%);
+    --color-ring: hsl(210, 46%, 74%);
+    
+    --color-chart-1: hsl(340, 58%, 60%);
+    --color-chart-2: hsl(210, 46%, 74%);
+    --color-chart-3: hsl(210, 6%, 35%);
+    --color-chart-4: hsl(42, 75%, 80%);
+    --color-chart-5: hsl(27, 70%, 70%);
+    
     --radius: 0.5rem;
-  
   }
 
-  /* Dark Mode - Teal & Gray */
   .dark {
-    --background: 224 71.4% 4.1%; /* Dark Slate Gray */
-    --foreground: 210 20% 98%; /* Almost White */
-    --card: 224 71.4% 4.1%;
+    --background: 210 6% 20%;
+    --foreground: 210 20% 98%;
+    --card: 210 6% 20%;
     --card-foreground: 210 20% 98%;
-    --popover: 224 71.4% 4.1%;
+    --popover: 210 6% 20%;
     --popover-foreground: 210 20% 98%;
-    --primary: 174.6 73.3% 46.5%; /* Brighter Teal */
-    --primary-foreground: 180 100% 97%;
-    --secondary: 215 27.9% 16.9%; /* Darker Gray */
+    
+    --primary: 210 46% 74%;
+    --primary-foreground: 210 20% 98%;
+    
+    --secondary: 340 38% 60%;
     --secondary-foreground: 210 20% 98%;
-    --muted: 215 27.9% 16.9%;
-    --muted-foreground: 217.5 16.7% 61%; /* Lighter Gray */
-    --accent: 215 27.9% 16.9%;
+    
+    --muted: 210 6% 25%;
+    --muted-foreground: 210 6% 65%;
+    
+    --accent: 42 23% 25%;
     --accent-foreground: 210 20% 98%;
-    --destructive: 0 62.8% 30.6%; /* Darker Red */
+    
+    --destructive: 0 60% 40%;
     --destructive-foreground: 210 20% 98%;
-    --border: 215 27.9% 16.9%;
-    --input: 215 27.9% 16.9%;
-    --ring: 174.6 73.3% 46.5%; /* Brighter Teal Focus Ring */
+    
+    --border: 210 6% 25%;
+    --input: 210 6% 25%;
+    --ring: 210 46% 74%;
   }
 
-  /* --- NEW: Apply caret color --- */
   input,
   textarea {
-    @apply caret-primary; /* Sets caret color to --primary */
+    @apply caret-primary;
   }
-  /* Ensure caret color applies in dark mode too if needed */
+
   .dark input,
   .dark textarea {
-     @apply caret-primary;
+    @apply caret-primary;
   }
 }
+
+/* Base and selection styles remain the same */
 
 /* Apply base body styles */
 @layer base {

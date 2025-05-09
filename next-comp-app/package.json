@@ -18,6 +18,7 @@
     },
     "dependencies": {
         "@auth/prisma-adapter": "^2.8.0",
+        "@faker-js/faker": "^9.7.0",
         "@heroicons/react": "^2.2.0",
         "@hookform/resolvers": "^5.0.1",
         "@prisma/client": "^6.7.0",
@@ -62,7 +63,6 @@
     },
     "devDependencies": {
         "@eslint/eslintrc": "^3",
-        "@faker-js/faker": "^9.7.0",
         "@tailwindcss/typography": "^0.5.16",
         "@types/bcryptjs": "^2.4.6",
         "@types/node": "^20.17.32",

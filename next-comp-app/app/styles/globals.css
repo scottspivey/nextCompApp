@@ -1,39 +1,126 @@
-/* app/styles/globals.css */
 @import "tailwindcss";
 
 @layer base {
   @theme {
-    --color-background: hsl(0, 0%, 100%);
-    --color-foreground: hsl(213, 40%, 20%);
-    --color-card: hsl(0, 0%, 100%);
-    --color-card-foreground: hsl(213, 40%, 20%);
-    --color-popover: hsl(0, 0%, 100%);
-    --color-popover-foreground: hsl(213, 40%, 20%);
-
-    --color-primary: hsl(213, 40%, 75%); /* Dusty Blue */
-    --color-primary-foreground: hsl(224, 71%, 4%);
-
-    --color-secondary: hsl(133, 23%, 74%); /* Sage Green */
-    --color-secondary-foreground: hsl(224, 71%, 4%);
-
-    --color-accent: hsl(23, 59%, 72%); /* Warm Terracotta */
-    --color-accent-foreground: hsl(224, 71%, 4%);
-
-    --color-muted: hsl(213, 40%, 90%);
-    --color-muted-foreground: hsl(213, 20%, 40%);
-
-    --color-destructive: hsl(0, 70%, 55%);
-    --color-destructive-foreground: hsl(0, 0%, 100%);
-
-    --color-border: hsl(213, 20%, 80%);
-    --color-input: hsl(213, 20%, 90%);
-    --color-ring: hsl(213, 40%, 75%);
-
-    --color-chart-1: hsl(23, 59%, 72%);
-    --color-chart-2: hsl(133, 23%, 74%);
-    --color-chart-3: hsl(213, 40%, 50%);
-    --color-chart-4: hsl(43, 74%, 66%);
-    --color-chart-5: hsl(27, 87%, 67%);
-
+    --color-background: hsl(0,0%,100%);
+    --color-foreground: hsl(224,71.4%,4.1%);
+    --color-card: hsl(0,0%,100%);
+    --color-card-foreground: hsl(224,71.4%,4.1%);
+    --color-popover: hsl(0,0%,100%);
+    --color-popover-foreground: hsl(224,71.4%,4.1%); /* Corrected hsl formatting */
+    --color-primary: hsl(210, 46%, 74%);             /* New: Dusty Blue */
+    --color-primary-foreground: hsl(210, 25%, 15%);  /* New: Darker blue-gray for contrast */
+    --color-secondary: hsl(100, 22%, 75%);           /* New: Sage Green */
+    --color-secondary-foreground: hsl(100, 25%, 15%);/* New: Darker green-gray for contrast */
+    --color-muted: hsl(220,13%,91%);
+    --color-muted-foreground: hsl(220,8.9%,46.1%);
+    --color-accent: hsl(20, 50%, 70%);               /* New: Warm Terracotta (Tertiary) */
+    --color-accent-foreground: hsl(20, 30%, 15%);    /* New: Darker terracotta/brown for contrast */
+    --color-destructive: hsl(0,84.2%,60.2%);
+    --color-destructive-foreground: hsl(210,20%,98%);
+    --color-border: hsl(220,13%,91%);
+    --color-input: hsl(220,13%,91%);
+    --color-ring: hsl(210, 46%, 74%);                /* New: Primary color for ring */
+    --color-chart-1: hsl(12,76%,61%);
+    --color-chart-2: hsl(173,58%,39%);
+    --color-chart-3: hsl(197,37%,24%);
+    --color-chart-4: hsl(43,74%,66%);
+    --color-chart-5: hsl(27,87%,67%);
     --radius: 0.5rem;
   }
+
+  /* Dark Mode - Updated Palette */
+  .dark {
+    --background: 224 71.4% 4.1%;            /* Dark Slate Gray */
+    --foreground: 210 20% 98%;               /* Almost White */
+    --card: 224 71.4% 4.1%;
+    --card-foreground: 210 20% 98%;
+    --popover: 224 71.4% 4.1%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 210 46% 55%;                  /* New: Dark Mode Dusty Blue */
+    --primary-foreground: 210 30% 95%;       /* New: Light blue/white for contrast */
+    --secondary: 100 25% 38%;               /* New: Dark Mode Sage Green */
+    --secondary-foreground: 100 20% 90%;     /* New: Light green/gray for contrast */
+    --muted: 215 27.9% 16.9%;
+    --muted-foreground: 217.5 16.7% 61%;
+    --accent: 20 50% 45%;                   /* New: Dark Mode Warm Terracotta (Tertiary) */
+    --accent-foreground: 20 25% 90%;        /* New: Light terracotta/off-white for contrast */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 215 27.9% 16.9%;
+    --input: 215 27.9% 16.9%;
+    --ring: 210 46% 55%;                     /* New: Dark Mode Primary for ring */
+  }
+
+  /* --- NEW: Apply caret color --- */
+  input,
+  textarea {
+    @apply caret-primary; /* Sets caret color to --primary */
+  }
+  /* Ensure caret color applies in dark mode too if needed */
+  .dark input,
+  .dark textarea {
+     @apply caret-primary;
+  }
+}
+
+/* Apply base body styles */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* --- NEW: Custom Selection Styles --- */
+::selection {
+  @apply bg-primary text-primary-foreground;
+}
+::-moz-selection { /* Firefox prefix */
+  @apply bg-primary text-primary-foreground;
+}
+/* --- End Custom Selection Styles --- */
+
+/* Custom overrides for react-day-picker (Calendar) */
+/* Apply outside of @layer base to ensure higher specificity */
+/* Make sure these rules are near the END of your globals.css */
+
+/* Selected day(s) background and text */
+.rdp-day_selected,
+.rdp-day_selected:focus-visible,
+.rdp-day_selected:hover {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Style for "today" */
+.rdp-day_today:not(.rdp-day_outside) {
+   font-weight: bold;
+   background-color: transparent !important; /* Ensure no background */
+   color: hsl(var(--primary)) !important; /* Use primary color for text */
+   border: 1px solid hsl(var(--primary)) !important; /* Use primary color for border */
+}
+/* Ensure 'today' text color is correct in dark mode (already handled by variable, but keep border override) */
+.dark .rdp-day_today:not(.rdp-day_outside) {
+    /* color: hsl(var(--primary)) !important; */ /* Color should inherit from variable */
+    border-color: hsl(var(--primary)) !important;
+}
+
+/* Optional: Style range selection */
+.rdp-day_range_middle {
+    background-color: hsl(var(--accent)) !important; /* Will now use Warm Terracotta */
+    color: hsl(var(--accent-foreground)) !important;
+}
+.dark .rdp-day_range_middle {
+     background-color: hsl(var(--accent)) !important; /* Will now use Dark Mode Warm Terracotta */
+     color: hsl(var(--accent-foreground)) !important;
+}
+.rdp-day_range_start,
+.rdp-day_range_end {
+     background-color: hsl(var(--primary)) !important;
+     color: hsl(var(--primary-foreground)) !important;
+}

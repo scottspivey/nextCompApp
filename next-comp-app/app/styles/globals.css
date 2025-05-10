@@ -2,129 +2,38 @@
 import "tailwindcss";
 
 @layer base {
-  :root {
-    --color-background: 0 0% 100%;
-    --color-foreground: 213 40% 20%;
-    --color-card: 0 0% 100%;
-    --color-card-foreground: 213 40% 20%;
-    --color-popover: 0 0% 100%;
-    --color-popover-foreground: 213 40% 20%;
+  @theme {
+    --color-background: hsl(0, 0%, 100%);
+    --color-foreground: hsl(213, 40%, 20%);
+    --color-card: hsl(0, 0%, 100%);
+    --color-card-foreground: hsl(213, 40%, 20%);
+    --color-popover: hsl(0, 0%, 100%);
+    --color-popover-foreground: hsl(213, 40%, 20%);
 
-    --color-primary: 213 40% 75%; /* Dusty Blue */
-    --color-primary-foreground: 224 71% 4%;
+    --color-primary: hsl(213, 40%, 75%); /* Dusty Blue */
+    --color-primary-foreground: hsl(224, 71%, 4%);
 
-    --color-secondary: 133 23% 74%; /* Sage Green */
-    --color-secondary-foreground: 224 71% 4%;
+    --color-secondary: hsl(133, 23%, 74%); /* Sage Green */
+    --color-secondary-foreground: hsl(224, 71%, 4%);
 
-    --color-accent: 23 59% 72%; /* Warm Terracotta */
-    --color-accent-foreground: 224 71% 4%;
+    --color-accent: hsl(23, 59%, 72%); /* Warm Terracotta */
+    --color-accent-foreground: hsl(224, 71%, 4%);
 
-    --color-muted: 213 40% 90%;
-    --color-muted-foreground: 213 20% 40%;
+    --color-muted: hsl(213, 40%, 90%);
+    --color-muted-foreground: hsl(213, 20%, 40%);
 
-    --color-destructive: 0 70% 55%;
-    --color-destructive-foreground: 0 0% 100%;
+    --color-destructive: hsl(0, 70%, 55%);
+    --color-destructive-foreground: hsl(0, 0%, 100%);
 
-    --color-border: 213 20% 80%;
-    --color-input: 213 20% 90%;
-    --color-ring: 213 40% 75%;
+    --color-border: hsl(213, 20%, 80%);
+    --color-input: hsl(213, 20%, 90%);
+    --color-ring: hsl(213, 40%, 75%);
 
-    --color-chart-1: 23 59% 72%;
-    --color-chart-2: 133 23% 74%;
-    --color-chart-3: 213 40% 50%;
-    --color-chart-4: 43 74% 66%;
-    --color-chart-5: 27 87% 67%;
+    --color-chart-1: hsl(23, 59%, 72%);
+    --color-chart-2: hsl(133, 23%, 74%);
+    --color-chart-3: hsl(213, 40%, 50%);
+    --color-chart-4: hsl(43, 74%, 66%);
+    --color-chart-5: hsl(27, 87%, 67%);
 
     --radius: 0.5rem;
   }
-
-  .dark {
-    --background: 213 40% 15%;
-    --foreground: 210 20% 98%;
-    --card: 213 40% 15%;
-    --card-foreground: 210 20% 98%;
-    --popover: 213 40% 15%;
-    --popover-foreground: 210 20% 98%;
-
-    --primary: 213 40% 60%;
-    --primary-foreground: 210 20% 98%;
-
-    --secondary: 133 23% 40%;
-    --secondary-foreground: 210 20% 98%;
-
-    --accent: 23 59% 45%;
-    --accent-foreground: 210 20% 98%;
-
-    --muted: 213 40% 25%;
-    --muted-foreground: 213 20% 65%;
-
-    --destructive: 0 60% 40%;
-    --destructive-foreground: 210 20% 98%;
-
-    --border: 213 20% 35%;
-    --input: 213 20% 30%;
-    --ring: 213 40% 60%;
-  }
-
-  input,
-  textarea {
-    @apply caret-primary;
-  }
-
-  .dark input,
-  .dark textarea {
-    @apply caret-primary;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-}
-
-/* Custom Selection Styles */
-::selection {
-  @apply bg-primary text-primary-foreground;
-}
-::-moz-selection {
-  @apply bg-primary text-primary-foreground;
-}
-
-/* Day Picker Styling */
-.rdp-day_selected,
-.rdp-day_selected:focus-visible,
-.rdp-day_selected:hover {
-  background-color: hsl(var(--color-primary)) !important;
-  color: hsl(var(--color-primary-foreground)) !important;
-}
-
-.rdp-day_today:not(.rdp-day_outside) {
-  font-weight: bold;
-  background-color: transparent !important;
-  color: hsl(var(--color-primary)) !important;
-  border: 1px solid hsl(var(--color-primary)) !important;
-}
-
-.dark .rdp-day_today:not(.rdp-day_outside) {
-  border-color: hsl(var(--color-primary)) !important;
-}
-
-.rdp-day_range_middle {
-  background-color: hsl(var(--color-accent)) !important;
-  color: hsl(var(--color-accent-foreground)) !important;
-}
-.dark .rdp-day_range_middle {
-  background-color: hsl(var(--color-accent)) !important;
-  color: hsl(var(--color-accent-foreground)) !important;
-}
-.rdp-day_range_start,
-.rdp-day_range_end {
-  background-color: hsl(var(--color-primary)) !important;
-  color: hsl(var(--color-primary-foreground)) !important;
-}

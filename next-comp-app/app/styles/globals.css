@@ -1,5 +1,6 @@
 /* app/styles/globals.css */
 import "tailwindcss";
+
 @layer base {
   @theme {
     --color-background: hsl(0, 0%, 100%);

@@ -1,69 +1,68 @@
 /* app/styles/globals.css */
-
-@import "tailwindcss";
+import "tailwindcss";
 @layer base {
   @theme {
     --color-background: hsl(0, 0%, 100%);
-    --color-foreground: hsl(210, 6%, 20%);
+    --color-foreground: hsl(213, 40%, 20%);
     --color-card: hsl(0, 0%, 100%);
-    --color-card-foreground: hsl(210, 6%, 20%);
+    --color-card-foreground: hsl(213, 40%, 20%);
     --color-popover: hsl(0, 0%, 100%);
-    --color-popover-foreground: hsl(210, 6%, 20%);
-    
-    --color-primary: hsl(210, 46%, 74%); /* Dusty Blue */
-    --color-primary-foreground: hsl(0, 0%, 100%);
-    
-    --color-secondary: hsl(340, 38%, 74%); /* Muted Rose */
-    --color-secondary-foreground: hsl(0, 0%, 100%);
-    
-    --color-muted: hsl(210, 6%, 85%); /* Lighter Warm Gray */
-    --color-muted-foreground: hsl(210, 6%, 35%);
-    
-    --color-accent: hsl(42, 23%, 95%); /* Soft Cream */
-    --color-accent-foreground: hsl(210, 6%, 20%);
-    
+    --color-popover-foreground: hsl(213, 40%, 20%);
+
+    --color-primary: hsl(213, 40%, 75%); /* Dusty Blue */
+    --color-primary-foreground: hsl(224, 71%, 4%);
+
+    --color-secondary: hsl(133, 23%, 74%); /* Sage Green */
+    --color-secondary-foreground: hsl(224, 71%, 4%);
+
+    --color-accent: hsl(23, 59%, 72%); /* Warm Terracotta */
+    --color-accent-foreground: hsl(224, 71%, 4%);
+
+    --color-muted: hsl(213, 40%, 90%);
+    --color-muted-foreground: hsl(213, 20%, 40%);
+
     --color-destructive: hsl(0, 70%, 55%);
     --color-destructive-foreground: hsl(0, 0%, 100%);
-    
-    --color-border: hsl(210, 6%, 70%);
-    --color-input: hsl(210, 6%, 85%);
-    --color-ring: hsl(210, 46%, 74%);
-    
-    --color-chart-1: hsl(340, 58%, 60%);
-    --color-chart-2: hsl(210, 46%, 74%);
-    --color-chart-3: hsl(210, 6%, 35%);
-    --color-chart-4: hsl(42, 75%, 80%);
-    --color-chart-5: hsl(27, 70%, 70%);
-    
+
+    --color-border: hsl(213, 20%, 80%);
+    --color-input: hsl(213, 20%, 90%);
+    --color-ring: hsl(213, 40%, 75%);
+
+    --color-chart-1: hsl(23, 59%, 72%);
+    --color-chart-2: hsl(133, 23%, 74%);
+    --color-chart-3: hsl(213, 40%, 50%);
+    --color-chart-4: hsl(43, 74%, 66%);
+    --color-chart-5: hsl(27, 87%, 67%);
+
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 210 6% 20%;
+    --background: 213 40% 15%;
     --foreground: 210 20% 98%;
-    --card: 210 6% 20%;
+    --card: 213 40% 15%;
     --card-foreground: 210 20% 98%;
-    --popover: 210 6% 20%;
+    --popover: 213 40% 15%;
     --popover-foreground: 210 20% 98%;
-    
-    --primary: 210 46% 74%;
+
+    --primary: 213 40% 60%;
     --primary-foreground: 210 20% 98%;
-    
-    --secondary: 340 38% 60%;
+
+    --secondary: 133 23% 40%;
     --secondary-foreground: 210 20% 98%;
-    
-    --muted: 210 6% 25%;
-    --muted-foreground: 210 6% 65%;
-    
-    --accent: 42 23% 25%;
+
+    --accent: 23 59% 45%;
     --accent-foreground: 210 20% 98%;
-    
+
+    --muted: 213 40% 25%;
+    --muted-foreground: 213 20% 65%;
+
     --destructive: 0 60% 40%;
     --destructive-foreground: 210 20% 98%;
-    
-    --border: 210 6% 25%;
-    --input: 210 6% 25%;
-    --ring: 210 46% 74%;
+
+    --border: 213 20% 35%;
+    --input: 213 20% 30%;
+    --ring: 213 40% 60%;
   }
 
   input,
@@ -76,8 +75,6 @@
     @apply caret-primary;
   }
 }
-
-/* Base and selection styles remain the same */
 
 /* Apply base body styles */
 @layer base {

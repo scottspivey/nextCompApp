@@ -1,5 +1,5 @@
 /* app/styles/globals.css */
-import "tailwindcss";
+@import "tailwindcss";
 
 @layer base {
   @theme {

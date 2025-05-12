@@ -1,109 +1,84 @@
-// app/api/auth/register/route.ts (or your actual signup route file)
-
+// app/api/auth/register/route.ts
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma'; // Your Prisma client instance
+import { PrismaClient, Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import * as z from 'zod';
-import { Prisma } from '@prisma/client'; // Import Prisma namespace for types
 
-// Define the same validation schema used on the frontend
-const userSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
-  email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
-  firmName: z.string().optional(),
-  role: z.string().optional(),
-});
+const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
-  console.log("REGISTER API HIT");
   try {
     const body = await req.json();
-    console.log("REGISTER API BODY:", body);
+    const { email, password, name, firmName, role } = body;
 
     // 1. Validate input
-    const validation = userSchema.safeParse(body);
-    if (!validation.success) {
-      console.log('Registration validation failed:', validation.error.flatten().fieldErrors);
-      return NextResponse.json(
-        { message: 'Invalid input.', errors: validation.error.flatten().fieldErrors },
-        { status: 400 }
-      );
+    if (!email || !password || !name) {
+      return NextResponse.json({ error: 'Missing required fields: email, password, and name are required.' }, { status: 400 });
     }
-    console.log("REGISTER API VALIDATION SUCCESS");
 
-    const { email, name, password, firmName, role } = validation.data;
+    if (password.length < 6) { // Example: Enforce minimum password length
+        return NextResponse.json({ error: 'Password must be at least 6 characters long.' }, { status: 400 });
+    }
 
     // 2. Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email: email },
+      where: { email: email.toLowerCase() }, // Store and check emails in lowercase for consistency
     });
-    console.log("REGISTER API EXISTING USER CHECK:", existingUser ? existingUser.email : 'None');
 
     if (existingUser) {
-      console.log('User already exists:', email);
-      return NextResponse.json(
-        { message: 'User with this email already exists.' },
-        { status: 409 } // Conflict
-      );
+      return NextResponse.json({ error: 'User with this email already exists.' }, { status: 409 }); // 409 Conflict
     }
 
     // 3. Hash the password
-    console.log("REGISTER API HASHING PASSWORD...");
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    console.log("REGISTER API PASSWORD HASHED");
+    const saltRounds = 10; // Recommended salt rounds for bcrypt
+    const hashedPassword = bcrypt.hashSync(password, saltRounds);
 
-    // 4. Create User and Profile in a transaction
-    console.log("REGISTER API CREATING USER/PROFILE...");
-    // Add explicit type for 'tx' parameter
-    const newUser = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const createdUser = await tx.user.create({
+    // 4. Create the new user and their profile in a transaction
+    // This ensures that if profile creation fails, user creation is also rolled back.
+    const newUserWithProfile = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const newUser = await tx.user.create({
         data: {
+          email: email.toLowerCase(),
+          password: hashedPassword, // Store the hashed password
           name: name,
-          email: email,
-          password: hashedPassword,
+          // emailVerified: new Date() // Optional: if you want to auto-verify or handle verification separately
         },
       });
-      console.log("REGISTER API USER CREATED:", createdUser.id);
 
-      await tx.profile.create({
+      // Create an associated profile
+      // The profileId will be auto-generated (UUID)
+      const newProfile = await tx.profile.create({
         data: {
-          userId: createdUser.id,
+          userId: newUser.id, // Link to the newly created user
           full_name: name,
-          firm_name: firmName,
-          role: role,
-        }
+          firm_name: firmName || null, // Handle optional fields
+          role: role || null,          // Handle optional fields
+        },
       });
-      console.log("REGISTER API PROFILE CREATED FOR:", createdUser.id);
 
-      return createdUser;
+      return { ...newUser, profile: newProfile }; // Return user with profile info
     });
-    console.log("REGISTER API TRANSACTION COMPLETE");
 
-    console.log('User and profile created successfully:', newUser.email);
+    console.log('User registered successfully:', newUserWithProfile.email);
 
-    // Manually create the object to return, excluding the password
-    // This avoids the unused '_' variable from destructuring
-    const userWithoutPassword = {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      emailVerified: newUser.emailVerified, // Include other non-sensitive fields if needed
-      image: newUser.image
-    };
+    // Don't send back the password hash in the response
+    const { password: _, ...userResponse } = newUserWithProfile;
 
-    console.log("REGISTER API RETURNING SUCCESS");
-    return NextResponse.json(
-      // Return the manually created object
-      { user: userWithoutPassword, message: 'User created successfully' },
-      { status: 201 } // Created
-    );
+
+    return NextResponse.json({
+        message: 'User registered successfully!',
+        user: {
+            id: userResponse.id,
+            email: userResponse.email,
+            name: userResponse.name,
+            profileId: userResponse.profile.id
+        }
+    }, { status: 201 });
 
   } catch (error) {
-    console.error('REGISTER API ERROR:', error);
-    return NextResponse.json(
-      { message: 'An error occurred during registration.' },
-      { status: 500 }
-    );
+    console.error('Registration error:', error);
+    const message = error instanceof Error ? error.message : 'An unknown error occurred during registration.';
+    return NextResponse.json({ error: 'Failed to register user.', details: message }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

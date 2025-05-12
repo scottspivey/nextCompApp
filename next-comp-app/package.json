@@ -63,6 +63,7 @@
     },
     "devDependencies": {
         "@eslint/eslintrc": "^3",
+        "@eslint/js": "^9.26.0",
         "@tailwindcss/typography": "^0.5.16",
         "@types/bcryptjs": "^2.4.6",
         "@types/node": "^20.17.32",
@@ -72,11 +73,14 @@
         "autoprefixer": "^10.4.21",
         "eslint": "^8.57.1",
         "eslint-config-next": "^15.3.2",
+        "eslint-plugin-react": "^7.37.5",
+        "globals": "^16.1.0",
         "prisma": "^6.7.0",
         "supabase": "^2.20.12",
         "tailwindcss-animate": "^1.0.7",
         "ts-node": "^10.9.2",
         "tsconfig-paths": "^4.2.0",
-        "typescript": "^5.8.3"
+        "typescript": "^5.8.3",
+        "typescript-eslint": "^8.32.1"
     }
 }

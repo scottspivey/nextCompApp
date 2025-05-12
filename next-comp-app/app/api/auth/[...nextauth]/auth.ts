@@ -1,9 +1,9 @@
-// auth.config.ts (or lib/auth.config.ts)
+// app/api/auth/[...nextauth]/auth.ts
 
 import type { AuthConfig } from "@auth/core/types";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Credentials from "@auth/core/providers/credentials";
-import prisma from "@/lib/prisma"; // Assuming lib/prisma.ts exists and exports client
+import prisma from "@/lib/prisma"; 
 import bcrypt from 'bcryptjs';
 
 export const authConfig: AuthConfig = {

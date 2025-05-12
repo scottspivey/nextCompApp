@@ -1,3 +1,6 @@
-import { handlers } from "@/auth"
+// app/api/auth/[...nextauth]/route.ts
 
-export const { GET, POST } = handlers
+// Import handlers from central auth.ts file
+import { handlers } from "@/lib/auth";
+
+export const { GET, POST } = handlers;

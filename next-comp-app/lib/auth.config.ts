@@ -17,21 +17,23 @@ interface AuthorizeUser extends NextAuthUser {
 
 export const authConfig: AuthConfig = {
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "database" },
+  // Corrected: When using Credentials provider, JWT strategy is typically required for session management.
+  // The adapter will still handle user/account persistence.
+  session: { strategy: "jwt" },
   providers: [
     Credentials({
       async authorize(credentials): Promise<AuthorizeUser | null> {
         if (!credentials?.email || !credentials?.password) {
-          console.error("Auth - Missing credentials");
+          console.error("Auth - Missing credentials in authorize");
           return null;
         }
 
-        const email = credentials.email as string;
+        const email = (credentials.email as string).toLowerCase(); // Normalize email
         const password = credentials.password as string;
 
         try {
           const user = await prisma.user.findUnique({
-            where: { email },
+            where: { email }, // Query with lowercase email
           });
 
           if (!user || !user.password) {
@@ -66,24 +68,38 @@ export const authConfig: AuthConfig = {
     // Google({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET }),
   ],
   callbacks: {
-    async session({ session, user }) {
-      if (session.user && user) {
-        session.user.id = user.id; // Add user ID to the session object
-        // session.user.role = user.role; // Example: if your User model has a role
+    // The JWT callback is called when a JWT is created (signing in) or updated (session accessed).
+    // It's crucial when using the "jwt" session strategy.
+    async jwt({ token, user, account, profile }) {
+      // On initial sign-in, the `user` object (from the `authorize` function or OAuth profile) is available.
+      if (user?.id) {
+        token.id = user.id; // Persist the user ID in the JWT token
+        // You can add other custom claims to the token here if needed
+        // For example, if your 'user' object from 'authorize' or OAuth had a 'role':
+        // if (user.role) { token.role = user.role; }
       }
+      // If you are using OAuth providers and want to link accounts or save specific OAuth data,
+      // the `account` and `profile` objects are available here during the initial sign-in.
+      return token;
+    },
+    // The `session` callback is called whenever a session is checked.
+    // It allows you to customize the session object returned to the client.
+    // The `token` parameter here is the JWT token from the `jwt` callback.
+    async session({ session, token /* user */ }) {
+      // Add the user ID (and other custom claims from the token) to the session object.
+      // This makes it available on the client-side via `useSession()` or `getSession()`.
+      if (session.user && token?.id) {
+        session.user.id = token.id as string;
+      }
+      // if (session.user && token?.role) {
+      //   session.user.role = token.role as string; // Example: exposing role to session
+      // }
       return session;
     },
-    // async jwt({ token, user }) {
-    //   if (user) {
-    //     token.id = user.id;
-    //     // token.role = user.role; // Example
-    //   }
-    //   return token;
-    // },
   },
   pages: {
-    signIn: "/login", // Example: if you have a custom login page at /login
-    // error: '/auth/error', // Custom error page
+    signIn: "/login",
+    // error: '/auth/error',
   },
   debug: process.env.NODE_ENV === "development",
   // secret: process.env.AUTH_SECRET, // Automatically read from AUTH_SECRET env var

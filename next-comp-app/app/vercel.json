@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/api/generate-form/route.ts": {
+      "includeFiles": "pdf-templates/**"
+    }
+  }
+}

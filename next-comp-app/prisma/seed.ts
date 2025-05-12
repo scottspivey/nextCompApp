@@ -4,6 +4,11 @@ import { faker } from '@faker-js/faker';
 
 const prisma = new PrismaClient();
 
+// --- Configuration for specific user seeding ---
+const TARGET_USER_EMAIL = "scottspivey@gmail.com"; // The email of the user to add specific claims for
+const NUMBER_OF_CLAIMS_FOR_TARGET_USER = 10;
+// --- End Configuration ---
+
 const SC_STATES = ['SC']; // South Carolina
 const US_STATES = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -32,44 +37,19 @@ function formatPhoneNumber() {
 // --- Function to Seed Rate Settings ---
 async function seedRateSettings() {
   console.log('Seeding Rate Settings...');
-  // --- User's Rate Data ---
   const maxCompRatesRawData: Record<number, number> = {
-    1979: 185.00, 1980: 197.00, 1981: 216.00, 1982: 235.00, 1983: 254.38,
-    1984: 268.99, 1985: 287.02, 1986: 294.95, 1987: 308.24, 1988: 319.20,
-    1989: 334.87, 1990: 350.19, 1991: 364.37, 1992: 379.82, 1993: 393.06,
-    1994: 410.26, 1995: 422.48, 1996: 437.79, 1997: 450.62, 1998: 465.18,
-    1999: 483.47, 2000: 507.34, 2001: 532.77, 2002: 549.42, 2003: 563.55,
-    2004: 577.73, 2005: 592.56, 2006: 616.48, 2007: 645.94, 2008: 661.29,
-    2009: 681.36, 2010: 689.71, 2011: 704.92, 2012: 725.47, 2013: 743.72,
-    2014: 752.16, 2015: 766.05, 2016: 784.03, 2017: 806.92, 2018: 838.21,
-    2019: 845.74, 2020: 866.67, 2021: 903.40, 2022: 963.37, 2023: 1035.78,
-    2024: 1093.67, 2025: 1134.43
+    1979: 185.00, 1980: 197.00, 1981: 216.00, 1982: 235.00, 1983: 254.38,1984: 268.99, 1985: 287.02, 1986: 294.95, 1987: 308.24, 1988: 319.20,1989: 334.87, 1990: 350.19, 1991: 364.37, 1992: 379.82, 1993: 393.06,1994: 410.26, 1995: 422.48, 1996: 437.79, 1997: 450.62, 1998: 465.18,1999: 483.47, 2000: 507.34, 2001: 532.77, 2002: 549.42, 2003: 563.55,2004: 577.73, 2005: 592.56, 2006: 616.48, 2007: 645.94, 2008: 661.29,2009: 681.36, 2010: 689.71, 2011: 704.92, 2012: 725.47, 2013: 743.72,2014: 752.16, 2015: 766.05, 2016: 784.03, 2017: 806.92, 2018: 838.21,2019: 845.74, 2020: 866.67, 2021: 903.40, 2022: 963.37, 2023: 1035.78,2024: 1093.67, 2025: 1134.43
   };
   const discountRatesRawData: Record<number, number> = {
-    2005: 0.0500, 2006: 0.0500, 2007: 0.0500, 2008: 0.0500, 2009: 0.0500,
-    2010: 0.0500, 2011: 0.0500, 2012: 0.0500, 2013: 0.0500, 2014: 0.0500,
-    2015: 0.0200, 2016: 0.0200, 2017: 0.0200, 2018: 0.0225, 2019: 0.0249,
-    2020: 0.0200, 2021: 0.0200, 2022: 0.0200, 2023: 0.0394, 2024: 0.0393,
-    2025: 0.0438
+    2005: 0.0500, 2006: 0.0500, 2007: 0.0500, 2008: 0.0500, 2009: 0.0500,2010: 0.0500, 2011: 0.0500, 2012: 0.0500, 2013: 0.0500, 2014: 0.0500,2015: 0.0200, 2016: 0.0200, 2017: 0.0200, 2018: 0.0225, 2019: 0.0249,2020: 0.0200, 2021: 0.0200, 2022: 0.0200, 2023: 0.0394, 2024: 0.0393,2025: 0.0438
   };
-  // Removed explicit : Prisma.RateSettingCreateInput[] annotations
-  const maxCompRatesData = Object.entries(
-    maxCompRatesRawData
-  ).map(([yearStr, rate]) => {
+  const maxCompRatesData = Object.entries(maxCompRatesRawData).map(([yearStr, rate]) => {
     const year = parseInt(yearStr, 10);
-    return {
-      year: year, rate_type: 'MAX_COMPENSATION', value: new Prisma.Decimal(rate),
-      effective_date: new Date(`${year}-01-01T00:00:00.000Z`), description: `Maximum Weekly Compensation Rate for SC in ${year}`,
-    };
+    return { year: year, rate_type: 'MAX_COMPENSATION', value: new Prisma.Decimal(rate), effective_date: new Date(`${year}-01-01T00:00:00.000Z`), description: `Maximum Weekly Compensation Rate for SC in ${year}`, };
   });
-  const discountRatesData = Object.entries(
-    discountRatesRawData
-  ).map(([yearStr, rate]) => {
+  const discountRatesData = Object.entries(discountRatesRawData).map(([yearStr, rate]) => {
     const year = parseInt(yearStr, 10);
-    return {
-      year: year, rate_type: 'DISCOUNT_RATE_101_PLUS', value: new Prisma.Decimal(rate),
-      effective_date: new Date(`${year}-01-01T00:00:00.000Z`), description: `WCC Discount Rate (101+ weeks) for SC in ${year}`,
-    };
+    return { year: year, rate_type: 'DISCOUNT_RATE_101_PLUS', value: new Prisma.Decimal(rate), effective_date: new Date(`${year}-01-01T00:00:00.000Z`), description: `WCC Discount Rate (101+ weeks) for SC in ${year}`, };
   });
   const allRateData = [...maxCompRatesData, ...discountRatesData];
   for (const data of allRateData) {
@@ -79,7 +59,7 @@ async function seedRateSettings() {
     });
     console.log(`Upserted rate for ${data.year} - ${data.rate_type}`);
   }
-  const otherRates = [ // Removed explicit type annotation
+  const otherRates = [
     { year: 2024, rate_type: 'MILEAGE_RATE_SC', value: new Prisma.Decimal('0.685'), effective_date: new Date('2024-01-01T00:00:00.000Z'), description: 'Standard Mileage Rate for Medical Travel SC 2024 (based on IRS general rate, verify with WCC)', },
     { year: 2024, rate_type: 'MIN_COMP_RATE_SC', value: new Prisma.Decimal('75.00'), effective_date: new Date('2024-01-01T00:00:00.000Z'), description: 'Minimum Weekly Compensation Rate for SC 2024 (typically $75 or AWW if lower)', }
   ];
@@ -95,43 +75,51 @@ async function seedRateSettings() {
 
 async function main() {
   console.log(`Start seeding ...`);
-  // Clear data if needed (use with caution!)
-  // ... (deleteMany calls omitted for brevity) ...
+  // Optional: Clear data. Use with caution.
+  // await prisma.formGenerated.deleteMany();
+  // await prisma.claimMedicalProvider.deleteMany();
+  // await prisma.note.deleteMany();
+  // await prisma.savedCalculation.deleteMany();
+  // await prisma.claim.deleteMany(); // Deleting claims before specific user seeding if they are re-runnable
+  // await prisma.injuredWorker.deleteMany(); // Deleting workers before specific user seeding
+  // await prisma.medicalProvider.deleteMany();
+  // await prisma.employer.deleteMany();
+  // await prisma.rateSetting.deleteMany();
+  // await prisma.profile.deleteMany();
+  // await prisma.user.deleteMany();
 
   await seedRateSettings();
 
-  // --- Create Users and Profiles ---
-  const numberOfProfiles = 5;
-  const profiles = [];
-  for (let i = 0; i < numberOfProfiles; i++) {
+  // --- Create General Users and Profiles (if needed for other testing) ---
+  const numberOfGeneralProfiles = 2; // Create a couple of general profiles
+  const generalProfiles = [];
+  for (let i = 0; i < numberOfGeneralProfiles; i++) {
     const user = await prisma.user.create({
       data: {
-        email: faker.internet.email({firstName: `user${i}`, lastName: 'seed'}),
+        email: faker.internet.email({firstName: `generalUser${i}`, lastName: 'seed'}),
         name: faker.person.fullName(),
       },
     });
-    // Removed explicit type annotation for profile data
     const profileData = {
         userId: user.id,
         full_name: user.name,
-        firm_name: faker.company.name() + ' Law Group',
-        role: faker.helpers.arrayElement(['attorney', 'paralegal', 'adjuster', 'admin']),
+        firm_name: faker.company.name() + ' Associates',
+        role: faker.helpers.arrayElement(['paralegal', 'adjuster']),
         avatar_url: faker.image.avatar(),
         phone_number: formatPhoneNumber(),
       };
     const profile = await prisma.profile.create({ data: profileData });
-    profiles.push(profile);
-    console.log(`Created user ${user.email} with profile ${profile.id}`);
+    generalProfiles.push(profile);
+    console.log(`Created general user ${user.email} with profile ${profile.id}`);
   }
-  console.log('User and Profile seeding completed.');
+  console.log('General User and Profile seeding completed.');
 
-  // --- Create Employers ---
-  console.log('Attempting to seed Employers...');
-  const numberOfEmployers = 10;
+  // --- Create General Employers ---
+  console.log('Attempting to seed general Employers...');
+  const numberOfEmployers = 5; // Create some general employers
   const employers = [];
   for (let i = 0; i < numberOfEmployers; i++) {
     const companyName = faker.company.name();
-    // Removed explicit type annotation for employer data
     const employerData = {
         name: companyName,
         fein: `${faker.string.numeric(2)}-${faker.string.numeric(7)}`,
@@ -140,7 +128,7 @@ async function main() {
         state: faker.helpers.arrayElement(US_STATES),
         zip_code: faker.location.zipCode(),
         phone_number: formatPhoneNumber(),
-        insurance_carrier_name: faker.company.name() + ' Insurance Co.',
+        insurance_carrier_name: faker.company.name() + ' Insurance',
         insurance_policy_number: faker.string.alphanumeric(10).toUpperCase(),
         carrier_code: `C${faker.string.numeric(3)}`,
         contact_person_name: faker.person.fullName(),
@@ -148,26 +136,25 @@ async function main() {
         contact_person_email: faker.internet.email({firstName: 'contact', lastName: companyName.split(' ')[0] || `emp${i}`}),
       };
      if (!prisma.employer) {
-       console.error('CRITICAL: prisma.employer is undefined before creating employer. Exiting.');
+       console.error('CRITICAL: prisma.employer is undefined. Exiting.');
        throw new Error('prisma.employer is undefined');
      }
     const employer = await prisma.employer.create({ data: employerData });
     employers.push(employer);
-    console.log(`Created employer ${employer.name}`);
+    console.log(`Created general employer ${employer.name}`);
   }
-  console.log('Employer seeding completed.');
+  console.log('General Employer seeding completed.');
 
-  // --- Create Medical Providers ---
-  console.log('Attempting to seed Medical Providers...');
+  // --- Create General Medical Providers ---
+  console.log('Attempting to seed general Medical Providers...');
    if (!prisma.medicalProvider) {
-     console.error('CRITICAL: prisma.medicalProvider is undefined before creating medical provider. Exiting.');
+     console.error('CRITICAL: prisma.medicalProvider is undefined. Exiting.');
      throw new Error('prisma.medicalProvider is undefined');
    }
-  const numberOfMedicalProviders = 15;
+  const numberOfMedicalProviders = 8; // Create some general medical providers
   const medicalProviders = [];
   for (let i = 0; i < numberOfMedicalProviders; i++) {
     const providerLastName = faker.person.lastName();
-    // Removed explicit type annotation for medical provider data
     const medicalProviderData = {
         name: `Dr. ${providerLastName}, ${faker.person.suffix() || 'MD'}` ,
         type: faker.helpers.arrayElement(MEDICAL_PROVIDER_TYPES),
@@ -183,131 +170,142 @@ async function main() {
       };
     const provider = await prisma.medicalProvider.create({ data: medicalProviderData });
     medicalProviders.push(provider);
-    console.log(`Created medical provider ${provider.name}`);
+    console.log(`Created general medical provider ${provider.name}`);
   }
-  console.log('Medical Provider seeding completed.');
+  console.log('General Medical Provider seeding completed.');
 
+  // --- Seed specific claims for TARGET_USER_EMAIL ---
+  console.log(`Attempting to seed ${NUMBER_OF_CLAIMS_FOR_TARGET_USER} claims for user: ${TARGET_USER_EMAIL}`);
+  const targetUser = await prisma.user.findUnique({
+    where: { email: TARGET_USER_EMAIL.toLowerCase() },
+    include: { profile: true }, // Include the profile directly
+  });
 
-  // --- Create Injured Workers and Claims ---
-  console.log('Attempting to seed Injured Workers and Claims...');
-   if (!prisma.injuredWorker) {
-     console.error('CRITICAL: prisma.injuredWorker is undefined before creating worker. Exiting.');
-     throw new Error('prisma.injuredWorker is undefined');
-   }
-   if (!prisma.claim) {
-     console.error('CRITICAL: prisma.claim is undefined before creating claim. Exiting.');
-     throw new Error('prisma.claim is undefined');
-   }
+  if (targetUser && targetUser.profile) {
+    const targetProfile = targetUser.profile;
+    console.log(`Found profile ${targetProfile.id} for user ${TARGET_USER_EMAIL}. Creating claims...`);
 
-  const numberOfInjuredWorkersPerProfile = 3;
+    if (employers.length === 0) {
+        console.error("No general employers available to link claims to. Please ensure employers are seeded first.");
+    }
 
-  for (const profile of profiles) {
-    for (let i = 0; i < numberOfInjuredWorkersPerProfile; i++) {
+    for (let i = 0; i < NUMBER_OF_CLAIMS_FOR_TARGET_USER; i++) {
       const firstName = faker.person.firstName();
       const lastName = faker.person.lastName();
 
-      // Removed explicit type annotation for injured worker data
       const injuredWorkerData = {
-          profile: { connect: { id: profile.id } },
+          profile: { connect: { id: targetProfile.id } },
           first_name: firstName,
-          last_name: lastName,
+          last_name: lastName, // Ensure this matches schema (snake_case)
           middle_name: faker.datatype.boolean(0.3) ? faker.person.middleName() : undefined,
-          suffix: faker.datatype.boolean(0.1) ? faker.person.suffix() : undefined,
           ssn: createFullSSN(),
           date_of_birth: faker.date.birthdate({ min: 18, max: 65, mode: 'age' }),
-          gender: faker.helpers.arrayElement(GENDERS),
-          marital_status: faker.helpers.arrayElement(MARITAL_STATUSES),
-          address_line1: faker.location.streetAddress(),
-          city: faker.location.city(),
-          state: faker.helpers.arrayElement(SC_STATES),
-          zip_code: faker.location.zipCode('#####'),
           phone_number: formatPhoneNumber(),
           work_phone_number: faker.datatype.boolean(0.5) ? formatPhoneNumber() : undefined,
           email: faker.internet.email({firstName, lastName}),
           occupation: faker.person.jobTitle(),
-          num_dependents: faker.number.int({ min: 0, max: 5 }),
-          last_accessed_at: faker.date.recent({ days: 30 }),
-        };
+          address_line1: faker.location.streetAddress(),
+          city: faker.location.city(),
+          state: faker.helpers.arrayElement(SC_STATES),
+          zip_code: faker.location.zipCode("#####"),
+      };
+      if (!prisma.injuredWorker) {
+        console.error('CRITICAL: prisma.injuredWorker is undefined. Exiting.');
+        throw new Error('prisma.injuredWorker is undefined');
+      }
       const injuredWorker = await prisma.injuredWorker.create({ data: injuredWorkerData });
-      console.log(`Created injured worker ${injuredWorker.first_name} ${injuredWorker.last_name} for profile ${profile.id}`);
+      console.log(`Created InjuredWorker ${injuredWorker.id} for ${TARGET_USER_EMAIL}`);
 
-      const associatedEmployer = faker.helpers.arrayElement(employers);
+      const associatedEmployer = employers.length > 0 ? faker.helpers.arrayElement(employers) : null;
       const dateOfInjury = faker.date.past({ years: 2 });
 
-      // Removed explicit type annotation for claim data
       const claimData = {
           injuredWorker: { connect: { id: injuredWorker.id } },
-          profile: { connect: { id: profile.id } },
+          profile: { connect: { id: targetProfile.id } },
           employer: associatedEmployer ? { connect: { id: associatedEmployer.id } } : undefined,
-          wcc_file_number: `WCC-${faker.string.alphanumeric(8).toUpperCase()}`,
-          carrier_file_number: `CARRIER-${faker.string.alphanumeric(10).toUpperCase()}`,
+          wcc_file_number: `WCC-SPEC-${faker.string.alphanumeric(6).toUpperCase()}`,
+          carrier_file_number: `CARRIER-SPEC-${faker.string.alphanumeric(8).toUpperCase()}`,
           date_of_injury: dateOfInjury,
-          time_of_injury: faker.date.recent().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
-          place_of_injury: faker.location.secondaryAddress() + ", " + (associatedEmployer?.name || "Unknown Employer"),
-          accident_description: faker.lorem.sentence({min: 5, max: 10}),
-          part_of_body_injured: faker.lorem.words(3),
-          nature_of_injury: faker.lorem.words(2),
-          cause_of_injury: faker.lorem.words(2),
-          notice_given_date: faker.date.soon({ days: 5, refDate: dateOfInjury }),
-          average_weekly_wage: new Prisma.Decimal(faker.finance.amount({ min: 300, max: 1500, dec: 2 })),
-          compensation_rate: new Prisma.Decimal(faker.finance.amount({ min: 200, max: 1000, dec: 2 })),
-          date_disability_began: faker.date.soon({ days: 1, refDate: dateOfInjury }),
-          mmi_date: faker.datatype.boolean(0.3) ? faker.date.future({ years: 1, refDate: dateOfInjury }) : undefined,
-          current_work_status: faker.helpers.arrayElement(['Totally Disabled', 'Light Duty', 'Full Duty', 'MMI - Awaiting Rating', 'MMI - Released']),
-          permanent_impairment_rating: faker.datatype.boolean(0.2) ? faker.number.int({ min: 5, max: 50 }) : undefined,
+          accident_description: `Specific claim for ${TARGET_USER_EMAIL}: ${faker.lorem.sentence(5)}`,
+          part_of_body_injured: faker.lorem.words(2),
+          nature_of_injury: faker.lorem.words(1),
+          mmi_date: faker.datatype.boolean(0.4) ? faker.date.future({ years: 1, refDate: dateOfInjury }) : undefined,
+          average_weekly_wage: new Prisma.Decimal(faker.finance.amount({ min: 400, max: 1200, dec: 2 })),
+          compensation_rate: new Prisma.Decimal(faker.finance.amount({ min: 250, max: 800, dec: 2 })),
           claim_status: faker.helpers.arrayElement(CLAIM_STATUSES),
-          claimant_attorney_name: profile.role === 'attorney' ? profile.full_name : (faker.datatype.boolean(0.3) ? faker.person.fullName() : undefined),
-          claimant_attorney_firm: profile.role === 'attorney' ? profile.firm_name : (faker.datatype.boolean(0.3) ? faker.company.name() + " Law LLC" : undefined),
-        };
-      const claim = await prisma.claim.create({ data: claimData });
-      console.log(`Created claim ${claim.id} for worker ${injuredWorker.id}`);
-
-       // Link some medical providers to this claim
-       if (!prisma.claimMedicalProvider) {
-         console.error('CRITICAL: prisma.claimMedicalProvider is undefined before linking providers. Exiting.');
-         throw new Error('prisma.claimMedicalProvider is undefined');
-       }
-      const numClaimProviders = faker.number.int({ min: 1, max: 3 });
-      const shuffledProviders = faker.helpers.shuffle(medicalProviders);
-      for (let k = 0; k < numClaimProviders; k++) {
-        if (shuffledProviders[k]) {
-          // Removed explicit type annotation for claim medical provider data
-          const claimMedicalProviderData = {
-              claim: { connect: { id: claim.id } },
-              medicalProvider: { connect: { id: shuffledProviders[k].id } },
-              date_of_first_visit: faker.date.soon({ days: 2, refDate: dateOfInjury }),
-              date_of_last_visit: faker.date.between({ from: dateOfInjury, to: new Date() }),
-              notes: faker.lorem.sentence(),
-            };
-          await prisma.claimMedicalProvider.create({ data: claimMedicalProviderData });
-        }
+      };
+      if (!prisma.claim) {
+        console.error('CRITICAL: prisma.claim is undefined. Exiting.');
+        throw new Error('prisma.claim is undefined');
       }
-      console.log(`Linked ${numClaimProviders} medical providers to claim ${claim.id}`);
+      const claim = await prisma.claim.create({ data: claimData });
+      console.log(`Created Claim ${claim.id} for ${TARGET_USER_EMAIL}, linked to Worker ${injuredWorker.id}`);
 
-       // Create some dummy FormGenerated entries
-       if (faker.datatype.boolean(0.7)) {
-         if (!prisma.formGenerated) {
-             console.error('CRITICAL: prisma.formGenerated is undefined before creating form entry. Exiting.');
-             throw new Error('prisma.formGenerated is undefined');
-         }
-         // Removed explicit type annotation for form generated data
-        const formGeneratedData = {
-            form_type: faker.helpers.arrayElement(["SCWCC_Form27", "SCWCC_Form21", "SCWCC_Form50"]),
-            injuredWorker: { connect: { id: injuredWorker.id } },
-            claim: { connect: { id: claim.id } },
-            generatedByProfile: { connect: { id: profile.id } },
-            file_name: `Form_${faker.string.alphanumeric(5)}.pdf`,
-            form_data_snapshot: {
-              reason: "Initial filing test",
-              filledFields: faker.number.int({min: 5, max: 20})
-            } as Prisma.JsonObject
-          };
-        await prisma.formGenerated.create({ data: formGeneratedData });
-        console.log(`Created dummy FormGenerated entry for claim ${claim.id}`);
+      if (medicalProviders.length > 0 && prisma.claimMedicalProvider) {
+        const numSpecificClaimProviders = faker.number.int({ min: 0, max: 2 });
+        const shuffledSpecificProviders = faker.helpers.shuffle(medicalProviders);
+        for (let k = 0; k < numSpecificClaimProviders; k++) {
+            if (shuffledSpecificProviders[k]) {
+                await prisma.claimMedicalProvider.create({
+                    data: {
+                        claim: { connect: { id: claim.id }},
+                        medicalProvider: { connect: { id: shuffledSpecificProviders[k].id }},
+                        date_of_first_visit: faker.date.soon({days: 2, refDate: dateOfInjury}),
+                        notes: "Initial consultation for specific claim."
+                    }
+                });
+            }
+        }
+        console.log(`Linked ${numSpecificClaimProviders} medical providers to specific claim ${claim.id}`);
       }
     }
+    console.log(`Successfully seeded ${NUMBER_OF_CLAIMS_FOR_TARGET_USER} claims for user ${TARGET_USER_EMAIL}.`);
+
+  } else {
+    console.warn(`Target user with email ${TARGET_USER_EMAIL} (or their profile) not found. Skipping specific claim seeding for this user. Please ensure the user is registered and has a profile.`);
   }
-  console.log('Injured Worker and Claim seeding completed.');
+
+  console.log("Starting general claim seeding for other profiles (if any)...");
+  const generalProfilesToSeedFor = generalProfiles.filter(p => p.id !== targetUser?.profile?.id);
+
+  for (const profile of generalProfilesToSeedFor) {
+    const numberOfInjuredWorkersPerGeneralProfile = 2;
+    for (let i = 0; i < numberOfInjuredWorkersPerGeneralProfile; i++) {
+      const firstName = faker.person.firstName();
+      const lastName = faker.person.lastName();
+      const injuredWorkerData = {
+          profile: { connect: { id: profile.id } },
+          first_name: firstName,
+          last_name: lastName, // Corrected from lastName (camelCase) to last_name (snake_case)
+          ssn: createFullSSN(),
+          date_of_birth: faker.date.birthdate({ min: 18, max: 65, mode: 'age' }),
+          phone_number: formatPhoneNumber(),
+          email: faker.internet.email({firstName, lastName}),
+          // Add other optional fields for general injured workers if desired
+          // middle_name: faker.datatype.boolean(0.2) ? faker.person.middleName() : undefined,
+          // work_phone_number: faker.datatype.boolean(0.3) ? formatPhoneNumber() : undefined,
+          // occupation: faker.person.jobTitle(),
+          // address_line1: faker.location.streetAddress(),
+          // city: faker.location.city(),
+          // state: faker.helpers.arrayElement(SC_STATES),
+          // zip_code: faker.location.zipCode("#####"),
+      };
+      const injuredWorker = await prisma.injuredWorker.create({ data: injuredWorkerData });
+      const associatedEmployer = employers.length > 0 ? faker.helpers.arrayElement(employers) : null;
+      const dateOfInjury = faker.date.past({ years: 1 });
+      const claimData = {
+        injuredWorker: { connect: { id: injuredWorker.id } },
+        profile: { connect: { id: profile.id } },
+        employer: associatedEmployer ? { connect: { id: associatedEmployer.id } } : undefined,
+        wcc_file_number: `WCC-GEN-${faker.string.alphanumeric(7).toUpperCase()}`,
+        date_of_injury: dateOfInjury,
+      };
+      await prisma.claim.create({ data: claimData });
+      console.log(`Created general claim for profile ${profile.id}`);
+    }
+  }
+  console.log('General claim seeding for other profiles completed.');
+
   console.log(`Seeding finished.`);
 }
 

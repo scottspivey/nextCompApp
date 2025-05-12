@@ -1,22 +1,18 @@
-// components/providers/theme-provider.tsx
-"use client"; // Theme provider needs to be a client component
+// app/Components/providers/theme-provider.tsx
+"use client"; // This component must be a Client Component
 
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
-import { type ThemeProviderProps } from "next-themes";
+import type { ThemeProviderProps } from "next-themes"; // Import the props type
 
+// Create and export your ThemeProvider component
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  // Ensure necessary props are passed, especially attribute="class"
-  // and defaultTheme="system" enableSystem disableTransitionOnChange
-  return (
-    <NextThemesProvider
-      attribute="class" // Apply theme changes via class on the html tag
-      defaultTheme="system" // Default to system preference
-      enableSystem // Enable system preference detection
-      disableTransitionOnChange // Disable transitions on theme change
-      {...props} // Pass through any other props
-    >
-      {children}
-    </NextThemesProvider>
-  );
+  // Pass all props (like attribute, defaultTheme, enableSystem, etc.)
+  // directly to the NextThemesProvider.
+  // Your layout.tsx already provides these:
+  // attribute="class"
+  // defaultTheme="system"
+  // enableSystem
+  // disableTransitionOnChange
+  return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
 }

@@ -1,26 +1,28 @@
 // app/dashboard/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/app/Components/ui/button'; // Adjust path
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/app/Components/ui/card'; // Adjust path
-import { Textarea } from '@/app/Components/ui/textarea'; // Adjust path
-import { Progress } from '@/app/Components/ui/progress'; // Adjust path
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/Components/ui/table"; // Adjust path
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select"; // Import Select
-import { Label } from "@/app/Components/ui/label"; // Import Label
-import { useToast } from "@/app/Components/ui/use-toast"; // Import useToast for feedback
+import { Button } from '@/app/Components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/app/Components/ui/card';
+import { Textarea } from '@/app/Components/ui/textarea';
+import { Progress } from '@/app/Components/ui/progress';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/Components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
+import { Label } from "@/app/Components/ui/label";
+import { useToast } from "@/app/Components/ui/use-toast";
 
-import { PlusCircle, Settings, BookOpen, Calculator, StickyNote, FolderKanban, FileText, Download } from 'lucide-react'; // Added more icons
+import { PlusCircle, Settings, BookOpen, Calculator, StickyNote, FolderKanban, FileText, Download } from 'lucide-react';
 
-// Import dummy data (adjust path as needed) - Keep for now, replace with real fetching
+// TODO: Replace these dummy data imports with actual data fetching or remove if not used.
+// If these are kept, ensure their types are accurate or import types from data.ts if available.
 import { recentWorkersData, calculatorLinks } from '@/app/dashboard/data';
 
-// Define types for fetched data (adjust based on your actual API/fetching)
+// Define types for fetched data
 interface ClaimSummary {
-    id: string;
+    id: string; // UUID
     wcc_file_number: string | null;
+    date_of_injury?: Date | string | null;
     injuredWorker: {
         first_name: string;
         last_name: string;
@@ -28,91 +30,113 @@ interface ClaimSummary {
 }
 
 interface UserProfile {
-    id: string;
-    // Add other profile fields if needed
+    id: string; // This is the Profile ID (UUID)
+    userId?: string; // User ID (UUID), if returned
+    full_name?: string | null;
+    email?: string | null;
 }
+
+// Interface for the structure of items in recentWorkersData
+// Adjusted claimNumber to be string | null to align with typical data structures and ?? usage
+interface RecentWorker {
+    id: string | null | undefined;
+    name: string | null | undefined; 
+    claimNumber?: string | null | undefined; 
+    lastAccessed: string | null | undefined;
+}
+
+// Interface for the structure of items in calculatorLinks
+interface CalculatorLink {
+    id: string;
+    name: string;
+    path: string;
+    premium?: boolean;
+}
+
 
 export default function DashboardPage() {
     const router = useRouter();
-    const { toast } = useToast(); // Initialize toast
+    const { toast } = useToast();
 
-    // State for Form Generation
     const [selectedFormType, setSelectedFormType] = useState<string>('');
     const [selectedClaimId, setSelectedClaimId] = useState<string>('');
-    const [claims, setClaims] = useState<ClaimSummary[]>([]); // State to hold fetched claims
-    const [userProfile, setUserProfile] = useState<UserProfile | null>(null); // State for user profile
-    const [isGenerating, setIsGenerating] = useState<boolean>(false); // Loading state for generation button
+    const [claims, setClaims] = useState<ClaimSummary[]>([]);
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [isGenerating, setIsGenerating] = useState<boolean>(false);
+    const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(true);
+    const [isLoadingClaims, setIsLoadingClaims] = useState<boolean>(false);
 
-    // --- Data Fetching ---
-    // Use useCallback for fetch functions to prevent recreation on every render
     const fetchProfile = useCallback(async () => {
+        setIsLoadingProfile(true);
         try {
-            // Replace with your actual API call to get the logged-in user's profile ID
-            // Example: const response = await fetch('/api/user/profile');
-            // const data = await response.json();
-            // setUserProfile(data);
-
-            // --- MOCK PROFILE DATA ---
-            setUserProfile({ id: "mock-profile-id-replace-me" }); // Replace with actual fetched profile ID
-            // --- END MOCK PROFILE DATA ---
-
+            const response = await fetch('/api/me/profile');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Failed to fetch profile: ${response.statusText}`);
+            }
+            const data: UserProfile = await response.json();
+            setUserProfile(data);
         } catch (error) {
             console.error("Error fetching profile:", error);
             toast({
-                title: "Error",
-                description: "Could not fetch user profile.",
+                title: "Error Fetching Profile",
+                description: error instanceof Error ? error.message : "Could not fetch user profile.",
                 variant: "destructive",
             });
+            setUserProfile(null);
+        } finally {
+            setIsLoadingProfile(false);
         }
-    }, [toast]); // Dependency array includes toast
+    }, [toast]);
 
-    const fetchClaims = useCallback(async (profileId: string) => { // Keep profileId param here
+    const fetchClaims = useCallback(async (profileId: string) => {
+        if (!profileId || profileId === "mock-profile-id-replace-me") {
+            setClaims([]);
+            setIsLoadingClaims(false);
+            return;
+        }
+        setIsLoadingClaims(true);
         try {
-            // Replace with your actual API call to get claims for the profileId
-            // Example: const response = await fetch(`/api/claims?profileId=${profileId}`);
-            // const data = await response.json();
-            // setClaims(data);
-
-            // --- MOCK CLAIMS DATA ---
-            const mockClaims: ClaimSummary[] = [
-                { id: "claim-1", wcc_file_number: "WCC-12345", injuredWorker: { first_name: "John", last_name: "Doe" } },
-                { id: "claim-2", wcc_file_number: "WCC-67890", injuredWorker: { first_name: "Jane", last_name: "Smith" } },
-                { id: "claim-3", wcc_file_number: null, injuredWorker: { first_name: "Alice", last_name: "Brown" } },
-            ];
-            setClaims(mockClaims); // Replace with actual fetched claims
-             // --- END MOCK CLAIMS DATA ---
-
+            const response = await fetch(`/api/claims?profileId=${profileId}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Failed to fetch claims: ${response.statusText}`);
+            }
+            const data: ClaimSummary[] = await response.json();
+            setClaims(data);
         } catch (error) {
             console.error("Error fetching claims:", error);
-             toast({
-                title: "Error",
-                description: "Could not fetch claims list.",
+            toast({
+                title: "Error Fetching Claims",
+                description: error instanceof Error ? error.message : "Could not fetch claims list.",
                 variant: "destructive",
             });
+            setClaims([]);
+        } finally {
+            setIsLoadingClaims(false);
         }
-    }, [toast]); // Dependency array includes toast
+    }, [toast]);
 
     useEffect(() => {
         fetchProfile();
-    }, [fetchProfile]); // Fetch profile on mount
+    }, [fetchProfile]);
 
     useEffect(() => {
-        // Fetch claims only after profile is loaded and profileId exists
-        if (userProfile?.id) {
+        if (userProfile?.id && userProfile.id !== "mock-profile-id-replace-me") {
             fetchClaims(userProfile.id);
+        } else if (!isLoadingProfile && !userProfile?.id) {
+            console.log("No valid user profile ID to fetch claims.");
+            setClaims([]);
         }
-    }, [userProfile?.id, fetchClaims]); // Rerun effect if profile ID or fetchClaims changes
+    }, [userProfile?.id, isLoadingProfile, fetchClaims]);
 
+    const hasPremiumAccess = () => true;
 
-    // Placeholder function for premium checks
-    const hasPremiumAccess = () => true; // Replace with actual logic
-
-    // --- Form Generation Handler ---
     const handleGenerateForm = async () => {
-        if (!selectedFormType || !selectedClaimId || !userProfile?.id) {
+        if (!selectedFormType || !selectedClaimId || !userProfile?.id || userProfile.id === "mock-profile-id-replace-me") {
             toast({
                 title: "Missing Information",
-                description: "Please select a form type and a claim.",
+                description: "Please select a form type, a valid claim, and ensure your profile is loaded.",
                 variant: "destructive",
             });
             return;
@@ -130,43 +154,40 @@ export default function DashboardPage() {
                 claimId: selectedClaimId,
                 profileId: userProfile.id,
                 additionalData: {
-                    // Add necessary additionalData here based on UI inputs
+                    // TODO: Populate this from UI inputs based on selectedFormType
                 }
             };
 
+            console.log("Sending to /api/generate-form:", requestBody);
+
             const response = await fetch('/api/generate-form', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) {
-                // Try to parse error message from backend
                 let errorMsg = `HTTP error! status: ${response.status}`;
                 try {
                     const errorData = await response.json();
                     errorMsg = errorData.error || errorData.details || errorMsg;
-                } catch (parseError) {
-                    // Ignore if response is not JSON
+                } catch { // Corrected: Removed unused variable for the catch block
+                    // Ignore if response is not JSON, errorMsg will be the HTTP status
                 }
                 throw new Error(errorMsg);
             }
 
-            // Handle the PDF blob response
             const blob = await response.blob();
             const contentDisposition = response.headers.get('Content-Disposition');
-            let filename = `${selectedFormType}_${Date.now()}.pdf`; // Default filename
+            let filename = `${selectedFormType}_${Date.now()}.pdf`;
 
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
-                if (filenameMatch && filenameMatch.length > 1) {
+                if (filenameMatch?.[1]) {
                     filename = filenameMatch[1];
                 }
             }
 
-            // Create a link and trigger download
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -181,8 +202,8 @@ export default function DashboardPage() {
                 description: `${filename} downloaded successfully.`,
             });
 
-        } catch (error: unknown) { // Use unknown type for error
-            const message = error instanceof Error ? error.message : String(error); // Safely get error message
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
             console.error("Error generating form:", error);
             toast({
                 title: "Generation Failed",
@@ -205,10 +226,7 @@ export default function DashboardPage() {
                 </Button>
             </div>
 
-            {/* Dashboard Grid - Adjusted layout */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-                {/* --- NEW: Generate Form Widget --- */}
                 <Card className="lg:col-span-1">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -217,13 +235,9 @@ export default function DashboardPage() {
                         <CardDescription>Select a form and claim to generate a PDF.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Form Type Selection */}
                         <div className="space-y-1">
                             <Label htmlFor="formTypeSelect">Form Type</Label>
-                            <Select
-                                value={selectedFormType}
-                                onValueChange={setSelectedFormType}
-                            >
+                            <Select value={selectedFormType} onValueChange={setSelectedFormType}>
                                 <SelectTrigger id="formTypeSelect">
                                     <SelectValue placeholder="Select form..." />
                                 </SelectTrigger>
@@ -234,57 +248,60 @@ export default function DashboardPage() {
                             </Select>
                         </div>
 
-                        {/* Claim Selection */}
                         <div className="space-y-1">
                              <Label htmlFor="claimSelect">Claim</Label>
                              <Select
                                 value={selectedClaimId}
                                 onValueChange={setSelectedClaimId}
-                                disabled={claims.length === 0}
+                                disabled={isLoadingProfile || isLoadingClaims || claims.length === 0}
                              >
                                 <SelectTrigger id="claimSelect">
-                                     {/* Corrected: Use &apos; for apostrophe */}
-                                    <SelectValue placeholder={claims.length > 0 ? "Select claim..." : "Loading claims..."} />
+                                    <SelectValue placeholder={
+                                        isLoadingProfile ? "Loading profile..." :
+                                        isLoadingClaims ? "Loading claims..." :
+                                        claims.length > 0 ? "Select claim..." : "No claims found"
+                                    } />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {claims.length > 0 ? (
                                         claims.map(claim => (
                                             <SelectItem key={claim.id} value={claim.id}>
-                                                {claim.wcc_file_number ? `${claim.wcc_file_number} - ` : ''}
+                                                {claim.wcc_file_number ? `${claim.wcc_file_number} - ` : `Claim ID: ${claim.id.substring(0,8)}... - `}
                                                 {claim.injuredWorker.first_name} {claim.injuredWorker.last_name}
                                             </SelectItem>
                                         ))
                                     ) : (
-                                        <SelectItem value="loading" disabled>No claims found or loading...</SelectItem>
+                                        <SelectItem value="loading" disabled>
+                                            {isLoadingClaims ? "Loading..." : "No claims available for this profile"}
+                                        </SelectItem>
                                     )}
                                 </SelectContent>
                             </Select>
                         </div>
 
-                        {/* Generate Button */}
                         <Button
                             onClick={handleGenerateForm}
-                            disabled={!selectedFormType || !selectedClaimId || isGenerating || !userProfile?.id}
+                            disabled={
+                                !selectedFormType ||
+                                !selectedClaimId ||
+                                isGenerating ||
+                                !userProfile?.id ||
+                                userProfile.id === "mock-profile-id-replace-me" ||
+                                isLoadingProfile ||
+                                isLoadingClaims
+                            }
                             className="w-full"
                         >
                             {isGenerating ? (
-                                <>
-                                    <Download className="mr-2 h-4 w-4 animate-pulse" />
-                                    Generating...
-                                </>
+                                <><Download className="mr-2 h-4 w-4 animate-pulse" /> Generating...</>
                             ) : (
-                                <>
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Generate PDF
-                                </>
+                                <><Download className="mr-2 h-4 w-4" /> Generate PDF</>
                             )}
                         </Button>
                     </CardContent>
                 </Card>
-                {/* --- END: Generate Form Widget --- */}
 
-
-                {/* Quick Stats Widget */}
+                {/* Other dashboard cards remain the same */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -303,7 +320,6 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Quick Actions Widget */}
                 <Card>
                     <CardHeader>
                         <CardTitle>Quick Actions</CardTitle>
@@ -318,7 +334,6 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Training Progress Widget */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -341,13 +356,13 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
 
-                {/* Recent Workers Widget */}
                 <Card className="md:col-span-2">
                   <CardHeader>
                     <CardTitle>Recent Activity</CardTitle>
                     <CardDescription>Recently accessed injured worker files.</CardDescription>
                   </CardHeader>
                   <CardContent>
+                    {/* TODO: Replace recentWorkersData with actual fetched data */}
                     {recentWorkersData.length > 0 ? (
                       <Table>
                         <TableHeader>
@@ -358,7 +373,8 @@ export default function DashboardPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {recentWorkersData.slice(0, 5).map((worker) => (
+                          {/* Using defined RecentWorker type */}
+                          {recentWorkersData.slice(0, 5).map((worker: RecentWorker) => (
                             <TableRow key={worker.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/workers/${worker.id}`)}>
                               <TableCell className="font-medium">{worker.name}</TableCell>
                               <TableCell>{worker.claimNumber ?? '-'}</TableCell>
@@ -374,7 +390,6 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
 
-                {/* Calculator Access Widget */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -383,7 +398,9 @@ export default function DashboardPage() {
                     <CardDescription>Quick access to calculation tools.</CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-2">
-                      {calculatorLinks.slice(0, 4).map(calc => (
+                      {/* TODO: Replace calculatorLinks with actual fetched data or configuration */}
+                      {/* Using defined CalculatorLink type */}
+                      {calculatorLinks.slice(0, 4).map((calc: CalculatorLink) => (
                         <Button
                             key={calc.id}
                             variant="outline"
@@ -400,7 +417,6 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
 
-                {/* Notepad Widget */}
                 <Card className="md:col-span-2 lg:col-span-3">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">

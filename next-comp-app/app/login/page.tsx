@@ -1,21 +1,22 @@
 // app/login/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { signIn, useSession } from 'next-auth/react'; // useSession for redirecting if already logged in
+import React, { useState, useEffect, Suspense } from 'react'; // Import Suspense
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/app/Components/ui/button'; // Adjust path
-import { Input } from '@/app/Components/ui/input';   // Adjust path
-import { Label } from '@/app/Components/ui/label';   // Adjust path
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/Components/ui/card'; // Adjust path
-import { useToast } from "@/app/Components/ui/use-toast"; // Adjust path
+import { Button } from '@/app/Components/ui/button';
+import { Input } from '@/app/Components/ui/input';
+import { Label } from '@/app/Components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/Components/ui/card';
+import { useToast } from "@/app/Components/ui/use-toast";
 import Link from 'next/link';
 
-export default function LoginPage() {
+// New component to handle logic using useSearchParams
+function LoginLogic() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { data: session, status } = useSession(); // Get session status
+  const { data: session, status } = useSession();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,25 +26,27 @@ export default function LoginPage() {
   // Redirect if user is already logged in
   useEffect(() => {
     if (status === 'authenticated') {
-      router.push('/dashboard'); // Or your desired redirect path
+      router.push('/dashboard');
     }
   }, [status, router]);
 
-  // Check for error query parameter from NextAuth.js (e.g., if CredentialsSignin fails)
+  // Check for error query parameter from NextAuth.js
   useEffect(() => {
     const callbackError = searchParams.get('error');
     if (callbackError) {
-      // Map common NextAuth.js errors to user-friendly messages
       if (callbackError === "CredentialsSignin") {
         setError("Invalid email or password. Please try again.");
         toast({ title: "Login Failed", description: "Invalid email or password.", variant: "destructive" });
-      } else {
-        setError("An unexpected error occurred. Please try again.");
+      } else if (callbackError === "OAuthAccountNotLinked") {
+        setError("This email is already linked with another provider (e.g., Google). Please sign in with that provider.");
+        toast({ title: "Login Failed", description: "Email already linked with another provider.", variant: "destructive" });
+      }
+      else {
+        setError("An unexpected error occurred during login. Please try again.");
         toast({ title: "Login Error", description: "An unexpected error occurred.", variant: "destructive" });
       }
     }
   }, [searchParams, toast]);
-
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,27 +55,29 @@ export default function LoginPage() {
 
     try {
       const result = await signIn('credentials', {
-        redirect: false, // Handle redirect manually after checking result
+        redirect: false,
         email: email,
         password: password,
+        // callbackUrl: '/dashboard' // You can specify a callbackUrl if needed
       });
 
       if (result?.error) {
-        console.error("SignIn error:", result.error);
-        // Error messages are typically handled by the useEffect hook checking searchParams.get('error')
-        // But you can set a generic one here if needed, or if specific errors aren't passed in URL
-        setError(result.error === "CredentialsSignin" ? "Invalid email or password." : "Login failed. Please try again.");
-        toast({ title: "Login Failed", description: result.error === "CredentialsSignin" ? "Invalid email or password." : "An unexpected error occurred.", variant: "destructive" });
+        console.error("SignIn error from NextAuth:", result.error);
+        // Error handling is now primarily done by the useEffect hook above,
+        // but we can set a local error state for immediate feedback too.
+        const friendlyError = result.error === "CredentialsSignin"
+          ? "Invalid email or password."
+          : "Login failed. Please check your credentials or try again later.";
+        setError(friendlyError);
+        // Toast is already handled by useEffect, but you could add another one here if desired
       } else if (result?.ok && !result.error) {
-        // Successful sign-in
         toast({ title: "Login Successful!", description: "Redirecting to dashboard..." });
-        router.push('/dashboard'); // Or use result.url if provided and preferred
+        router.push(searchParams.get('callbackUrl') || '/dashboard');
       } else {
-        // Should not happen if redirect is false and no error, but as a fallback
         setError("An unexpected issue occurred during login.");
-         toast({ title: "Login Error", description: "An unexpected issue occurred.", variant: "destructive" });
+        toast({ title: "Login Error", description: "An unexpected issue occurred.", variant: "destructive" });
       }
-    } catch (err) { // Catch network errors or other unexpected issues
+    } catch (err) {
       console.error("Login submission error:", err);
       const message = err instanceof Error ? err.message : "An unexpected network error occurred.";
       setError(message);
@@ -81,11 +86,18 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
-  
-  if (status === 'loading' || status === 'authenticated') {
-    // Show a loading state or null while checking session or redirecting
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+
+  // If session is loading or user is already authenticated, show loading/redirect
+  // This check should ideally be outside the component that uses useSearchParams
+  // but for simplicity here, we handle it. A better approach might be a HOC or layout check.
+  if (status === 'loading') {
+    return <div className="flex items-center justify-center min-h-screen">Loading session...</div>;
   }
+  // If authenticated, useEffect will handle redirect, but this prevents rendering the form momentarily.
+  if (status === 'authenticated') {
+     return <div className="flex items-center justify-center min-h-screen">Redirecting...</div>;
+  }
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 px-4">
@@ -105,6 +117,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -116,9 +129,10 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
+                autoComplete="current-password"
               />
             </div>
-            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="text-sm text-red-500 dark:text-red-400 text-center">{error}</p>}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Logging In...' : 'Log In'}
             </Button>
@@ -132,5 +146,14 @@ export default function LoginPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+// Main LoginPage component that wraps LoginLogic with Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading page...</div>}>
+      <LoginLogic />
+    </Suspense>
   );
 }

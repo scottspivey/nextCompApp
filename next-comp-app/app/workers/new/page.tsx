@@ -184,6 +184,8 @@ export default function AddInjuredWorkerPage() {
                         minDate={minBirthDate}
                         maxDate={today}
                         placeholder="MM/DD/YYYY"
+                        showYearDropdown
+                        showMonthDropdown
                         dropdownMode="select"
                         // rules={{ required: "Date of birth is required" }} // Example rule
                     />

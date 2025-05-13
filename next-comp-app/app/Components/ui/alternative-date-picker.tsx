@@ -23,6 +23,11 @@ interface AlternativeDatePickerProps<
     dateFormat?: string;
     showPopperArrow?: boolean;
     className?: string; // Allow passing custom class to the wrapper
+    minDate?: Date | null; // New prop for minimum selectable date
+    maxDate?: Date | null; // New prop for maximum selectable date
+    showMonthDropdown?: boolean; // Prop to show month dropdown
+    showYearDropdown?: boolean;  // Prop to show year dropdown
+    dropdownMode?: "scroll" | "select"; // Prop for dropdown mode
 }
 
 // Custom Input for react-datepicker to make it look like a ShadCN input
@@ -36,9 +41,10 @@ const CustomDatePickerInput = forwardRef<
             onClick={onClick}
             ref={ref}
             placeholder={placeholder}
-            className={cn(error && "border-destructive")}
+            className={cn(error && "border-destructive")} // Apply error styling
+            readOnly // Make input read-only to encourage use of picker
         />
-        <LucideCalendarIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <LucideCalendarIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
     </div>
 ));
 CustomDatePickerInput.displayName = "CustomDatePickerInput";
@@ -55,7 +61,12 @@ export function AlternativeDatePicker<
     placeholder = "Select a date",
     dateFormat = "MM/dd/yyyy",
     showPopperArrow = false,
-    className
+    className,
+    minDate, // Destructure new prop
+    maxDate, // Destructure new prop
+    showMonthDropdown = false, // Default to false
+    showYearDropdown = false,  // Default to false
+    dropdownMode = "scroll" // Default to scroll
 }: AlternativeDatePickerProps<TFieldValues, TName>) {
     return (
         <Controller
@@ -64,22 +75,24 @@ export function AlternativeDatePicker<
             rules={rules}
             render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
                 <div className={cn("w-full", className)}>
-                    {label && <Label htmlFor={name} className={cn(error && "text-destructive")}>{label}</Label>}
+                    {label && <Label htmlFor={name} className={cn("mb-1 block", error && "text-destructive")}>{label}</Label>}
                     <DatePicker
-                        selected={value ? ((value as unknown) instanceof Date ? value : new Date(value as string)) : null}
+                        selected={value ? (typeof value === 'object' && value !== null && 'getTime' in value ? value : new Date(value as string)) : new Date()}
                         onChange={(date: Date | null) => onChange(date)}
                         onBlur={onBlur}
                         dateFormat={dateFormat}
                         placeholderText={placeholder}
                         showPopperArrow={showPopperArrow}
-                        customInput={<CustomDatePickerInput error={!!error} />}
-                        wrapperClassName="w-full" // Ensure the wrapper takes full width
-                        popperPlacement="bottom-start" // Adjust as needed
-                        // You can add more react-datepicker props here as needed:
-                        // showMonthDropdown
-                        // showYearDropdown
-                        // dropdownMode="select"
-                        // isClearable
+                        customInput={<CustomDatePickerInput error={!!error} placeholder={placeholder} />}
+                        wrapperClassName="w-full"
+                        popperPlacement="bottom-start"
+                        minDate={minDate || undefined} // Pass minDate to DatePicker
+                        maxDate={maxDate || undefined} // Pass maxDate to DatePicker
+                        showMonthDropdown={showMonthDropdown}
+                        showYearDropdown={showYearDropdown}
+                        dropdownMode={dropdownMode}
+                        yearDropdownItemNumber={maxDate && minDate ? maxDate.getFullYear() - minDate.getFullYear() + 1 : 100} // Adjust number of years in dropdown
+                        scrollableYearDropdown={dropdownMode === 'scroll'}
                     />
                     {error && <p className="mt-1 text-xs text-destructive">{error.message}</p>}
                 </div>

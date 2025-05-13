@@ -3,19 +3,18 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler, Controller } from 'react-hook-form'; // Added Controller for Select
+import { useForm, SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/app/Components/ui/button';
 import { Input } from '@/app/Components/ui/input';
 import { Label } from '@/app/Components/ui/label';
-// import { Textarea } from '@/app/Components/ui/textarea'; // Not used in current form structure
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/Components/ui/card';
 import { useToast } from "@/app/Components/ui/use-toast";
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon as LucideCalendarIcon, Loader2 } from 'lucide-react'; // Renamed to avoid conflict if any
 import { Popover, PopoverContent, PopoverTrigger } from '@/app/Components/ui/popover';
-import { Calendar } from "@/app/Components/ui/calendar"; // Corrected import path
+import { Calendar } from "@/app/Components/ui/calendar"; // Your custom Calendar component
 import { format } from 'date-fns';
 import Link from 'next/link';
 
@@ -34,7 +33,7 @@ const workerFormSchema = z.object({
   address_line1: z.string().optional(),
   address_line2: z.string().optional(),
   city: z.string().optional(),
-  state: z.string().optional().refine(val => !val || (val.length === 2 && /^[A-Z]+$/.test(val.toUpperCase())), { // Ensure 2 uppercase letters
+  state: z.string().optional().refine(val => !val || (val.length === 2 && /^[A-Z]+$/.test(val.toUpperCase())), {
     message: "State must be a 2-letter uppercase abbreviation or empty (e.g., SC)",
   }),
   zip_code: z.string().optional().refine(val => !val || /^\d{5}(-\d{4})?$/.test(val), {
@@ -57,27 +56,24 @@ interface UserProfile {
     id: string;
 }
 
+// Helper FormItem component (as you defined)
+const FormItem = ({ label, id, children, error }: { label: string, id: string, children: React.ReactNode, error?: string }) => (
+  <div className="space-y-2">
+    <Label htmlFor={id}>{label}</Label>
+    {children}
+    {error && <p className="text-sm text-destructive">{error}</p>}
+  </div>
+);
+
+
 export default function AddInjuredWorkerPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // TODO: Replace with actual profile fetching logic (e.g., from session or API call)
+  // Placeholder for profile fetching logic
   useEffect(() => {
-    // This is a placeholder. In a real app, you'd get the profileId
-    // from the authenticated user's session.
-    // For example, using NextAuth.js:
-    // import { useSession } from "next-auth/react";
-    // const { data: session } = useSession();
-    // if (session?.user?.profileId) { // Assuming profileId is on session.user
-    //   setUserProfile({ id: session.user.profileId });
-    // } else {
-    //   // Handle case where profileId is not available (e.g., redirect or show error)
-    //   toast({ title: "Error", description: "User profile not found. Please log in.", variant: "destructive" });
-    //   // router.push('/login'); // Example redirect
-    // }
-    // For now, using a mock ID for development:
     setUserProfile({ id: "mock-profile-id-for-new-worker" }); // REPLACE THIS
   }, []);
 
@@ -106,10 +102,11 @@ export default function AddInjuredWorkerPage() {
     }
   });
 
+  // Watch the date_of_birth value to update the PopoverTrigger button text
   const dateOfBirthValue = watch("date_of_birth");
 
   const onSubmit: SubmitHandler<WorkerFormData> = async (data) => {
-    if (!userProfile?.id || userProfile.id === "mock-profile-id-for-new-worker") { // Check against mock ID too
+    if (!userProfile?.id || userProfile.id === "mock-profile-id-for-new-worker") {
         toast({ title: "Error", description: "User profile not loaded or invalid. Cannot save worker.", variant: "destructive"});
         return;
     }
@@ -122,10 +119,10 @@ export default function AddInjuredWorkerPage() {
         ssn: data.ssn ? data.ssn.replace(/-/g, '') : undefined,
         phone_number: data.phone_number ? data.phone_number.replace(/\D/g, '') : undefined,
         work_phone_number: data.work_phone_number ? data.work_phone_number.replace(/\D/g, '') : undefined,
-        state: data.state ? data.state.toUpperCase() : undefined, // Store state in uppercase
+        state: data.state ? data.state.toUpperCase() : undefined,
       };
 
-      const response = await fetch('/api/workers', { // API route we will create next
+      const response = await fetch('/api/workers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -138,7 +135,7 @@ export default function AddInjuredWorkerPage() {
       }
 
       toast({ title: "Success!", description: `${data.first_name} ${data.last_name} added successfully.` });
-      router.push('/dashboard'); // Or to a page listing all workers, e.g., /workers
+      router.push('/dashboard');
 
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
@@ -149,14 +146,6 @@ export default function AddInjuredWorkerPage() {
     }
   };
   
-  const FormItem = ({ label, id, children, error }: { label: string, id: string, children: React.ReactNode, error?: string }) => (
-    <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-    </div>
-  );
-
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8 md:py-12">
@@ -167,6 +156,7 @@ export default function AddInjuredWorkerPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* Personal Information Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormItem label="First Name *" id="first_name" error={errors.first_name?.message}>
                 <Input id="first_name" {...register("first_name")} placeholder="John" />
@@ -189,66 +179,79 @@ export default function AddInjuredWorkerPage() {
                 <FormItem label="Social Security Number" id="ssn" error={errors.ssn?.message}>
                     <Input id="ssn" {...register("ssn")} placeholder="XXX-XX-XXXX" />
                 </FormItem>
+                {/* Date of Birth Field - Corrected Usage of Calendar Component */}
                 <FormItem label="Date of Birth" id="date_of_birth" error={errors.date_of_birth?.message}>
                     <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                        variant={"outline"}
-                        className={`w-full justify-start text-left font-normal ${
-                            !dateOfBirthValue && "text-muted-foreground"
-                        }`}
-                        >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateOfBirthValue ? format(dateOfBirthValue, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                        mode="single"
-                        selected={dateOfBirthValue || undefined}
-                        onSelect={(date) => setValue("date_of_birth", date || null, { shouldValidate: true })}
-                        initialFocus
-                        captionLayout="dropdown" // Corrected from "dropdown-buttons"
-                        fromYear={1920}
-                        toYear={new Date().getFullYear()}
-                        />
-                    </PopoverContent>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={`w-full justify-start text-left font-normal ${
+                                    !dateOfBirthValue && "text-muted-foreground"
+                                }`}
+                            >
+                                <LucideCalendarIcon className="mr-2 h-4 w-4" />
+                                {dateOfBirthValue ? format(dateOfBirthValue, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            {/* Corrected: Pass 'name' and 'control' to your custom Calendar component.
+                              Remove DayPicker-specific props like mode, selected, onSelect, etc.
+                              Your Calendar component handles these internally.
+                            */}
+                            <Calendar
+                                name="date_of_birth"
+                                control={control}
+                                placeholder="Pick a date" // This placeholder is for the input inside Calendar, if any
+                            />
+                        </PopoverContent>
                     </Popover>
                 </FormItem>
             </div>
 
+            {/* Gender and Marital Status Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormItem label="Gender" id="gender" error={errors.gender?.message}>
-                    {/* Corrected: Explicitly type 'value' in onValueChange */}
-                    <Select onValueChange={(value: string) => setValue("gender", value)} defaultValue={watch("gender")}>
-                        <SelectTrigger id="gender">
-                            <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Male">Male</SelectItem>
-                            <SelectItem value="Female">Female</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
-                            <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <Controller
+                        name="gender"
+                        control={control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                                <SelectTrigger id="gender">
+                                    <SelectValue placeholder="Select gender" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Male">Male</SelectItem>
+                                    <SelectItem value="Female">Female</SelectItem>
+                                    <SelectItem value="Other">Other</SelectItem>
+                                    <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
                 </FormItem>
                 <FormItem label="Marital Status" id="marital_status" error={errors.marital_status?.message}>
-                     {/* Corrected: Explicitly type 'value' in onValueChange */}
-                     <Select onValueChange={(value: string) => setValue("marital_status", value)} defaultValue={watch("marital_status")}>
-                        <SelectTrigger id="marital_status">
-                            <SelectValue placeholder="Select marital status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Single">Single</SelectItem>
-                            <SelectItem value="Married">Married</SelectItem>
-                            <SelectItem value="Divorced">Divorced</SelectItem>
-                            <SelectItem value="Widowed">Widowed</SelectItem>
-                            <SelectItem value="Separated">Separated</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <Controller
+                        name="marital_status"
+                        control={control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                                <SelectTrigger id="marital_status">
+                                    <SelectValue placeholder="Select marital status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Single">Single</SelectItem>
+                                    <SelectItem value="Married">Married</SelectItem>
+                                    <SelectItem value="Divorced">Divorced</SelectItem>
+                                    <SelectItem value="Widowed">Widowed</SelectItem>
+                                    <SelectItem value="Separated">Separated</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
                 </FormItem>
             </div>
 
+            {/* Address Section */}
             <FormItem label="Address Line 1" id="address_line1" error={errors.address_line1?.message}>
               <Input id="address_line1" {...register("address_line1")} placeholder="123 Main St" />
             </FormItem>
@@ -268,6 +271,7 @@ export default function AddInjuredWorkerPage() {
               </FormItem>
             </div>
 
+            {/* Contact Information Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormItem label="Primary Phone" id="phone_number" error={errors.phone_number?.message}>
                 <Input id="phone_number" type="tel" {...register("phone_number")} placeholder="(XXX) XXX-XXXX" />
@@ -281,6 +285,7 @@ export default function AddInjuredWorkerPage() {
               <Input id="email" type="email" {...register("email")} placeholder="john.doe@example.com" />
             </FormItem>
 
+            {/* Employment Information Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormItem label="Occupation / Job Title" id="occupation" error={errors.occupation?.message}>
                 <Input id="occupation" {...register("occupation")} placeholder="Software Engineer" />
@@ -290,6 +295,7 @@ export default function AddInjuredWorkerPage() {
                 </FormItem>
             </div>
 
+            {/* Form Footer with Action Buttons */}
             <CardFooter className="px-0 pt-6 flex justify-end space-x-3">
                 <Button variant="outline" type="button" onClick={() => router.back()}>
                     Cancel
@@ -302,7 +308,7 @@ export default function AddInjuredWorkerPage() {
           </form>
         </CardContent>
       </Card>
-       <p className="mt-8 text-center text-sm text-muted-foreground">
+      <p className="mt-8 text-center text-sm text-muted-foreground">
         Already have this worker?{' '}
         <Link href="/workers" className="underline hover:text-primary">
           View all workers

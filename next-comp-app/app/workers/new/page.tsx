@@ -177,6 +177,7 @@ export default function AddInjuredWorkerPage() {
                         control={control}
                         label="Date of Birth"
                         placeholder="MM/DD/YYYY"
+                        dropdownMode="select"
                         // rules={{ required: "Date of birth is required" }} // Example rule
                     />
                     {/* Manually display error if not handled inside AlternativeDatePicker's own structure for this specific layout */}

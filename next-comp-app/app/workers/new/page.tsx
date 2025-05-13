@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react'; // CalendarIcon is now part of Alternati
 // Removed Popover imports as AlternativeDatePicker handles its own popup
 import { AlternativeDatePicker } from "@/app/Components/ui/alternative-date-picker"; // Import the new date picker
 import Link from 'next/link';
+import { subYears } from 'date-fns';
 // format from date-fns might not be needed directly here if AlternativeDatePicker handles it,
 // but keep it if you use it elsewhere.
 // import { format } from 'date-fns';
@@ -139,6 +140,10 @@ export default function AddInjuredWorkerPage() {
     }
   };
   
+// Calculate min and max dates for Date of Birth
+  const today = new Date();
+  const minBirthDate = subYears(today, 120);
+
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8 md:py-12">
       <Card>
@@ -176,6 +181,8 @@ export default function AddInjuredWorkerPage() {
                         name="date_of_birth"
                         control={control}
                         label="Date of Birth"
+                        minDate={minBirthDate}
+                        maxDate={today}
                         placeholder="MM/DD/YYYY"
                         dropdownMode="select"
                         // rules={{ required: "Date of birth is required" }} // Example rule

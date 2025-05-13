@@ -23,11 +23,11 @@ interface AlternativeDatePickerProps<
     dateFormat?: string;
     showPopperArrow?: boolean;
     className?: string; // Allow passing custom class to the wrapper
-    minDate?: Date | null; // New prop for minimum selectable date
-    maxDate?: Date | null; // New prop for maximum selectable date
-    showMonthDropdown?: boolean; // Prop to show month dropdown
-    showYearDropdown?: boolean;  // Prop to show year dropdown
-    dropdownMode?: "scroll" | "select"; // Prop for dropdown mode
+    minDate?: Date | null;
+    maxDate?: Date | null;
+    showMonthDropdown?: boolean;
+    showYearDropdown?: boolean;
+    dropdownMode?: "scroll" | "select";
 }
 
 // Custom Input for react-datepicker to make it look like a ShadCN input
@@ -41,7 +41,7 @@ const CustomDatePickerInput = forwardRef<
             onClick={onClick}
             ref={ref}
             placeholder={placeholder}
-            className={cn(error && "border-destructive")} // Apply error styling
+            className={cn(error && "border-destructive")}
             readOnly // Make input read-only to encourage use of picker
         />
         <LucideCalendarIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -62,41 +62,61 @@ export function AlternativeDatePicker<
     dateFormat = "MM/dd/yyyy",
     showPopperArrow = false,
     className,
-    minDate, // Destructure new prop
-    maxDate, // Destructure new prop
-    showMonthDropdown = false, // Default to false
-    showYearDropdown = false,  // Default to false
-    dropdownMode = "scroll" // Default to scroll
+    minDate,
+    maxDate,
+    showMonthDropdown = false, // Default to false, enable as needed when using component
+    showYearDropdown = false,  // Default to false, enable as needed when using component
+    dropdownMode = "scroll"   // Default to scroll, can be "select"
 }: AlternativeDatePickerProps<TFieldValues, TName>) {
     return (
         <Controller
             name={name}
             control={control}
             rules={rules}
-            render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                <div className={cn("w-full", className)}>
-                    {label && <Label htmlFor={name} className={cn("mb-1 block", error && "text-destructive")}>{label}</Label>}
-                    <DatePicker
-                        selected={value ? (typeof value === 'object' && value !== null && 'getTime' in value ? value : new Date(value as string)) : new Date()}
-                        onChange={(date: Date | null) => onChange(date)}
-                        onBlur={onBlur}
-                        dateFormat={dateFormat}
-                        placeholderText={placeholder}
-                        showPopperArrow={showPopperArrow}
-                        customInput={<CustomDatePickerInput error={!!error} placeholder={placeholder} />}
-                        wrapperClassName="w-full"
-                        popperPlacement="bottom-start"
-                        minDate={minDate || undefined} // Pass minDate to DatePicker
-                        maxDate={maxDate || undefined} // Pass maxDate to DatePicker
-                        showMonthDropdown={showMonthDropdown}
-                        showYearDropdown={showYearDropdown}
-                        dropdownMode={dropdownMode}
-                        yearDropdownItemNumber={maxDate && minDate ? maxDate.getFullYear() - minDate.getFullYear() + 1 : 100} // Adjust number of years in dropdown
-                        scrollableYearDropdown={dropdownMode === 'scroll'}
-                    />
-                    {error && <p className="mt-1 text-xs text-destructive">{error.message}</p>}
-                </div>
-            )}
+            render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => {
+                // Determine the selected date for the DatePicker component
+                // Handles cases where value might be a Date object, a string, or null/undefined
+                let currentDate: Date | null = null;
+                if (value) {
+                    // Check if value is a Date-like object (more robust than instanceof Date across realms)
+                    if (typeof value === 'object' && value !== null && typeof (value as Date).getTime === 'function' && !isNaN((value as Date).getTime())) {
+                        currentDate = value as Date;
+                    } else if (typeof value === 'string') {
+                        const parsedDate = new Date(value);
+                        if (!isNaN(parsedDate.getTime())) {
+                            currentDate = parsedDate;
+                        }
+                    }
+                    // Add more parsing logic if value could be a number (timestamp), etc.
+                }
+
+                return (
+                    <div className={cn("w-full", className)}>
+                        {label && <Label htmlFor={name} className={cn("mb-1 block", error && "text-destructive")}>{label}</Label>}
+                        <DatePicker
+                            selected={currentDate} // Use the processed currentDate
+                            onChange={(date: Date | null) => onChange(date)}
+                            onBlur={onBlur}
+                            dateFormat={dateFormat}
+                            placeholderText={placeholder}
+                            showPopperArrow={showPopperArrow}
+                            customInput={<CustomDatePickerInput error={!!error} placeholder={placeholder} />}
+                            wrapperClassName="w-full"
+                            popperPlacement="bottom-start"
+                            minDate={minDate || undefined} // Pass minDate, defaulting to undefined if null
+                            maxDate={maxDate || undefined} // Pass maxDate, defaulting to undefined if null
+                            showMonthDropdown={showMonthDropdown}
+                            showYearDropdown={showYearDropdown}
+                            dropdownMode={dropdownMode}
+                            // Adjust number of years in dropdown. If minDate/maxDate are close, this prevents an overly long list.
+                            // For DOB, minDate might be 120 years ago, maxDate today.
+                            yearDropdownItemNumber={maxDate && minDate ? (maxDate.getFullYear() - minDate.getFullYear() + 1) : 100}
+                            scrollableYearDropdown={dropdownMode === 'scroll'} // Enable scroll for year dropdown if mode is 'scroll'
+                        />
+                        {error && <p className="mt-1 text-xs text-destructive">{error.message}</p>}
+                    </div>
+                );
+            }}
         />
     );
 }

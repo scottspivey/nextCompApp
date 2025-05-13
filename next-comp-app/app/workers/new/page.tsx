@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/app/Components/ui/use-toast";
 import { Loader2 } from 'lucide-react'; // CalendarIcon is now part of AlternativeDatePicker
 // Removed Popover imports as AlternativeDatePicker handles its own popup
-import { AlternativeDatePicker } from "@/app/Components/ui/alternative-date-picker"; // Import the new date picker
+import { AlternativeDatePicker } from "@/app/Components/ui/date-picker"; // Import the new date picker
 import Link from 'next/link';
 import { subYears } from 'date-fns';
 // format from date-fns might not be needed directly here if AlternativeDatePicker handles it,

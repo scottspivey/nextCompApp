@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation"; // Added useRouter
 import { useSession, signOut } from "next-auth/react"; // Import NextAuth hooks
 import { Menu, X, ChevronDown, LogOut, LogIn, UserPlus } from "lucide-react"; // Import more icons
-import { Button } from "@/app/Components/ui/button";
+import { Button } from "@/app/Components/ui/button"
 
 interface NavLink {
   name: string;
@@ -109,7 +109,7 @@ export default function Navbar() {
             {/* Desktop Navigation Links */}
             <div className="hidden md:ml-10 md:flex md:items-center md:space-x-1">
               {filteredNavLinks.map((link) => (
-                <div key={link.name} className="relative group">
+                <div key={link.name} className="relative group"> {/* This div is aligned by parent's items-center */}
                   {link.submenu ? (
                     <button
                       onClick={() => toggleDropdown(link.name)}
@@ -129,9 +129,10 @@ export default function Navbar() {
                       />
                     </button>
                   ) : (
+                    // Regular Link - Added inline-flex items-center for consistent vertical alignment
                     <Link
                       href={link.href}
-                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out ${
+                      className={`px-3 py-2 rounded-md text-sm font-medium inline-flex items-center transition-colors duration-150 ease-in-out ${
                         isActive(link.href)
                           ? "bg-primary-foreground/10 text-primary-foreground"
                           : "text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
@@ -189,9 +190,9 @@ export default function Navbar() {
                 )}
                 <Button
                   onClick={handleLogout}
-                  variant="ghost" // Or "outline" or your preferred style
+                  variant="ghost"
                   size="sm"
-                  className="ml-3 text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+                  className="ml-3 text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 inline-flex items-center" // Added inline-flex items-center
                 >
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
@@ -201,13 +202,13 @@ export default function Navbar() {
               <>
                 <Link
                   href="/login"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 transition-colors duration-150 ease-in-out"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 transition-colors duration-150 ease-in-out inline-flex items-center" // Added inline-flex items-center
                 >
                   <LogIn className="inline mr-1 h-4 w-4" /> Log in
                 </Link>
                 <Link
                   href="/signup"
-                  className="ml-2 inline-flex items-center px-3 py-2 text-sm font-medium rounded-md shadow-sm bg-background text-primary hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150 ease-in-out"
+                  className="ml-2 inline-flex items-center px-3 py-2 text-sm font-medium rounded-md shadow-sm bg-background text-primary hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150 ease-in-out" // Already inline-flex items-center
                 >
                  <UserPlus className="inline mr-1 h-4 w-4" /> Sign up
                 </Link>

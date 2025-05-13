@@ -2,24 +2,32 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { DayPicker, DropdownProps } from "react-day-picker";
-import { cn } from "@/lib/utils"; // Assuming you have a cn utility
-import { buttonVariants } from "@/app/Components/ui/button"; // Assuming you have buttonVariants
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/app/Components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/app/Components/ui/select"; // Assuming you have Select component
+} from "@/app/Components/ui/select";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+
+// Define the props for the custom Chevron component based on react-day-picker's expectation for v9
+interface DayPickerChevronProps {
+  orientation?: "left" | "right" | "up" | "down";
+  // Allow other props that DayPicker might pass
+  [key: string]: any;
+}
 
 function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  captionLayout = "dropdown", // Use "dropdown" for month/year dropdowns with RDP v9
   ...props
 }: CalendarProps) {
 
@@ -27,12 +35,13 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
+      captionLayout={captionLayout}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
-        caption_dropdowns: "flex justify-center gap-1",
+        caption_label: "text-sm font-medium", 
+        caption_dropdowns: "flex justify-center gap-1", 
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
@@ -63,22 +72,31 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        // Corrected for react-day-picker v9.x.x: Use IconLeft and IconRight
-        IconLeft: () => <ChevronLeft className="h-4 w-4" />,
-        IconRight: () => <ChevronRight className="h-4 w-4" />,
+        // Use the single Chevron component prop for react-day-picker v9.x.x
+        Chevron: ({ orientation, ...rest }: DayPickerChevronProps) => {
+          if (orientation === "left") {
+            return <ChevronLeft className="h-4 w-4" {...rest} />;
+          }
+          if (orientation === "right") {
+            return <ChevronRight className="h-4 w-4" {...rest} />;
+          }
+          // Fallback for other orientations (e.g., dropdowns, though Shadcn Select handles its own chevron)
+          return <ChevronDown className="h-4 w-4" {...rest} />;
+        },
         
-        Dropdown: ({ value, onChange, children }: DropdownProps) => {
-          const options = React.Children.toArray(
-            children
+        Dropdown: ({ value, onChange, children, name }: DropdownProps) => {
+          // react-day-picker passes the <option> elements as children to the custom Dropdown component
+          const reactDayPickerOptions = React.Children.toArray(
+            children 
           ) as React.ReactElement<React.HTMLProps<HTMLOptionElement>>[];
           
-          const selectedOption = options.find(
+          const selectedOption = reactDayPickerOptions.find(
             (child) => child.props.value === value
           );
 
           const handleChange = (newValue: string) => {
             const changeEvent = {
-              target: { value: newValue },
+              target: { value: newValue, name: name },
             } as React.ChangeEvent<HTMLSelectElement>;
             onChange?.(changeEvent);
           };
@@ -86,15 +104,18 @@ function Calendar({
           return (
             <Select
               value={value?.toString()}
-              onValueChange={(val) => {
+              onValueChange={(val: string) => { // Explicitly typed 'val'
                 if (val) handleChange(val);
               }}
             >
-              <SelectTrigger className="h-[28px] w-auto min-w-[60px] px-2 py-0.5 text-xs data-[placeholder]:text-muted-foreground focus:ring-0 border-0 shadow-none font-medium">
+              <SelectTrigger
+                aria-label={name === 'months' ? 'Select Month' : 'Select Year'}
+                className="h-[28px] w-auto min-w-[60px] px-2 py-0.5 text-xs data-[placeholder]:text-muted-foreground focus:ring-0 border-0 shadow-none font-medium"
+              >
                 <SelectValue>{selectedOption?.props?.children || value}</SelectValue>
               </SelectTrigger>
               <SelectContent className="max-h-60 text-xs">
-                {options.map((option, id: number) => (
+                {reactDayPickerOptions.map((option, id: number) => (
                   <SelectItem
                     key={`${option.props.value?.toString() ?? id}-${id}`}
                     value={option.props.value?.toString() ?? ""}

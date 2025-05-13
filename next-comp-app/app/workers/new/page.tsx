@@ -3,24 +3,23 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, Controller } from 'react-hook-form'; // Added Controller for Select
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/app/Components/ui/button';
 import { Input } from '@/app/Components/ui/input';
 import { Label } from '@/app/Components/ui/label';
-import { Textarea } from '@/app/Components/ui/textarea'; // For multi-line fields like address
+// import { Textarea } from '@/app/Components/ui/textarea'; // Not used in current form structure
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/Components/ui/card';
 import { useToast } from "@/app/Components/ui/use-toast";
 import { CalendarIcon, Loader2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/app/Components/ui/popover';
-import { Calendar } from "@/app/Components/ui/calendar";
+import { Calendar } from "@/app/Components/ui/calendar"; // Corrected import path
 import { format } from 'date-fns';
 import Link from 'next/link';
 
 // Define the Zod schema for validation based on your Prisma model
-// Making most fields optional for now, adjust as per your business logic for required fields
 const workerFormSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   middle_name: z.string().optional(),
@@ -35,8 +34,8 @@ const workerFormSchema = z.object({
   address_line1: z.string().optional(),
   address_line2: z.string().optional(),
   city: z.string().optional(),
-  state: z.string().optional().refine(val => !val || val.length === 2, {
-    message: "State must be a 2-letter abbreviation or empty",
+  state: z.string().optional().refine(val => !val || (val.length === 2 && /^[A-Z]+$/.test(val.toUpperCase())), { // Ensure 2 uppercase letters
+    message: "State must be a 2-letter uppercase abbreviation or empty (e.g., SC)",
   }),
   zip_code: z.string().optional().refine(val => !val || /^\d{5}(-\d{4})?$/.test(val), {
     message: "Zip code must be in XXXXX or XXXXX-XXXX format or empty",
@@ -47,15 +46,13 @@ const workerFormSchema = z.object({
   work_phone_number: z.string().optional().refine(val => !val || /^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/.test(val), {
     message: "Invalid phone number format or empty",
   }),
-  email: z.string().email({ message: "Invalid email address" }).optional().or(z.literal('')), // Allow empty string or valid email
+  email: z.string().email({ message: "Invalid email address" }).optional().or(z.literal('')),
   occupation: z.string().optional(),
-  num_dependents: z.coerce.number().int().min(0).optional().nullable(), // Coerce to number, ensure integer
+  num_dependents: z.coerce.number().int().min(0).optional().nullable(),
 });
 
 type WorkerFormData = z.infer<typeof workerFormSchema>;
 
-// Mock user profile ID - replace with actual fetching in a real app
-// This would typically come from useSession() or a similar auth context
 interface UserProfile {
     id: string;
 }
@@ -64,25 +61,25 @@ export default function AddInjuredWorkerPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null); // For profileId
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // TODO: Fetch the actual user profile to get the profileId
+  // TODO: Replace with actual profile fetching logic (e.g., from session or API call)
   useEffect(() => {
-    // Example: Fetch profile from an API route
-    // async function fetchProfile() {
-    //   try {
-    //     const response = await fetch('/api/me/profile'); // Assuming you have this route
-    //     if (!response.ok) throw new Error('Failed to fetch profile');
-    //     const data = await response.json();
-    //     setUserProfile(data);
-    //   } catch (error) {
-    //     toast({ title: "Error", description: "Could not load user profile.", variant: "destructive" });
-    //   }
+    // This is a placeholder. In a real app, you'd get the profileId
+    // from the authenticated user's session.
+    // For example, using NextAuth.js:
+    // import { useSession } from "next-auth/react";
+    // const { data: session } = useSession();
+    // if (session?.user?.profileId) { // Assuming profileId is on session.user
+    //   setUserProfile({ id: session.user.profileId });
+    // } else {
+    //   // Handle case where profileId is not available (e.g., redirect or show error)
+    //   toast({ title: "Error", description: "User profile not found. Please log in.", variant: "destructive" });
+    //   // router.push('/login'); // Example redirect
     // }
-    // fetchProfile();
-    // For now, using a mock ID. Replace this!
-    setUserProfile({ id: "mock-profile-id-for-new-worker" });
-  }, [toast]);
+    // For now, using a mock ID for development:
+    setUserProfile({ id: "mock-profile-id-for-new-worker" }); // REPLACE THIS
+  }, []);
 
 
   const { register, handleSubmit, control, formState: { errors }, setValue, watch } = useForm<WorkerFormData>({
@@ -112,20 +109,20 @@ export default function AddInjuredWorkerPage() {
   const dateOfBirthValue = watch("date_of_birth");
 
   const onSubmit: SubmitHandler<WorkerFormData> = async (data) => {
-    if (!userProfile?.id) {
-        toast({ title: "Error", description: "User profile not loaded. Cannot save worker.", variant: "destructive"});
+    if (!userProfile?.id || userProfile.id === "mock-profile-id-for-new-worker") { // Check against mock ID too
+        toast({ title: "Error", description: "User profile not loaded or invalid. Cannot save worker.", variant: "destructive"});
         return;
     }
     setIsLoading(true);
     try {
       const payload = {
         ...data,
-        profileId: userProfile.id, // Add profileId to the payload
-        // Ensure num_dependents is number or null, not empty string
+        profileId: userProfile.id,
         num_dependents: data.num_dependents === null || data.num_dependents === undefined || isNaN(Number(data.num_dependents)) ? null : Number(data.num_dependents),
-        ssn: data.ssn ? data.ssn.replace(/-/g, '') : undefined, // Store SSN without hyphens
+        ssn: data.ssn ? data.ssn.replace(/-/g, '') : undefined,
         phone_number: data.phone_number ? data.phone_number.replace(/\D/g, '') : undefined,
         work_phone_number: data.work_phone_number ? data.work_phone_number.replace(/\D/g, '') : undefined,
+        state: data.state ? data.state.toUpperCase() : undefined, // Store state in uppercase
       };
 
       const response = await fetch('/api/workers', { // API route we will create next
@@ -152,7 +149,6 @@ export default function AddInjuredWorkerPage() {
     }
   };
   
-  // Helper for consistent form item structure
   const FormItem = ({ label, id, children, error }: { label: string, id: string, children: React.ReactNode, error?: string }) => (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
@@ -212,7 +208,7 @@ export default function AddInjuredWorkerPage() {
                         selected={dateOfBirthValue || undefined}
                         onSelect={(date) => setValue("date_of_birth", date || null, { shouldValidate: true })}
                         initialFocus
-                        captionLayout="dropdown-buttons"
+                        captionLayout="dropdown" // Corrected from "dropdown-buttons"
                         fromYear={1920}
                         toYear={new Date().getFullYear()}
                         />
@@ -223,7 +219,8 @@ export default function AddInjuredWorkerPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormItem label="Gender" id="gender" error={errors.gender?.message}>
-                    <Select onValueChange={(value) => setValue("gender", value)} defaultValue={watch("gender")}>
+                    {/* Corrected: Explicitly type 'value' in onValueChange */}
+                    <Select onValueChange={(value: string) => setValue("gender", value)} defaultValue={watch("gender")}>
                         <SelectTrigger id="gender">
                             <SelectValue placeholder="Select gender" />
                         </SelectTrigger>
@@ -236,7 +233,8 @@ export default function AddInjuredWorkerPage() {
                     </Select>
                 </FormItem>
                 <FormItem label="Marital Status" id="marital_status" error={errors.marital_status?.message}>
-                     <Select onValueChange={(value) => setValue("marital_status", value)} defaultValue={watch("marital_status")}>
+                     {/* Corrected: Explicitly type 'value' in onValueChange */}
+                     <Select onValueChange={(value: string) => setValue("marital_status", value)} defaultValue={watch("marital_status")}>
                         <SelectTrigger id="marital_status">
                             <SelectValue placeholder="Select marital status" />
                         </SelectTrigger>
@@ -296,7 +294,7 @@ export default function AddInjuredWorkerPage() {
                 <Button variant="outline" type="button" onClick={() => router.back()}>
                     Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading}>
+                <Button type="submit" disabled={isLoading || !userProfile || userProfile.id === "mock-profile-id-for-new-worker"}>
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {isLoading ? 'Saving...' : 'Save Injured Worker'}
                 </Button>

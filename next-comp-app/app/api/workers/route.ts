@@ -5,7 +5,7 @@ import * as z from 'zod';
 
 const prisma = new PrismaClient();
 
-// Zod schema for backend validation (for POST requests) - remains the same
+// Zod schema for backend validation (for POST requests)
 const workerFormSchema = z.object({
   profileId: z.string().min(1, "Profile ID is required"),
   first_name: z.string().min(1, "First name is required"),
@@ -38,9 +38,12 @@ const workerFormSchema = z.object({
   num_dependents: z.number().int().min(0).optional().nullable(),
 });
 
+// Infer the type from the Zod schema for explicit typing
+type ValidatedWorkerData = z.infer<typeof workerFormSchema>;
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body: unknown = await req.json();
     const validationResult = workerFormSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -54,7 +57,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { ...workerData } = validationResult.data;
+    // Explicitly type workerData using the inferred type from Zod
+    // This resolves the @typescript-eslint/no-unsafe-assignment error
+    const { ...workerData }: ValidatedWorkerData = validationResult.data;
 
     const profileExists = await prisma.profile.findUnique({
       where: { id: workerData.profileId },
@@ -70,6 +75,7 @@ export async function POST(req: NextRequest) {
     
     const newInjuredWorker = await prisma.injuredWorker.create({
       data: {
+        // Spread the validated and typed workerData
         ...workerData,
       },
     });
@@ -78,7 +84,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error("API - POST /api/workers - Failed to create injured worker:", error);
-    if (error instanceof z.ZodError) {
+    if (error instanceof z.ZodError) { // This case should ideally be caught by safeParse
         return NextResponse.json({ error: "Validation failed during processing.", details: error.errors }, { status: 400 });
     }
     return NextResponse.json(
@@ -113,40 +119,38 @@ export async function GET(req: NextRequest) {
         ssn: true, 
         city: true,
         state: true,
-        claims: { // Include related claims
+        claims: { 
           select: {
             id: true,
             wcc_file_number: true,
-            claim_status: true, // Assuming you have a claim_status field
+            claim_status: true, 
             date_of_injury: true,
-            employer: { // Include related employer for each claim
+            employer: { 
               select: {
                 name: true,
               }
             }
           },
-          orderBy: { // Optionally order claims, e.g., by date of injury
+          orderBy: { 
             date_of_injury: 'desc' 
           }
         }
       },
-      orderBy: [
+      orderBy: [ 
         { last_name: 'asc' },
         { first_name: 'asc' }
       ],
     });
 
-    // Process workers to mask SSN and structure claims/employer info
     const processedWorkers = injuredWorkers.map(worker => {
       const claimsInfo = worker.claims.map(claim => ({
         id: claim.id,
         wcc_file_number: claim.wcc_file_number || 'N/A',
-        claim_status: claim.claim_status || 'Unknown', // Handle null status
-        employerName: claim.employer?.name || 'N/A', // Handle null employer or name
+        claim_status: claim.claim_status || 'Unknown', 
+        employerName: claim.employer?.name || 'N/A', 
         date_of_injury: claim.date_of_injury
       }));
 
-      // Extract unique employer names for this worker
       const employerNames = Array.from(new Set(worker.claims.map(claim => claim.employer?.name).filter(name => name)));
 
       return {
@@ -157,8 +161,8 @@ export async function GET(req: NextRequest) {
         ssn: worker.ssn ? `XXX-XX-${worker.ssn.slice(-4)}` : null,
         city: worker.city,
         state: worker.state,
-        claims: claimsInfo, // Array of claim details
-        employerNames: employerNames.length > 0 ? employerNames : ['N/A'], // Array of unique employer names
+        claims: claimsInfo, 
+        employerNames: employerNames.length > 0 ? employerNames : ['N/A'], 
       };
     });
 

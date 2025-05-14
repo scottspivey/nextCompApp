@@ -21,7 +21,6 @@
         "@faker-js/faker": "^9.7.0",
         "@heroicons/react": "^2.2.0",
         "@hookform/resolvers": "^5.0.1",
-        "@next/eslint-plugin-next": "^15.3.2",
         "@prisma/client": "^6.7.0",
         "@radix-ui/react-accordion": "^1.2.3",
         "@radix-ui/react-alert-dialog": "^1.1.13",
@@ -68,6 +67,7 @@
     "devDependencies": {
         "@eslint/eslintrc": "^3",
         "@eslint/js": "^9.26.0",
+        "@next/eslint-plugin-next": "^15.3.2",
         "@tailwindcss/typography": "^0.5.16",
         "@types/bcryptjs": "^2.4.6",
         "@types/node": "^20.17.32",

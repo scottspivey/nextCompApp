@@ -12,17 +12,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/app/Components/ui/label";
 import { useToast } from "@/app/Components/ui/use-toast";
 
-import { PlusCircle, Settings, BookOpen, Calculator, StickyNote, FolderKanban, FileText, Download, Users } from 'lucide-react';
+import { PlusCircle, Settings, BookOpen, Calculator, StickyNote, FolderKanban, FileText, Download, AlertTriangle, Loader2 } from 'lucide-react';
 
-// TODO: Replace these dummy data imports with actual data fetching or remove if not used.
-// If these are kept, ensure their types are accurate or import types from data.ts if available.
-import { recentWorkersData, calculatorLinks } from '@/app/dashboard/data';
+// Dummy data imports (ensure these are correctly typed or replaced)
+import { recentWorkersData as dummyRecentWorkersData, calculatorLinks as dummyCalculatorLinks } from '@/app/dashboard/data';
 
 // Define types for fetched data
 interface ClaimSummary {
-    id: string; // UUID
+    id: string; 
     wcc_file_number: string | null;
-    date_of_injury?: Date | string | null;
+    date_of_injury?: Date | string | null; 
     injuredWorker: {
         first_name: string;
         last_name: string;
@@ -30,14 +29,11 @@ interface ClaimSummary {
 }
 
 interface UserProfile {
-    id: string; // This is the Profile ID (UUID)
-    userId?: string; // User ID (UUID), if returned
+    id: string; 
+    userId?: string; 
     full_name?: string | null;
-    email?: string | null;
 }
 
-// Interface for the structure of items in recentWorkersData
-// Adjusted claimNumber to be string | null to align with typical data structures and ?? usage
 interface RecentWorker {
     id: string | null | undefined;
     name: string | null | undefined; 
@@ -45,12 +41,17 @@ interface RecentWorker {
     lastAccessed: string | null | undefined;
 }
 
-// Interface for the structure of items in calculatorLinks
 interface CalculatorLink {
     id: string;
     name: string;
     path: string;
     premium?: boolean;
+}
+
+// Type for API error responses
+interface ApiErrorData {
+    error?: string;
+    details?: unknown; 
 }
 
 
@@ -66,16 +67,28 @@ export default function DashboardPage() {
     const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(true);
     const [isLoadingClaims, setIsLoadingClaims] = useState<boolean>(false);
 
+    const recentWorkersData: RecentWorker[] = dummyRecentWorkersData;
+    const calculatorLinks: CalculatorLink[] = dummyCalculatorLinks;
+
+
     const fetchProfile = useCallback(async () => {
         setIsLoadingProfile(true);
         try {
             const response = await fetch('/api/me/profile');
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Failed to fetch profile: ${response.statusText}`);
+                let errorPayload: ApiErrorData = { error: `Failed to fetch profile: ${response.statusText}` };
+                try {
+                    const parsedError: unknown = await response.json();
+                    if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError) {
+                        errorPayload = parsedError as ApiErrorData;
+                    }
+                } catch (_e) { 
+                    console.warn("Failed to parse error JSON from /api/me/profile");
+                }
+                throw new Error(errorPayload.error || `Failed to fetch profile: ${response.statusText}`);
             }
-            const data: UserProfile = await response.json();
-            setUserProfile(data);
+            const responseData: unknown = await response.json();
+            setUserProfile(responseData as UserProfile);
         } catch (error) {
             console.error("Error fetching profile:", error);
             toast({
@@ -90,7 +103,7 @@ export default function DashboardPage() {
     }, [toast]);
 
     const fetchClaims = useCallback(async (profileId: string) => {
-        if (!profileId || profileId === "mock-profile-id-replace-me") {
+        if (!profileId || profileId === "mock-profile-id-replace-me") { 
             setClaims([]);
             setIsLoadingClaims(false);
             return;
@@ -99,11 +112,19 @@ export default function DashboardPage() {
         try {
             const response = await fetch(`/api/claims?profileId=${profileId}`);
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Failed to fetch claims: ${response.statusText}`);
+                let errorPayload: ApiErrorData = { error: `Failed to fetch claims: ${response.statusText}` };
+                try {
+                    const parsedError: unknown = await response.json();
+                     if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError) {
+                        errorPayload = parsedError as ApiErrorData;
+                    }
+                } catch (_e) { 
+                     console.warn("Failed to parse error JSON from /api/claims");
+                }
+                throw new Error(errorPayload.error || `Failed to fetch claims: ${response.statusText}`);
             }
-            const data: ClaimSummary[] = await response.json();
-            setClaims(data);
+            const responseData: unknown = await response.json();
+            setClaims(responseData as ClaimSummary[]);
         } catch (error) {
             console.error("Error fetching claims:", error);
             toast({
@@ -118,19 +139,19 @@ export default function DashboardPage() {
     }, [toast]);
 
     useEffect(() => {
-        fetchProfile();
+        void fetchProfile(); 
     }, [fetchProfile]);
 
     useEffect(() => {
-        if (userProfile?.id && userProfile.id !== "mock-profile-id-replace-me") {
-            fetchClaims(userProfile.id);
+        if (userProfile?.id && userProfile.id !== "mock-profile-id-replace-me") { 
+            void fetchClaims(userProfile.id); 
         } else if (!isLoadingProfile && !userProfile?.id) {
             console.log("No valid user profile ID to fetch claims.");
             setClaims([]);
         }
     }, [userProfile?.id, isLoadingProfile, fetchClaims]);
 
-    const hasPremiumAccess = () => true;
+    const hasPremiumAccess = () => true; 
 
     const handleGenerateForm = async () => {
         if (!selectedFormType || !selectedClaimId || !userProfile?.id || userProfile.id === "mock-profile-id-replace-me") {
@@ -153,9 +174,7 @@ export default function DashboardPage() {
                 formType: selectedFormType,
                 claimId: selectedClaimId,
                 profileId: userProfile.id,
-                additionalData: {
-                    // TODO: Populate this from UI inputs based on selectedFormType
-                }
+                additionalData: {} 
             };
 
             console.log("Sending to /api/generate-form:", requestBody);
@@ -169,10 +188,25 @@ export default function DashboardPage() {
             if (!response.ok) {
                 let errorMsg = `HTTP error! status: ${response.status}`;
                 try {
-                    const errorData = await response.json();
-                    errorMsg = errorData.error || errorData.details || errorMsg;
-                } catch { // Corrected: Removed unused variable for the catch block
-                    // Ignore if response is not JSON, errorMsg will be the HTTP status
+                    const errorData: unknown = await response.json();
+                    if (typeof errorData === 'object' && errorData !== null) {
+                        const typedErrorData = errorData as ApiErrorData;
+                        let detailsString = "";
+                        if (typedErrorData.details) {
+                            if (typeof typedErrorData.details === 'string') {
+                                detailsString = typedErrorData.details;
+                            } else {
+                                try {
+                                    detailsString = JSON.stringify(typedErrorData.details);
+                                } catch {
+                                    detailsString = "Additional details present but could not be stringified.";
+                                }
+                            }
+                        }
+                        errorMsg = typedErrorData.error || detailsString || errorMsg;
+                    }
+                } catch {
+                    // Ignore if response is not JSON
                 }
                 throw new Error(errorMsg);
             }
@@ -215,6 +249,27 @@ export default function DashboardPage() {
         }
     };
 
+    if (isLoadingProfile) { 
+        return (
+            <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="mt-4 text-lg text-muted-foreground">Loading user profile...</p>
+            </div>
+        );
+    }
+    
+    if (!userProfile && !isLoadingProfile) { 
+         return (
+            <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
+                <AlertTriangle className="h-12 w-12 text-destructive" />
+                <p className="mt-4 text-lg text-destructive">Could not load user profile.</p>
+                <p className="text-sm text-muted-foreground">Please try refreshing the page or contact support.</p>
+                <Button onClick={() => void fetchProfile()} className="mt-4">Try Again</Button>
+            </div>
+        );
+    }
+
+
     return (
         <div className="container mx-auto px-4 py-8 md:py-12">
             <div className="flex justify-between items-center mb-8">
@@ -253,11 +308,10 @@ export default function DashboardPage() {
                              <Select
                                 value={selectedClaimId}
                                 onValueChange={setSelectedClaimId}
-                                disabled={isLoadingProfile || isLoadingClaims || claims.length === 0}
+                                disabled={isLoadingClaims || claims.length === 0}
                              >
                                 <SelectTrigger id="claimSelect">
                                     <SelectValue placeholder={
-                                        isLoadingProfile ? "Loading profile..." :
                                         isLoadingClaims ? "Loading claims..." :
                                         claims.length > 0 ? "Select claim..." : "No claims found"
                                     } />
@@ -276,18 +330,17 @@ export default function DashboardPage() {
                                         </SelectItem>
                                     )}
                                 </SelectContent>
-                            </Select>
+                             </Select>
                         </div>
 
                         <Button
-                            onClick={handleGenerateForm}
+                            onClick={() => void handleGenerateForm()}
                             disabled={
                                 !selectedFormType ||
                                 !selectedClaimId ||
                                 isGenerating ||
-                                !userProfile?.id ||
-                                userProfile.id === "mock-profile-id-replace-me" ||
-                                isLoadingProfile ||
+                                !userProfile?.id || 
+                                userProfile.id === "mock-profile-id-replace-me" || 
                                 isLoadingClaims
                             }
                             className="w-full"
@@ -301,82 +354,41 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Other dashboard cards remain the same */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <FolderKanban className="h-5 w-5" /> Overview
-                        </CardTitle>
-                    </CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><FolderKanban className="h-5 w-5" /> Overview</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 gap-4 text-center">
-                        <div>
-                            <p className="text-2xl font-bold text-foreground">15</p>
-                            <p className="text-xs text-muted-foreground">Active Cases</p>
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-foreground">3</p>
-                            <p className="text-xs text-muted-foreground">Deadlines This Week</p>
-                        </div>
+                        <div><p className="text-2xl font-bold text-foreground">15</p><p className="text-xs text-muted-foreground">Active Cases</p></div>
+                        <div><p className="text-2xl font-bold text-foreground">3</p><p className="text-xs text-muted-foreground">Deadlines This Week</p></div>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Quick Actions</CardTitle>
-                    </CardHeader>
+                    <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
                     <CardContent className="flex flex-col gap-2">
-                        <Button variant="secondary" size="sm" onClick={() => router.push('/workers')}>
-                            <Users className="mr-2 h-4 w-4" /> View Workers
-                        </Button>
-                        <Button size="sm" onClick={() => router.push('/workers/new')}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Injured Worker
-                        </Button>
-                        <Button variant="secondary" size="sm" onClick={() => router.push('/Calculators')}>
-                            <Calculator className="mr-2 h-4 w-4" /> Start Calculation
-                        </Button>
+                        <Button size="sm" onClick={() => router.push('/workers/new')}><PlusCircle className="mr-2 h-4 w-4" /> Add Injured Worker</Button>
+                        <Button variant="secondary" size="sm" onClick={() => router.push('/Calculators')}><Calculator className="mr-2 h-4 w-4" /> Start Calculation</Button>
                     </CardContent>
                 </Card>
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <BookOpen className="h-5 w-5" /> Training Progress
-                    </CardTitle>
-                    <CardDescription>Your continuing education status.</CardDescription>
-                  </CardHeader>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" /> Training Progress</CardTitle><CardDescription>Your continuing education status.</CardDescription></CardHeader>
                   <CardContent>
-                      <div className="space-y-2">
-                          <div className="flex justify-between text-sm mb-1">
-                              <span className="text-muted-foreground">Current Course:</span>
-                              <span className="font-medium text-foreground">Intro to AWW</span>
-                          </div>
-                          <Progress value={75} aria-label="Training progress for Intro to AWW at 75%" />
-                          <p className="text-xs text-muted-foreground text-right">75% Complete</p>
-                      </div>
-                    <Button variant="secondary" size="sm" className="mt-4" onClick={() => router.push('/training')} >
-                        View Training Library
-                    </Button>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm mb-1"><span className="text-muted-foreground">Current Course:</span><span className="font-medium text-foreground">Intro to AWW</span></div>
+                        <Progress value={75} aria-label="Training progress for Intro to AWW at 75%" />
+                        <p className="text-xs text-muted-foreground text-right">75% Complete</p>
+                    </div>
+                    <Button variant="secondary" size="sm" className="mt-4" onClick={() => void router.push('/training')} >View Training Library</Button> {/* Fixed line 338 */}
                   </CardContent>
                 </Card>
 
                 <Card className="md:col-span-2">
-                  <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>Recently accessed injured worker files.</CardDescription>
-                  </CardHeader>
+                  <CardHeader><CardTitle>Recent Activity</CardTitle><CardDescription>Recently accessed injured worker files.</CardDescription></CardHeader>
                   <CardContent>
-                    {/* TODO: Replace recentWorkersData with actual fetched data */}
                     {recentWorkersData.length > 0 ? (
                       <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Claim #</TableHead>
-                            <TableHead className="text-right">Last Accessed</TableHead>
-                          </TableRow>
-                        </TableHeader>
+                        <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Claim #</TableHead><TableHead className="text-right">Last Accessed</TableHead></TableRow></TableHeader>
                         <TableBody>
-                          {/* Using defined RecentWorker type */}
                           {recentWorkersData.slice(0, 5).map((worker: RecentWorker) => (
                             <TableRow key={worker.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/workers/${worker.id}`)}>
                               <TableCell className="font-medium">{worker.name}</TableCell>
@@ -394,44 +406,22 @@ export default function DashboardPage() {
                 </Card>
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Calculator className="h-5 w-5" /> Calculators
-                    </CardTitle>
-                    <CardDescription>Quick access to calculation tools.</CardDescription>
-                  </CardHeader>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5" /> Calculators</CardTitle><CardDescription>Quick access to calculation tools.</CardDescription></CardHeader>
                   <CardContent className="flex flex-col gap-2">
-                      {/* TODO: Replace calculatorLinks with actual fetched data or configuration */}
-                      {/* Using defined CalculatorLink type */}
-                      {calculatorLinks.slice(0, 4).map((calc: CalculatorLink) => (
-                        <Button
-                            key={calc.id}
-                            variant="outline"
-                            size="sm"
-                            className="justify-start"
-                            onClick={() => router.push(calc.path)}
-                            disabled={calc.premium && !hasPremiumAccess()}
-                        >
-                          {calc.name}
-                          {calc.premium && <span className="ml-auto text-xs font-semibold text-primary">(Premium)</span>}
-                        </Button>
-                      ))}
-                      <Button variant="link" size="sm" className="mt-2 px-0 justify-start" onClick={() => router.push('/Calculators')}>View All Calculators</Button>
+                    {calculatorLinks.slice(0, 4).map((calc: CalculatorLink) => (
+                      <Button key={calc.id} variant="outline" size="sm" className="justify-start" onClick={() => void router.push(calc.path)} disabled={calc.premium && !hasPremiumAccess()}>
+                        {calc.name}
+                        {calc.premium && <span className="ml-auto text-xs font-semibold text-primary">(Premium)</span>}
+                      </Button>
+                    ))}
+                    <Button variant="link" size="sm" className="mt-2 px-0 justify-start" onClick={() => router.push('/Calculators')}>View All Calculators</Button>
                   </CardContent>
                 </Card>
 
                 <Card className="md:col-span-2 lg:col-span-3">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                          <StickyNote className="h-5 w-5" /> Scratchpad
-                      </CardTitle>
-                      <CardDescription>Quick notes for your current session. Not saved automatically.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Textarea placeholder="Type your quick notes here..." className="min-h-[150px]" />
-                    </CardContent>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><StickyNote className="h-5 w-5" /> Scratchpad</CardTitle><CardDescription>Quick notes for your current session. Not saved automatically.</CardDescription></CardHeader>
+                  <CardContent><Textarea placeholder="Type your quick notes here..." className="min-h-[150px]" /></CardContent>
                 </Card>
-
             </div>
         </div>
     );

@@ -9,15 +9,15 @@ import { Button } from '@/app/Components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/Components/ui/table";
 import { useToast } from "@/app/Components/ui/use-toast";
-import { PlusCircle, Edit3, Loader2, AlertTriangle, Users, Briefcase, FileText } from 'lucide-react'; // Added Briefcase, FileText
-import { format, isValid } from 'date-fns'; // Added isValid
+import { PlusCircle, Edit3, Loader2, AlertTriangle, Users, Briefcase, FileText } from 'lucide-react';
+import { format, isValid, parseISO } from 'date-fns';
 
 // Define the structure of a Claim for the worker summary
 interface ClaimForWorkerSummary {
   id: string;
-  wcc_file_number: string; // No longer null, defaults to 'N/A' from API
-  claim_status: string;    // No longer null, defaults to 'Unknown' from API
-  employerName: string;    // No longer null, defaults to 'N/A' from API
+  wcc_file_number: string; 
+  claim_status: string;    
+  employerName: string;    
   date_of_injury?: Date | string | null;
 }
 
@@ -30,9 +30,16 @@ interface InjuredWorkerSummary {
   ssn?: string | null; 
   city?: string | null;
   state?: string | null;
-  claims: ClaimForWorkerSummary[]; // Array of claims
-  employerNames: string[]; // Array of unique employer names
+  claims: ClaimForWorkerSummary[]; 
+  employerNames: string[]; 
 }
+
+// Type for error data from API responses
+interface ApiErrorData {
+    error?: string;
+    details?: unknown; // Changed from any to unknown for better type safety
+}
+
 
 export default function AllInjuredWorkersPage() {
   const router = useRouter();
@@ -49,10 +56,23 @@ export default function AllInjuredWorkersPage() {
     try {
       const response = await fetch(`/api/workers?profileId=${profileId}`);
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to fetch workers: ${response.statusText}`);
+        let errorPayload: ApiErrorData = { error: `Failed to fetch workers: ${response.statusText}` };
+        try {
+            // Attempt to parse the error response body
+            const parsedError: unknown = await response.json();
+            // Check if parsedError is an object and has an 'error' property
+            if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError) {
+                errorPayload = parsedError as ApiErrorData;
+            }
+        } catch (e) {
+            // If parsing fails, stick with the initial error message based on status text
+            console.warn("Failed to parse error JSON from API");
+        }
+        throw new Error(errorPayload.error || `Failed to fetch workers: ${response.statusText}`);
       }
-      const data: InjuredWorkerSummary[] = await response.json();
+      // Assign to unknown first, then assert the type.
+      const responseData: unknown = await response.json();
+      const data = responseData as InjuredWorkerSummary[]; // Asserting from unknown
       setWorkers(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
@@ -63,7 +83,7 @@ export default function AllInjuredWorkersPage() {
         description: message,
         variant: "destructive",
       });
-      setWorkers([]);
+      setWorkers([]); 
     } finally {
       setIsLoading(false);
     }
@@ -71,10 +91,10 @@ export default function AllInjuredWorkersPage() {
 
   useEffect(() => {
     if (sessionStatus === "authenticated" && session?.user?.profileId) {
-      fetchWorkers(session.user.profileId);
+      void fetchWorkers(session.user.profileId); 
     } else if (sessionStatus === "unauthenticated") {
-      toast({ title: "Authentication Required", description: "Please log in to view injured workers." });
-      router.push("/api/auth/signin");
+      void toast({ title: "Authentication Required", description: "Please log in to view injured workers." });
+      router.push("/api/auth/signin"); 
     }
   }, [session, sessionStatus, fetchWorkers, router, toast]);
 
@@ -82,9 +102,7 @@ export default function AllInjuredWorkersPage() {
     if (!claims || claims.length === 0) {
       return "No Claims";
     }
-    // Filter for "open" claims. Define "open" based on your claim_status values.
-    // Example: Assuming "Closed", "Settled", "Denied" are not open.
-    const openStatuses = ["Open", "Pending", "Active", "In Progress", "Unknown", "Accepted", "In Investigation", "In Litigation", "On Appeal", "Pending Review"]; // Customize this list
+    const openStatuses = ["Open", "Pending", "Active", "In Progress", "Unknown"]; 
     const openClaims = claims.filter(claim => openStatuses.includes(claim.claim_status));
 
     if (openClaims.length === 0) {
@@ -128,10 +146,23 @@ export default function AllInjuredWorkersPage() {
 
       {error && (
         <Card className="mb-6 bg-destructive/10 border-destructive">
-          <CardHeader><CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5" /> Error</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center text-destructive">
+              <AlertTriangle className="mr-2 h-5 w-5" /> Error
+            </CardTitle>
+          </CardHeader>
           <CardContent>
             <p className="text-destructive-foreground">{error}</p>
-            <Button variant="outline" size="sm" onClick={() => session?.user?.profileId && fetchWorkers(session.user.profileId)} className="mt-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                if (session?.user?.profileId) {
+                  void fetchWorkers(session.user.profileId); 
+                }
+              }} 
+              className="mt-4"
+            >
               Try Again
             </Button>
           </CardContent>
@@ -142,7 +173,7 @@ export default function AllInjuredWorkersPage() {
         <CardHeader>
           <CardTitle>Worker List</CardTitle>
           <CardDescription>
-            A list of all injured workers associated with your profile.
+            A list of all injured workers associated with your profile. Click on a worker to view or edit details.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -166,8 +197,8 @@ export default function AllInjuredWorkersPage() {
                       </Link>
                     </TableCell>
                     <TableCell>
-                      {worker.date_of_birth && isValid(new Date(worker.date_of_birth)) 
-                        ? format(new Date(worker.date_of_birth), 'MM/dd/yyyy') 
+                      {worker.date_of_birth && isValid(parseISO(worker.date_of_birth as string)) 
+                        ? format(parseISO(worker.date_of_birth as string), 'MM/dd/yyyy') 
                         : 'N/A'}
                     </TableCell>
                     <TableCell>

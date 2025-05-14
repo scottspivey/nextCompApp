@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/app/Components/ui/label";
 import { useToast } from "@/app/Components/ui/use-toast";
 
-import { PlusCircle, Settings, BookOpen, Calculator, StickyNote, FolderKanban, FileText, Download } from 'lucide-react';
+import { PlusCircle, Settings, BookOpen, Calculator, StickyNote, FolderKanban, FileText, Download, Users } from 'lucide-react';
 
 // TODO: Replace these dummy data imports with actual data fetching or remove if not used.
 // If these are kept, ensure their types are accurate or import types from data.ts if available.
@@ -325,6 +325,9 @@ export default function DashboardPage() {
                         <CardTitle>Quick Actions</CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => router.push('/workers')}>
+                            <Users className="mr-2 h-4 w-4" /> View Workers
+                        </Button>
                         <Button size="sm" onClick={() => router.push('/workers/new')}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Injured Worker
                         </Button>

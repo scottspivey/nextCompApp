@@ -6,43 +6,45 @@ import { getToken } from 'next-auth/jwt'; // For server-side session access
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
+  console.log("API - GET /api/claims - Request received."); // Log start of request
   try {
     // --- Authentication and Authorization ---
+    console.log("API - GET /api/claims - Attempting to get token...");
     const token = await getToken({ req, secret: process.env.AUTH_SECRET });
 
-    if (!token || !token.profileId) {
-      // profileId should be in your JWT token from NextAuth callbacks
-      return NextResponse.json({ error: 'Unauthorized. No valid session or profile ID.' }, { status: 401 });
+    // Log the entire token object to see its contents
+    console.log("API - GET /api/claims - Token received by getToken:", JSON.stringify(token, null, 2));
+
+    if (!token) {
+      console.error("API - GET /api/claims - Unauthorized: Token is null or undefined.");
+      return NextResponse.json({ error: 'Unauthorized. No valid session token.' }, { status: 401 });
+    }
+
+    if (!token.profileId) { 
+      console.error("API - GET /api/claims - Unauthorized: profileId is missing from the token. Token content:", JSON.stringify(token, null, 2));
+      return NextResponse.json({ error: 'Unauthorized. No valid profile ID in session.' }, { status: 401 });
     }
     
-    const sessionProfileId = token.profileId;
+    const sessionProfileId = token.profileId; // We've checked it exists, so assertion is okay here if your next-auth.d.ts types it as string | null | undefined
+    console.log("API - GET /api/claims - Authorized. Session Profile ID:", sessionProfileId);
 
-    // --- Original profileId from query (optional, could be removed if always using session's) ---
-    // const { searchParams } = new URL(req.url);
-    // const queryProfileId = searchParams.get('profileId');
-    // if (queryProfileId && queryProfileId !== sessionProfileId) {
-    //   // If a profileId is passed in query and it doesn't match the session's, deny access.
-    //   return NextResponse.json({ error: 'Forbidden. Mismatched profile ID.' }, { status: 403 });
-    // }
-    // For this route, we will strictly use the sessionProfileId to ensure user can only access their own claims.
-
+    console.log(`API - GET /api/claims - Fetching claims for profileId: ${sessionProfileId}`);
     const claims = await prisma.claim.findMany({
       where: {
-        profileId: sessionProfileId, // Fetch claims ONLY for the authenticated user's profile
+        profileId: sessionProfileId, 
       },
       select: {
         id: true,
         wcc_file_number: true,
         date_of_injury: true,
-        claim_status: true, // Crucial for filtering on the dashboard
+        claim_status: true, 
         injuredWorker: {
           select: {
-            id: true, // Needed for dashboard's selectableClaimsForPdf logic
+            id: true, 
             first_name: true,
             last_name: true,
           },
         },
-        // You can add other fields like 'employer' if needed for the claim summary
         employer: {
           select: {
             name: true,
@@ -54,8 +56,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // findMany returns an empty array if no records are found, so no explicit 404 is needed here.
-    // The client will receive an empty array and can handle it accordingly.
+    console.log(`API - GET /api/claims - Found ${claims.length} claims for profileId: ${sessionProfileId}`);
     return NextResponse.json(claims, { status: 200 });
 
   } catch (error) {
@@ -63,5 +64,4 @@ export async function GET(req: NextRequest) {
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: 'Failed to fetch claims.', details: message }, { status: 500 });
   }
-  // No prisma.$disconnect() needed in serverless functions
 }

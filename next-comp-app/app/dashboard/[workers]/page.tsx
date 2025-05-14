@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Button } from '@/app/Components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/app/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/Components/ui/table";
 import { useToast } from "@/app/Components/ui/use-toast";
 import { PlusCircle, Edit3, Loader2, AlertTriangle, Users, Briefcase, FileText } from 'lucide-react'; // Added Briefcase, FileText
@@ -139,12 +139,6 @@ export default function AllInjuredWorkersPage() {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Worker List</CardTitle>
-          <CardDescription>
-            A list of all injured workers associated with your profile.
-          </CardDescription>
-        </CardHeader>
         <CardContent>
           {workers.length > 0 ? (
             <Table>

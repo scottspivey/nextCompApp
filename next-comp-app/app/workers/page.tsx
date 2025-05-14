@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Button } from '@/app/Components/ui/button';
 import { Input } from '@/app/Components/ui/input';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/app/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/Components/ui/table";
 import { RadioGroup, RadioGroupItem } from "@/app/Components/ui/radio-group";
 import { Label } from "@/app/Components/ui/label";
@@ -260,12 +260,6 @@ export default function AllInjuredWorkersPage() {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Worker List</CardTitle>
-          <CardDescription>
-            A list of all injured workers associated with your profile. Click on a worker to view or edit details.
-          </CardDescription>
-        </CardHeader>
         <CardContent>
           {displayedWorkers.length > 0 ? (
             <Table>

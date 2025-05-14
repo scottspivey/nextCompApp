@@ -5,7 +5,7 @@ import * as z from 'zod';
 
 const prisma = new PrismaClient();
 
-// Zod schema for backend validation (for POST requests)
+// Zod schema for backend validation (for POST requests) - remains the same
 const workerFormSchema = z.object({
   profileId: z.string().min(1, "Profile ID is required"),
   first_name: z.string().min(1, "First name is required"),
@@ -113,19 +113,56 @@ export async function GET(req: NextRequest) {
         ssn: true, 
         city: true,
         state: true,
+        claims: { // Include related claims
+          select: {
+            id: true,
+            wcc_file_number: true,
+            claim_status: true, // Assuming you have a claim_status field
+            date_of_injury: true,
+            employer: { // Include related employer for each claim
+              select: {
+                name: true,
+              }
+            }
+          },
+          orderBy: { // Optionally order claims, e.g., by date of injury
+            date_of_injury: 'desc' 
+          }
+        }
       },
-      orderBy: [ // Corrected: orderBy now uses an array of objects
+      orderBy: [
         { last_name: 'asc' },
         { first_name: 'asc' }
       ],
     });
 
-    const workersWithMaskedSSN = injuredWorkers.map(worker => ({
-        ...worker,
-        ssn: worker.ssn ? `XXX-XX-${worker.ssn.slice(-4)}` : null,
-    }));
+    // Process workers to mask SSN and structure claims/employer info
+    const processedWorkers = injuredWorkers.map(worker => {
+      const claimsInfo = worker.claims.map(claim => ({
+        id: claim.id,
+        wcc_file_number: claim.wcc_file_number || 'N/A',
+        claim_status: claim.claim_status || 'Unknown', // Handle null status
+        employerName: claim.employer?.name || 'N/A', // Handle null employer or name
+        date_of_injury: claim.date_of_injury
+      }));
 
-    return NextResponse.json(workersWithMaskedSSN, { status: 200 });
+      // Extract unique employer names for this worker
+      const employerNames = Array.from(new Set(worker.claims.map(claim => claim.employer?.name).filter(name => name)));
+
+      return {
+        id: worker.id,
+        first_name: worker.first_name,
+        last_name: worker.last_name,
+        date_of_birth: worker.date_of_birth,
+        ssn: worker.ssn ? `XXX-XX-${worker.ssn.slice(-4)}` : null,
+        city: worker.city,
+        state: worker.state,
+        claims: claimsInfo, // Array of claim details
+        employerNames: employerNames.length > 0 ? employerNames : ['N/A'], // Array of unique employer names
+      };
+    });
+
+    return NextResponse.json(processedWorkers, { status: 200 });
 
   } catch (error) {
     console.error("API - GET /api/workers - Error fetching injured workers:", error);

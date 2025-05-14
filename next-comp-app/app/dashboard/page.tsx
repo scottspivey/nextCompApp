@@ -1,7 +1,7 @@
 // app/dashboard/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/app/Components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/app/Components/ui/card';
@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
 import { Label } from "@/app/Components/ui/label";
 import { useToast } from "@/app/Components/ui/use-toast";
+import { useSession } from 'next-auth/react'; // Import useSession for client-side session access
 
 import { PlusCircle, Settings, BookOpen, Calculator, StickyNote, FolderKanban, FileText, Download, AlertTriangle, Loader2 } from 'lucide-react';
 
@@ -21,15 +22,17 @@ import { recentWorkersData as dummyRecentWorkersData, calculatorLinks as dummyCa
 interface ClaimSummary {
     id: string; 
     wcc_file_number: string | null;
+    claim_status: string | null; 
     date_of_injury?: Date | string | null; 
     injuredWorker: {
+        id: string; 
         first_name: string;
         last_name: string;
     };
 }
 
-interface UserProfile {
-    id: string; 
+interface UserProfile { // This is the type for the data returned by /api/me/profile
+    id: string; // This should be the Profile.id
     userId?: string; 
     full_name?: string | null;
 }
@@ -54,27 +57,55 @@ interface ApiErrorData {
     details?: unknown; 
 }
 
+const OPEN_CLAIM_STATUSES = ["Open", "Pending", "Active", "In Progress", "Unknown", "Accepted", "Investigating", "In Litigation", "Pending Review"];
+
 
 export default function DashboardPage() {
     const router = useRouter();
     const { toast } = useToast();
+    const { data: session, status: sessionStatus } = useSession(); // Get client-side session
 
     const [selectedFormType, setSelectedFormType] = useState<string>('');
     const [selectedClaimId, setSelectedClaimId] = useState<string>('');
-    const [claims, setClaims] = useState<ClaimSummary[]>([]);
-    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [claims, setClaims] = useState<ClaimSummary[]>([]); 
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null); // This will hold Profile.id
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
-    const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(true);
+    const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(true); // True initially
     const [isLoadingClaims, setIsLoadingClaims] = useState<boolean>(false);
 
     const recentWorkersData: RecentWorker[] = dummyRecentWorkersData;
     const calculatorLinks: CalculatorLink[] = dummyCalculatorLinks;
 
-
+    // fetchProfile now uses the profileId from the NextAuth session if available
     const fetchProfile = useCallback(async () => {
+        if (sessionStatus === "loading") return; // Don't fetch if session is still loading
+
+        if (sessionStatus === "unauthenticated") {
+            toast({ title: "Authentication Required", description: "Please log in.", variant: "destructive" });
+            router.push("/api/auth/signin"); // Or your login page
+            setIsLoadingProfile(false);
+            return;
+        }
+
+        // Use profileId from the session (ensure your NextAuth session callback adds it)
+        const currentProfileId = session?.user?.profileId;
+
+        if (!currentProfileId) {
+            toast({ title: "Profile Error", description: "User profile ID not found in session.", variant: "destructive" });
+            setUserProfile(null);
+            setIsLoadingProfile(false);
+            return;
+        }
+        
+        // Set userProfile directly from session if it contains all needed info,
+        // or fetch additional profile details if /api/me/profile provides more.
+        // For this example, we'll assume session.user.profileId is the Profile.id
+        // and we might not need a separate /api/me/profile call if all info is in session.
+        // However, if /api/me/profile is still needed for other details:
         setIsLoadingProfile(true);
         try {
-            const response = await fetch('/api/me/profile');
+            // If your /api/me/profile uses the session on the backend, it doesn't need profileId in query
+            const response = await fetch('/api/me/profile'); 
             if (!response.ok) {
                 let errorPayload: ApiErrorData = { error: `Failed to fetch profile: ${response.statusText}` };
                 try {
@@ -88,7 +119,15 @@ export default function DashboardPage() {
                 throw new Error(errorPayload.error || `Failed to fetch profile: ${response.statusText}`);
             }
             const responseData: unknown = await response.json();
-            setUserProfile(responseData as UserProfile);
+            // Ensure the fetched profile ID matches the session's profile ID for consistency
+            const fetchedProfile = responseData as UserProfile;
+            if (fetchedProfile.id !== currentProfileId) {
+                console.error("Session profileId and fetched profileId mismatch.");
+                // Handle mismatch, perhaps by trusting the session or logging out.
+                setUserProfile({ id: currentProfileId }); // Fallback to session's profileId
+            } else {
+                setUserProfile(fetchedProfile);
+            }
         } catch (error) {
             console.error("Error fetching profile:", error);
             toast({
@@ -96,21 +135,22 @@ export default function DashboardPage() {
                 description: error instanceof Error ? error.message : "Could not fetch user profile.",
                 variant: "destructive",
             });
-            setUserProfile(null);
+            setUserProfile(null); // Or fallback to session's profileId if appropriate
         } finally {
             setIsLoadingProfile(false);
         }
-    }, [toast]);
+    }, [toast, session, sessionStatus, router]);
 
-    const fetchClaims = useCallback(async (profileId: string) => {
-        if (!profileId || profileId === "mock-profile-id-replace-me") { 
+    const fetchClaims = useCallback(async (profileIdToFetch: string) => {
+        // Removed mock-profile-id-replace-me check
+        if (!profileIdToFetch) { 
             setClaims([]);
             setIsLoadingClaims(false);
             return;
         }
         setIsLoadingClaims(true);
         try {
-            const response = await fetch(`/api/claims?profileId=${profileId}`);
+            const response = await fetch(`/api/claims?profileId=${profileIdToFetch}`); 
             if (!response.ok) {
                 let errorPayload: ApiErrorData = { error: `Failed to fetch claims: ${response.statusText}` };
                 try {
@@ -139,22 +179,41 @@ export default function DashboardPage() {
     }, [toast]);
 
     useEffect(() => {
-        void fetchProfile(); 
-    }, [fetchProfile]);
+        // Fetch profile when session status is determined
+        if (sessionStatus !== "loading") {
+            void fetchProfile();
+        }
+    }, [sessionStatus, fetchProfile]); // Depend on sessionStatus
 
     useEffect(() => {
-        if (userProfile?.id && userProfile.id !== "mock-profile-id-replace-me") { 
+        // Fetch claims once userProfile.id is available and valid
+        if (userProfile?.id) { 
             void fetchClaims(userProfile.id); 
-        } else if (!isLoadingProfile && !userProfile?.id) {
-            console.log("No valid user profile ID to fetch claims.");
+        } else if (!isLoadingProfile && !userProfile?.id && sessionStatus === "authenticated") {
+            // This case means profile fetching finished, user is authenticated, but profile.id is still not set
+            console.log("User is authenticated, but no valid user profile ID to fetch claims.");
             setClaims([]);
         }
-    }, [userProfile?.id, isLoadingProfile, fetchClaims]);
+    }, [userProfile?.id, isLoadingProfile, fetchClaims, sessionStatus]);
+
+
+    const selectableClaimsForPdf = useMemo(() => {
+        if (!claims.length) return [];
+        const workersWithActiveClaims = new Set<string>();
+        claims.forEach(claim => {
+            if (claim.claim_status && OPEN_CLAIM_STATUSES.includes(claim.claim_status)) {
+                workersWithActiveClaims.add(claim.injuredWorker.id);
+            }
+        });
+        return claims.filter(claim => workersWithActiveClaims.has(claim.injuredWorker.id));
+    }, [claims]);
+
 
     const hasPremiumAccess = () => true; 
 
     const handleGenerateForm = async () => {
-        if (!selectedFormType || !selectedClaimId || !userProfile?.id || userProfile.id === "mock-profile-id-replace-me") {
+        // Removed mock-profile-id-replace-me check
+        if (!selectedFormType || !selectedClaimId || !userProfile?.id) {
             toast({
                 title: "Missing Information",
                 description: "Please select a form type, a valid claim, and ensure your profile is loaded.",
@@ -173,7 +232,7 @@ export default function DashboardPage() {
             const requestBody = {
                 formType: selectedFormType,
                 claimId: selectedClaimId,
-                profileId: userProfile.id,
+                profileId: userProfile.id, 
                 additionalData: {} 
             };
 
@@ -205,9 +264,7 @@ export default function DashboardPage() {
                         }
                         errorMsg = typedErrorData.error || detailsString || errorMsg;
                     }
-                } catch {
-                    // Ignore if response is not JSON
-                }
+                } catch { /* Ignore */ }
                 throw new Error(errorMsg);
             }
 
@@ -217,9 +274,7 @@ export default function DashboardPage() {
 
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
-                if (filenameMatch?.[1]) {
-                    filename = filenameMatch[1];
-                }
+                if (filenameMatch?.[1]) filename = filenameMatch[1];
             }
 
             const url = window.URL.createObjectURL(blob);
@@ -231,40 +286,42 @@ export default function DashboardPage() {
             a.remove();
             window.URL.revokeObjectURL(url);
 
-            toast({
-                title: "Success!",
-                description: `${filename} downloaded successfully.`,
-            });
-
+            toast({ title: "Success!", description: `${filename} downloaded successfully.` });
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
             console.error("Error generating form:", error);
-            toast({
-                title: "Generation Failed",
-                description: message,
-                variant: "destructive",
-            });
+            toast({ title: "Generation Failed", description: message, variant: "destructive" });
         } finally {
             setIsGenerating(false);
         }
     };
 
-    if (isLoadingProfile) { 
+    if (sessionStatus === "loading" || isLoadingProfile) { 
         return (
             <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="mt-4 text-lg text-muted-foreground">Loading user profile...</p>
+                <p className="mt-4 text-lg text-muted-foreground">Loading user data...</p>
             </div>
         );
     }
     
-    if (!userProfile && !isLoadingProfile) { 
+    if (!userProfile && sessionStatus === "authenticated" && !isLoadingProfile) { 
          return (
             <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
                 <AlertTriangle className="h-12 w-12 text-destructive" />
-                <p className="mt-4 text-lg text-destructive">Could not load user profile.</p>
-                <p className="text-sm text-muted-foreground">Please try refreshing the page or contact support.</p>
+                <p className="mt-4 text-lg text-destructive">Could not load user profile information.</p>
+                <p className="text-sm text-muted-foreground">Your session is active, but profile details are missing. Please try refreshing or contact support.</p>
                 <Button onClick={() => void fetchProfile()} className="mt-4">Try Again</Button>
+            </div>
+        );
+    }
+    // If still no userProfile after all checks (e.g. unauthenticated was handled by redirect)
+    // This might be redundant if unauthenticated always redirects.
+    if (!userProfile) {
+        return (
+             <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
+                <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+                <p className="mt-4 text-lg text-muted-foreground">User profile not available.</p>
             </div>
         );
     }
@@ -274,7 +331,7 @@ export default function DashboardPage() {
         <div className="container mx-auto px-4 py-8 md:py-12">
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                    Dashboard
+                    Dashboard {userProfile.full_name ? `- ${userProfile.full_name}` : ''}
                 </h1>
                 <Button variant="outline" size="sm" onClick={() => router.push('/settings')}>
                     <Settings className="mr-2 h-4 w-4" /> Settings
@@ -287,15 +344,13 @@ export default function DashboardPage() {
                         <CardTitle className="flex items-center gap-2">
                             <FileText className="h-5 w-5" /> Generate WCC Form
                         </CardTitle>
-                        <CardDescription>Select a form and claim to generate a PDF.</CardDescription>
+                        <CardDescription>Select a form and claim to generate a PDF. Only claims for workers with active cases are shown.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-1">
                             <Label htmlFor="formTypeSelect">Form Type</Label>
                             <Select value={selectedFormType} onValueChange={setSelectedFormType}>
-                                <SelectTrigger id="formTypeSelect">
-                                    <SelectValue placeholder="Select form..." />
-                                </SelectTrigger>
+                                <SelectTrigger id="formTypeSelect"><SelectValue placeholder="Select form..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="SCWCC_Form21">Form 21 - Employer&apos;s Request for Hearing</SelectItem>
                                     <SelectItem value="SCWCC_Form27">Form 27 - Subpoena</SelectItem>
@@ -304,21 +359,21 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="space-y-1">
-                             <Label htmlFor="claimSelect">Claim</Label>
+                             <Label htmlFor="claimSelectPdf">Claim (Worker with Active Cases)</Label>
                              <Select
                                 value={selectedClaimId}
                                 onValueChange={setSelectedClaimId}
-                                disabled={isLoadingClaims || claims.length === 0}
+                                disabled={isLoadingClaims || selectableClaimsForPdf.length === 0}
                              >
-                                <SelectTrigger id="claimSelect">
+                                <SelectTrigger id="claimSelectPdf">
                                     <SelectValue placeholder={
                                         isLoadingClaims ? "Loading claims..." :
-                                        claims.length > 0 ? "Select claim..." : "No claims found"
+                                        selectableClaimsForPdf.length > 0 ? "Select claim..." : "No eligible claims"
                                     } />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {claims.length > 0 ? (
-                                        claims.map(claim => (
+                                    {selectableClaimsForPdf.length > 0 ? (
+                                        selectableClaimsForPdf.map(claim => (
                                             <SelectItem key={claim.id} value={claim.id}>
                                                 {claim.wcc_file_number ? `${claim.wcc_file_number} - ` : `Claim ID: ${claim.id.substring(0,8)}... - `}
                                                 {claim.injuredWorker.first_name} {claim.injuredWorker.last_name}
@@ -326,7 +381,7 @@ export default function DashboardPage() {
                                         ))
                                     ) : (
                                         <SelectItem value="loading" disabled>
-                                            {isLoadingClaims ? "Loading..." : "No claims available for this profile"}
+                                            {isLoadingClaims ? "Loading..." : "No claims for workers with active cases"}
                                         </SelectItem>
                                     )}
                                 </SelectContent>
@@ -340,8 +395,8 @@ export default function DashboardPage() {
                                 !selectedClaimId ||
                                 isGenerating ||
                                 !userProfile?.id || 
-                                userProfile.id === "mock-profile-id-replace-me" || 
-                                isLoadingClaims
+                                isLoadingClaims ||
+                                selectableClaimsForPdf.length === 0 
                             }
                             className="w-full"
                         >
@@ -354,6 +409,7 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
+                {/* ... other dashboard cards ... */}
                 <Card>
                     <CardHeader><CardTitle className="flex items-center gap-2"><FolderKanban className="h-5 w-5" /> Overview</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 gap-4 text-center">
@@ -378,7 +434,7 @@ export default function DashboardPage() {
                         <Progress value={75} aria-label="Training progress for Intro to AWW at 75%" />
                         <p className="text-xs text-muted-foreground text-right">75% Complete</p>
                     </div>
-                    <Button variant="secondary" size="sm" className="mt-4" onClick={() => void router.push('/training')} >View Training Library</Button> {/* Fixed line 338 */}
+                    <Button variant="secondary" size="sm" className="mt-4" onClick={() => void router.push('/training')} >View Training Library</Button>
                   </CardContent>
                 </Card>
 

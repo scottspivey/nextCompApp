@@ -1,57 +1,67 @@
 // app/api/claims/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getToken } from 'next-auth/jwt'; // For server-side session access
 
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const profileId = searchParams.get('profileId');
+    // --- Authentication and Authorization ---
+    const token = await getToken({ req, secret: process.env.AUTH_SECRET });
 
-    if (!profileId) {
-      return NextResponse.json({ error: 'profileId query parameter is required' }, { status: 400 });
+    if (!token || !token.profileId) {
+      // profileId should be in your JWT token from NextAuth callbacks
+      return NextResponse.json({ error: 'Unauthorized. No valid session or profile ID.' }, { status: 401 });
     }
+    
+    const sessionProfileId = token.profileId;
 
-    // Optional: Add authentication check here if only the owner of the profile can see their claims
-    // const session = await getServerSession(authOptions);
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    // --- Original profileId from query (optional, could be removed if always using session's) ---
+    // const { searchParams } = new URL(req.url);
+    // const queryProfileId = searchParams.get('profileId');
+    // if (queryProfileId && queryProfileId !== sessionProfileId) {
+    //   // If a profileId is passed in query and it doesn't match the session's, deny access.
+    //   return NextResponse.json({ error: 'Forbidden. Mismatched profile ID.' }, { status: 403 });
     // }
-    // // Further check if the session.user.profile.id matches the requested profileId if needed
+    // For this route, we will strictly use the sessionProfileId to ensure user can only access their own claims.
 
     const claims = await prisma.claim.findMany({
       where: {
-        profileId: profileId,
+        profileId: sessionProfileId, // Fetch claims ONLY for the authenticated user's profile
       },
       select: {
         id: true,
         wcc_file_number: true,
         date_of_injury: true,
+        claim_status: true, // Crucial for filtering on the dashboard
         injuredWorker: {
           select: {
+            id: true, // Needed for dashboard's selectableClaimsForPdf logic
             first_name: true,
             last_name: true,
           },
         },
-        // Add other claim fields you might want for summary display
+        // You can add other fields like 'employer' if needed for the claim summary
+        employer: {
+          select: {
+            name: true,
+          }
+        }
       },
       orderBy: {
-        updatedAt: 'desc', // Or createdAt, or date_of_injury
+        updatedAt: 'desc', 
       },
     });
 
-    if (!claims) { // findMany returns an array, so check length if needed, or rely on empty array
-      return NextResponse.json({ error: 'No claims found for this profile.' }, { status: 404 });
-    }
-
-    return NextResponse.json(claims);
+    // findMany returns an empty array if no records are found, so no explicit 404 is needed here.
+    // The client will receive an empty array and can handle it accordingly.
+    return NextResponse.json(claims, { status: 200 });
 
   } catch (error) {
-    console.error('Error fetching claims:', error);
+    console.error('API - GET /api/claims - Error fetching claims:', error);
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: 'Failed to fetch claims.', details: message }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
+  // No prisma.$disconnect() needed in serverless functions
 }

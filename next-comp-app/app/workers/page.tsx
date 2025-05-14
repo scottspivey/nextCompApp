@@ -9,19 +9,29 @@ import { Button } from '@/app/Components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/Components/ui/table";
 import { useToast } from "@/app/Components/ui/use-toast";
-import { PlusCircle, Edit3, Loader2, AlertTriangle, Users } from 'lucide-react';
-import { format } from 'date-fns'; // For formatting dates
+import { PlusCircle, Edit3, Loader2, AlertTriangle, Users, Briefcase, FileText } from 'lucide-react'; // Added Briefcase, FileText
+import { format, isValid } from 'date-fns'; // Added isValid
 
-// Define the structure of an Injured Worker for this page
+// Define the structure of a Claim for the worker summary
+interface ClaimForWorkerSummary {
+  id: string;
+  wcc_file_number: string; // No longer null, defaults to 'N/A' from API
+  claim_status: string;    // No longer null, defaults to 'Unknown' from API
+  employerName: string;    // No longer null, defaults to 'N/A' from API
+  date_of_injury?: Date | string | null;
+}
+
+// Updated structure for an Injured Worker for this page
 interface InjuredWorkerSummary {
   id: string;
   first_name: string;
   last_name: string;
   date_of_birth?: Date | string | null;
-  ssn?: string | null; // Will be masked
+  ssn?: string | null; 
   city?: string | null;
   state?: string | null;
-  // claims?: Array<{ wcc_file_number?: string | null; claim_status?: string | null; }>; // Example if fetching related claim
+  claims: ClaimForWorkerSummary[]; // Array of claims
+  employerNames: string[]; // Array of unique employer names
 }
 
 export default function AllInjuredWorkersPage() {
@@ -53,7 +63,7 @@ export default function AllInjuredWorkersPage() {
         description: message,
         variant: "destructive",
       });
-      setWorkers([]); // Clear workers on error
+      setWorkers([]);
     } finally {
       setIsLoading(false);
     }
@@ -63,12 +73,36 @@ export default function AllInjuredWorkersPage() {
     if (sessionStatus === "authenticated" && session?.user?.profileId) {
       fetchWorkers(session.user.profileId);
     } else if (sessionStatus === "unauthenticated") {
-      // Redirect or show message if user is not authenticated
       toast({ title: "Authentication Required", description: "Please log in to view injured workers." });
-      router.push("/api/auth/signin"); // Or your login page
+      router.push("/api/auth/signin");
     }
-    // If sessionStatus is "loading", isLoading will remain true until session resolves
   }, [session, sessionStatus, fetchWorkers, router, toast]);
+
+  const displayClaimInfo = (claims: ClaimForWorkerSummary[]) => {
+    if (!claims || claims.length === 0) {
+      return "No Claims";
+    }
+    // Filter for "open" claims. Define "open" based on your claim_status values.
+    // Example: Assuming "Closed", "Settled", "Denied" are not open.
+    const openStatuses = ["Open", "Pending", "Active", "In Progress", "Unknown"]; // Customize this list
+    const openClaims = claims.filter(claim => openStatuses.includes(claim.claim_status));
+
+    if (openClaims.length === 0) {
+      return "No Open Claims";
+    }
+    if (openClaims.length === 1) {
+      return `1 Open Claim: ${openClaims[0].wcc_file_number || openClaims[0].id.substring(0,8)}`;
+    }
+    return `${openClaims.length} Open Claims`;
+  };
+  
+  const displayEmployerInfo = (employerNames: string[]) => {
+    if (!employerNames || employerNames.length === 0 || (employerNames.length === 1 && employerNames[0] === 'N/A')) {
+        return "N/A";
+    }
+    return employerNames.join(', ');
+  };
+
 
   if (sessionStatus === "loading" || isLoading) {
     return (
@@ -94,11 +128,7 @@ export default function AllInjuredWorkersPage() {
 
       {error && (
         <Card className="mb-6 bg-destructive/10 border-destructive">
-          <CardHeader>
-            <CardTitle className="flex items-center text-destructive">
-              <AlertTriangle className="mr-2 h-5 w-5" /> Error
-            </CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5" /> Error</CardTitle></CardHeader>
           <CardContent>
             <p className="text-destructive-foreground">{error}</p>
             <Button variant="outline" size="sm" onClick={() => session?.user?.profileId && fetchWorkers(session.user.profileId)} className="mt-4">
@@ -112,7 +142,7 @@ export default function AllInjuredWorkersPage() {
         <CardHeader>
           <CardTitle>Worker List</CardTitle>
           <CardDescription>
-            A list of all injured workers associated with your profile. Click on a worker to view or edit details.
+            A list of all injured workers associated with your profile.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -121,9 +151,9 @@ export default function AllInjuredWorkersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Date of Birth</TableHead>
-                  <TableHead>SSN (Last 4)</TableHead>
-                  <TableHead>Location</TableHead>
+                  <TableHead>DOB</TableHead>
+                  <TableHead>Employer(s)</TableHead>
+                  <TableHead>Claim(s) Info</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -136,10 +166,26 @@ export default function AllInjuredWorkersPage() {
                       </Link>
                     </TableCell>
                     <TableCell>
-                      {worker.date_of_birth ? format(new Date(worker.date_of_birth), 'MM/dd/yyyy') : 'N/A'}
+                      {worker.date_of_birth && isValid(new Date(worker.date_of_birth)) 
+                        ? format(new Date(worker.date_of_birth), 'MM/dd/yyyy') 
+                        : 'N/A'}
                     </TableCell>
-                    <TableCell>{worker.ssn || 'N/A'}</TableCell>
-                    <TableCell>{worker.city && worker.state ? `${worker.city}, ${worker.state}` : worker.city || worker.state || 'N/A'}</TableCell>
+                    <TableCell>
+                        <div className="flex items-center">
+                            <Briefcase className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate" title={displayEmployerInfo(worker.employerNames)}>
+                                {displayEmployerInfo(worker.employerNames)}
+                            </span>
+                        </div>
+                    </TableCell>
+                    <TableCell>
+                        <div className="flex items-center">
+                            <FileText className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate" title={worker.claims.map(c => `${c.wcc_file_number} (${c.claim_status})`).join('; ')}>
+                                {displayClaimInfo(worker.claims)}
+                            </span>
+                        </div>
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" asChild>
                         <Link href={`/workers/${worker.id}`}>

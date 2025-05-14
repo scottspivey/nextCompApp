@@ -2,12 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import * as z from 'zod';
-// Import the JWT type and getToken helper if you need to get the session server-side
-// For GET requests based on query params passed by an authenticated client, direct session check might not be needed here
-// if the client is responsible for passing its own profileId obtained from its session.
-// However, for security, it's better if the API can verify the profileId against the authenticated user.
-// For simplicity in this step, we'll assume the client passes a profileId it's authorized to see.
-// A more robust solution would involve getting the session on the server.
 
 const prisma = new PrismaClient();
 
@@ -107,51 +101,29 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Validate if the profileId is a valid UUID (optional, but good practice)
-    // For simplicity, skipping direct UUID validation here.
-
-    // Fetch injured workers associated with the given profileId
     const injuredWorkers = await prisma.injuredWorker.findMany({
       where: {
         profileId: profileId,
       },
-      select: { // Select only the fields needed for the list view
+      select: { 
         id: true,
         first_name: true,
         last_name: true,
         date_of_birth: true,
-        ssn: true, // Consider masking this or omitting for a list view for privacy
+        ssn: true, 
         city: true,
         state: true,
-        // Add other "survey level" fields as needed
-        // For example, if you have a primary claim associated, you might want its status or WCC number
-        // claims: { // Example: Fetching related claim info (adjust based on your needs)
-        //   select: {
-        //     wcc_file_number: true,
-        //     claim_status: true
-        //   },
-        //   orderBy: {
-        //     createdAt: 'desc' // Or date_of_injury
-        //   },
-        //   take: 1 // Get the most recent or primary claim
-        // }
       },
-      orderBy: {
-        last_name: 'asc', // Example: order by last name
-        first_name: 'asc',
-      },
+      orderBy: [ // Corrected: orderBy now uses an array of objects
+        { last_name: 'asc' },
+        { first_name: 'asc' }
+      ],
     });
 
-    if (!injuredWorkers) { // findMany returns an array, so it will be [] if none found, not null.
-      return NextResponse.json([], { status: 200 }); // Return empty array if no workers found
-    }
-    
-    // Optional: Mask SSN before sending to client
     const workersWithMaskedSSN = injuredWorkers.map(worker => ({
         ...worker,
-        ssn: worker.ssn ? `XXX-XX-${worker.ssn.slice(-4)}` : null, // Basic masking
+        ssn: worker.ssn ? `XXX-XX-${worker.ssn.slice(-4)}` : null,
     }));
-
 
     return NextResponse.json(workersWithMaskedSSN, { status: 200 });
 

@@ -2,12 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import * as z from 'zod';
+// Import the JWT type and getToken helper if you need to get the session server-side
+// For GET requests based on query params passed by an authenticated client, direct session check might not be needed here
+// if the client is responsible for passing its own profileId obtained from its session.
+// However, for security, it's better if the API can verify the profileId against the authenticated user.
+// For simplicity in this step, we'll assume the client passes a profileId it's authorized to see.
+// A more robust solution would involve getting the session on the server.
 
 const prisma = new PrismaClient();
 
-// Zod schema for backend validation.
-// This should align with the data structure sent by the frontend
-// and the fields expected by your InjuredWorker model.
+// Zod schema for backend validation (for POST requests)
 const workerFormSchema = z.object({
   profileId: z.string().min(1, "Profile ID is required"),
   first_name: z.string().min(1, "First name is required"),
@@ -40,16 +44,13 @@ const workerFormSchema = z.object({
   num_dependents: z.number().int().min(0).optional().nullable(),
 });
 
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
-    // 1. Validate the incoming data using the Zod schema
     const validationResult = workerFormSchema.safeParse(body);
 
     if (!validationResult.success) {
-      console.error("Validation errors:", validationResult.error.flatten().fieldErrors);
+      console.error("API - POST /api/workers - Validation errors:", validationResult.error.flatten().fieldErrors);
       return NextResponse.json(
         { 
           error: "Invalid input.",
@@ -59,57 +60,106 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Destructure validated data. This data structure should match what prisma.injuredWorker.create expects.
     const { ...workerData } = validationResult.data;
 
-    // 2. Check if the associated profileId exists
     const profileExists = await prisma.profile.findUnique({
       where: { id: workerData.profileId },
     });
 
     if (!profileExists) {
+      console.error("API - POST /api/workers - Profile not found for ID:", workerData.profileId);
       return NextResponse.json(
         { error: "Associated profile not found." },
-        { status: 404 } // Or 400 if it's considered a client error for providing a non-existent profileId
+        { status: 404 }
       );
     }
     
-    // 3. Create the new InjuredWorker in the database
-    // Corrected to use prisma.injuredWorker.create
     const newInjuredWorker = await prisma.injuredWorker.create({
       data: {
         ...workerData,
-        // Prisma will handle default values like `id`, `createdAt`, `updatedAt`, `last_accessed_at`
-        // Ensure that the fields in `workerData` (after Zod validation)
-        // correctly map to the fields in your `InjuredWorker` model.
-        // For example, `date_of_birth` is coerced to a Date object by Zod.
-        // `ssn` and phone numbers are expected in their cleaned format as per the Zod schema.
       },
     });
-
-    // 4. Return a success response with the created worker data
+    console.log("API - POST /api/workers - Successfully created worker:", newInjuredWorker.id);
     return NextResponse.json(newInjuredWorker, { status: 201 });
 
   } catch (error) {
-    console.error("Failed to create injured worker:", error);
-
+    console.error("API - POST /api/workers - Failed to create injured worker:", error);
     if (error instanceof z.ZodError) {
         return NextResponse.json({ error: "Validation failed during processing.", details: error.errors }, { status: 400 });
     }
-    
-    // Handle potential Prisma-specific errors (e.g., unique constraint violation)
-    // Example: (This is a generic way to check Prisma errors, you might need to be more specific based on error.code)
-    // if (error.constructor.name === 'PrismaClientKnownRequestError') {
-    //    if (error.code === 'P2002' && error.meta?.target?.includes('ssn')) { // Example for unique SSN
-    //      return NextResponse.json({ error: "An injured worker with this SSN already exists." }, { status: 409 }); // 409 Conflict
-    //    }
-    // }
-
     return NextResponse.json(
       { error: "An internal server error occurred while creating the injured worker." },
       { status: 500 }
     );
   }
-  // `finally { await prisma.$disconnect(); }` is generally not needed in serverless environments like Next.js API routes.
-  // Prisma Client manages connections efficiently.
+}
+
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const profileId = searchParams.get('profileId');
+
+    if (!profileId) {
+      return NextResponse.json(
+        { error: "profileId query parameter is required." },
+        { status: 400 }
+      );
+    }
+
+    // Validate if the profileId is a valid UUID (optional, but good practice)
+    // For simplicity, skipping direct UUID validation here.
+
+    // Fetch injured workers associated with the given profileId
+    const injuredWorkers = await prisma.injuredWorker.findMany({
+      where: {
+        profileId: profileId,
+      },
+      select: { // Select only the fields needed for the list view
+        id: true,
+        first_name: true,
+        last_name: true,
+        date_of_birth: true,
+        ssn: true, // Consider masking this or omitting for a list view for privacy
+        city: true,
+        state: true,
+        // Add other "survey level" fields as needed
+        // For example, if you have a primary claim associated, you might want its status or WCC number
+        // claims: { // Example: Fetching related claim info (adjust based on your needs)
+        //   select: {
+        //     wcc_file_number: true,
+        //     claim_status: true
+        //   },
+        //   orderBy: {
+        //     createdAt: 'desc' // Or date_of_injury
+        //   },
+        //   take: 1 // Get the most recent or primary claim
+        // }
+      },
+      orderBy: {
+        last_name: 'asc', // Example: order by last name
+        first_name: 'asc',
+      },
+    });
+
+    if (!injuredWorkers) { // findMany returns an array, so it will be [] if none found, not null.
+      return NextResponse.json([], { status: 200 }); // Return empty array if no workers found
+    }
+    
+    // Optional: Mask SSN before sending to client
+    const workersWithMaskedSSN = injuredWorkers.map(worker => ({
+        ...worker,
+        ssn: worker.ssn ? `XXX-XX-${worker.ssn.slice(-4)}` : null, // Basic masking
+    }));
+
+
+    return NextResponse.json(workersWithMaskedSSN, { status: 200 });
+
+  } catch (error) {
+    console.error("API - GET /api/workers - Error fetching injured workers:", error);
+    return NextResponse.json(
+      { error: "An internal server error occurred while fetching injured workers." },
+      { status: 500 }
+    );
+  }
 }

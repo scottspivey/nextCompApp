@@ -12,15 +12,13 @@ import { Label } from '@/app/Components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/Components/ui/card';
 import { useToast } from "@/app/Components/ui/use-toast";
-import { Loader2 } from 'lucide-react'; // CalendarIcon is now part of AlternativeDatePicker
-// Removed Popover imports as AlternativeDatePicker handles its own popup
-import { AlternativeDatePicker } from "@/app/Components/ui/date-picker"; // Import the new date picker
+import { Loader2 } from 'lucide-react';
+import { AlternativeDatePicker } from "@/app/Components/ui/date-picker";
 import Link from 'next/link';
 import { subYears } from 'date-fns';
-// format from date-fns might not be needed directly here if AlternativeDatePicker handles it,
-// but keep it if you use it elsewhere.
-// import { format } from 'date-fns';
-
+import { useSession } from "next-auth/react";
+// Removed local AuthenticatedUser and ExtendedSession interfaces,
+// as these should now be covered by next-auth.d.ts
 
 // Define the Zod schema for validation based on your Prisma model
 const workerFormSchema = z.object({
@@ -31,7 +29,7 @@ const workerFormSchema = z.object({
   ssn: z.string().optional().refine(val => !val || /^\d{3}-\d{2}-\d{4}$/.test(val) || /^\d{9}$/.test(val), {
     message: "SSN must be in XXX-XX-XXXX or XXXXXXXXX format or empty",
   }),
-  date_of_birth: z.date().optional().nullable(), // react-datepicker works well with Date objects
+  date_of_birth: z.date().optional().nullable(),
   gender: z.string().optional(),
   marital_status: z.string().optional(),
   address_line1: z.string().optional(),
@@ -56,11 +54,12 @@ const workerFormSchema = z.object({
 
 type WorkerFormData = z.infer<typeof workerFormSchema>;
 
-interface UserProfile {
-    id: string;
+// This interface is for your local state `userProfileState`
+interface UserProfileState {
+    actualProfileId: string; // This will hold the Profile.id
 }
 
-// Helper FormItem component (as you defined)
+// Helper FormItem component
 const FormItem = ({ label, id, children, error }: { label?: string, id: string, children: React.ReactNode, error?: string }) => (
   <div className="space-y-2">
     {label && <Label htmlFor={id} className={error ? 'text-destructive' : ''}>{label}</Label>}
@@ -74,46 +73,48 @@ export default function AddInjuredWorkerPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userProfileState, setUserProfileState] = useState<UserProfileState | null>(null); 
+  
+  // useSession will now use the augmented types from next-auth.d.ts
+  const { data: session, status: sessionStatus } = useSession();
 
   useEffect(() => {
-    setUserProfile({ id: "mock-profile-id-for-new-worker" }); // REPLACE THIS
-  }, []);
+    if (sessionStatus === "authenticated") {
+      // session.user should now have .id (User.id) and .profileId (Profile.id)
+      const profileIdFromSession = session?.user?.profileId;
+
+      if (profileIdFromSession) {
+        setUserProfileState({ actualProfileId: profileIdFromSession });
+      } else {
+        console.error("Profile ID not found in session. User.id is:", session?.user?.id);
+        toast({ 
+            title: "Error", 
+            description: "Could not link to a user profile. Please ensure your profile is set up correctly or contact support.", 
+            variant: "destructive" 
+        });
+      }
+    } else if (sessionStatus === "unauthenticated") {
+      toast({ title: "Authentication Required", description: "Please log in to add an injured worker.", variant: "default" });
+      router.push('/api/auth/signin'); 
+    }
+  }, [session, sessionStatus, router, toast]);
+
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<WorkerFormData>({
     resolver: zodResolver(workerFormSchema),
-    defaultValues: {
-      first_name: "",
-      middle_name: "",
-      last_name: "",
-      suffix: "",
-      ssn: "",
-      date_of_birth: null,
-      gender: "",
-      marital_status: "",
-      address_line1: "",
-      address_line2: "",
-      city: "",
-      state: "",
-      zip_code: "",
-      phone_number: "",
-      work_phone_number: "",
-      email: "",
-      occupation: "",
-      num_dependents: null,
-    }
+    defaultValues: { /* ... your default values ... */ }
   });
 
   const onSubmit: SubmitHandler<WorkerFormData> = async (data) => {
-    if (!userProfile?.id || userProfile.id === "mock-profile-id-for-new-worker") {
-        toast({ title: "Error", description: "User profile not loaded or invalid. Cannot save worker.", variant: "destructive"});
+    if (!userProfileState?.actualProfileId) {
+        toast({ title: "Error", description: "User Profile ID not available. Cannot save worker.", variant: "destructive"});
         return;
     }
     setIsLoading(true);
     try {
       const payload = {
         ...data,
-        profileId: userProfile.id,
+        profileId: userProfileState.actualProfileId,
         num_dependents: data.num_dependents === null || data.num_dependents === undefined || isNaN(Number(data.num_dependents)) ? null : Number(data.num_dependents),
         ssn: data.ssn ? data.ssn.replace(/-/g, '') : undefined,
         phone_number: data.phone_number ? data.phone_number.replace(/\D/g, '') : undefined,
@@ -140,9 +141,17 @@ export default function AddInjuredWorkerPage() {
     }
   };
   
-// Calculate min and max dates for Date of Birth
   const today = new Date();
   const minBirthDate = subYears(today, 120);
+
+  if (sessionStatus === "loading") {
+    return (
+        <div className="container mx-auto max-w-3xl px-4 py-8 md:py-12 flex justify-center items-center min-h-[calc(100vh-200px)]">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="ml-4 text-lg text-muted-foreground">Loading user session...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8 md:py-12">
@@ -153,6 +162,7 @@ export default function AddInjuredWorkerPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* ... Form fields ... */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormItem label="First Name *" id="first_name" error={errors.first_name?.message}>
                 <Input id="first_name" {...register("first_name")} placeholder="John" />
@@ -175,21 +185,18 @@ export default function AddInjuredWorkerPage() {
                 <FormItem label="Social Security Number" id="ssn" error={errors.ssn?.message}>
                     <Input id="ssn" {...register("ssn")} placeholder="XXX-XX-XXXX" />
                 </FormItem>
-                {/* Date of Birth Field - Using AlternativeDatePicker */}
-                <div className="space-y-2"> {/* This div replaces FormItem for AlternativeDatePicker to pass label prop */}
+                <div className="space-y-2">
                     <AlternativeDatePicker
                         name="date_of_birth"
                         control={control}
                         label="Date of Birth"
+                        placeholder="MM/DD/YYYY"
                         minDate={minBirthDate}
                         maxDate={today}
-                        placeholder="MM/DD/YYYY"
                         showYearDropdown
                         showMonthDropdown
                         dropdownMode="select"
-                        // rules={{ required: "Date of birth is required" }} // Example rule
                     />
-                    {/* Manually display error if not handled inside AlternativeDatePicker's own structure for this specific layout */}
                      {errors.date_of_birth && <p className="text-sm text-destructive">{errors.date_of_birth.message}</p>}
                 </div>
             </div>
@@ -201,9 +208,7 @@ export default function AddInjuredWorkerPage() {
                         control={control}
                         render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value || ""}>
-                                <SelectTrigger id="gender">
-                                    <SelectValue placeholder="Select gender" />
-                                </SelectTrigger>
+                                <SelectTrigger id="gender"><SelectValue placeholder="Select gender" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Male">Male</SelectItem>
                                     <SelectItem value="Female">Female</SelectItem>
@@ -215,14 +220,12 @@ export default function AddInjuredWorkerPage() {
                     />
                 </FormItem>
                 <FormItem label="Marital Status" id="marital_status" error={errors.marital_status?.message}>
-                    <Controller
+                     <Controller
                         name="marital_status"
                         control={control}
                         render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value || ""}>
-                                <SelectTrigger id="marital_status">
-                                    <SelectValue placeholder="Select marital status" />
-                                </SelectTrigger>
+                                <SelectTrigger id="marital_status"><SelectValue placeholder="Select marital status" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Single">Single</SelectItem>
                                     <SelectItem value="Married">Married</SelectItem>
@@ -281,7 +284,10 @@ export default function AddInjuredWorkerPage() {
                 <Button variant="outline" type="button" onClick={() => router.back()}>
                     Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading || !userProfile || userProfile.id === "mock-profile-id-for-new-worker"}>
+                <Button 
+                    type="submit" 
+                    disabled={isLoading || !userProfileState?.actualProfileId}
+                >
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {isLoading ? 'Saving...' : 'Save Injured Worker'}
                 </Button>

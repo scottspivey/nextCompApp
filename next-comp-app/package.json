@@ -75,6 +75,7 @@
         "@types/react-datepicker": "^6.2.0",
         "@types/react-dom": "^19",
         "@types/stripe": "^8.0.416",
+        "@typescript-eslint/parser": "^8.32.1",
         "autoprefixer": "^10.4.21",
         "eslint": "^9.26.0",
         "eslint-config-next": "^15.3.2",
@@ -86,6 +87,7 @@
         "tailwindcss-animate": "^1.0.7",
         "ts-node": "^10.9.2",
         "tsconfig-paths": "^4.2.0",
-        "typescript": "^5.8.3"
+        "typescript": "^5.8.3",
+        "typescript-eslint": "^8.32.1"
     }
 }

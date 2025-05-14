@@ -9,8 +9,8 @@ import { Button } from '@/app/Components/ui/button';
 import { Input } from '@/app/Components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/Components/ui/table";
-import { RadioGroup, RadioGroupItem } from "@/app/Components/ui/radio-group"; // Import RadioGroup
-import { Label } from "@/app/Components/ui/label"; // Import Label
+import { RadioGroup, RadioGroupItem } from "@/app/Components/ui/radio-group";
+import { Label } from "@/app/Components/ui/label";
 import { useToast } from "@/app/Components/ui/use-toast";
 import { PlusCircle, Edit3, Loader2, AlertTriangle, Users, Briefcase, FileText, ArrowUpDown, Search } from 'lucide-react';
 import { format, isValid, parseISO } from 'date-fns';
@@ -29,7 +29,7 @@ interface InjuredWorkerSummary {
   id: string;
   first_name: string;
   last_name: string;
-  date_of_birth?: Date | string | null;
+  date_of_birth?: Date | string | null; // Keep for data structure, though not sorting by it now
   ssn?: string | null; 
   city?: string | null;
   state?: string | null;
@@ -43,7 +43,9 @@ interface ApiErrorData {
     details?: unknown; 
 }
 
-type SortableWorkerKeys = keyof Pick<InjuredWorkerSummary, 'last_name' | 'first_name' | 'date_of_birth'>;
+// Updated SortableWorkerKeys to include employerNames and remove date_of_birth for direct table sort
+type SortableWorkerKeys = keyof Pick<InjuredWorkerSummary, 'last_name' | 'first_name'> | 'employerNames';
+
 
 interface SortConfig {
     key: SortableWorkerKeys | null;
@@ -64,7 +66,7 @@ export default function AllInjuredWorkersPage() {
   
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'last_name', direction: 'ascending' });
-  const [claimFilter, setClaimFilter] = useState<'activeOnly' | 'includeAll'>('activeOnly'); // New state for claim filter
+  const [claimFilter, setClaimFilter] = useState<'activeOnly' | 'includeAll'>('activeOnly');
 
   const fetchWorkers = useCallback(async (profileId: string) => {
     setIsLoading(true);
@@ -118,12 +120,10 @@ export default function AllInjuredWorkersPage() {
   const displayedWorkers = useMemo(() => {
     let processedWorkers = [...workers];
 
-    // 1. Apply claim status filter
     if (claimFilter === 'activeOnly') {
       processedWorkers = processedWorkers.filter(workerHasActiveClaims);
     }
 
-    // 2. Apply search filter
     if (searchTerm) {
       processedWorkers = processedWorkers.filter(worker => {
         const term = searchTerm.toLowerCase();
@@ -137,23 +137,25 @@ export default function AllInjuredWorkersPage() {
       });
     }
 
-    // 3. Apply sorting
     if (sortConfig.key !== null) {
       processedWorkers.sort((a, b) => {
-        const aValue = a[sortConfig.key!]; 
-        const bValue = b[sortConfig.key!];
+        let aValue, bValue;
 
-        if (aValue === null || aValue === undefined) return 1; 
-        if (bValue === null || bValue === undefined) return -1;
-
-        if (sortConfig.key === 'date_of_birth') {
-            const dateA = aValue ? new Date(aValue as string).getTime() : 0;
-            const dateB = bValue ? new Date(bValue as string).getTime() : 0;
-            if (dateA < dateB) return sortConfig.direction === 'ascending' ? -1 : 1;
-            if (dateA > dateB) return sortConfig.direction === 'ascending' ? 1 : -1;
-            return 0;
+        if (sortConfig.key === 'employerNames') {
+          // Sort by the first employer name, case-insensitive. Handle 'N/A' or empty arrays.
+          const getFirstEmployer = (names: string[]) => (names && names.length > 0 && names[0] !== 'N/A' ? names[0].toLowerCase() : '');
+          aValue = getFirstEmployer(a.employerNames);
+          bValue = getFirstEmployer(b.employerNames);
+        } else {
+           // Accessing other sortable keys like 'last_name', 'first_name'
+           aValue = a[sortConfig.key as keyof Omit<InjuredWorkerSummary, 'employerNames' | 'claims' | 'id' | 'ssn' | 'city' | 'state' | 'date_of_birth'>];
+           bValue = b[sortConfig.key as keyof Omit<InjuredWorkerSummary, 'employerNames' | 'claims' | 'id' | 'ssn' | 'city' | 'state' | 'date_of_birth'>];
         }
         
+        if (aValue === null || aValue === undefined) return 1; 
+        if (bValue === null || bValue === undefined) return -1;
+        
+        // Generic string comparison for other keys (first_name, last_name)
         if (typeof aValue === 'string' && typeof bValue === 'string') {
             const valA = aValue.toLowerCase();
             const valB = bValue.toLowerCase();
@@ -272,11 +274,12 @@ export default function AllInjuredWorkersPage() {
                   <TableHead className="cursor-pointer group" onClick={() => requestSort('last_name')}>
                     Name <span className="inline-flex align-middle">{getSortIndicator('last_name')}</span>
                   </TableHead>
-                  <TableHead className="cursor-pointer group" onClick={() => requestSort('date_of_birth')}>
-                    DOB <span className="inline-flex align-middle">{getSortIndicator('date_of_birth')}</span>
+                  {/* Changed DOB to Employer for sorting */}
+                  <TableHead className="cursor-pointer group" onClick={() => requestSort('employerNames')}>
+                    Employer(s) <span className="inline-flex align-middle">{getSortIndicator('employerNames')}</span>
                   </TableHead>
-                  <TableHead>Employer(s)</TableHead>
                   <TableHead>Claim(s) Info</TableHead>
+                  <TableHead>DOB</TableHead> {/* Moved DOB here, not sortable for now via header click */}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -287,11 +290,6 @@ export default function AllInjuredWorkersPage() {
                       <Link href={`/workers/${worker.id}`} className="hover:underline text-primary">
                         {worker.last_name}, {worker.first_name} 
                       </Link>
-                    </TableCell>
-                    <TableCell>
-                      {worker.date_of_birth && isValid(parseISO(worker.date_of_birth as string)) 
-                        ? format(parseISO(worker.date_of_birth as string), 'MM/dd/yyyy') 
-                        : 'N/A'}
                     </TableCell>
                     <TableCell>
                         <div className="flex items-center">
@@ -308,6 +306,11 @@ export default function AllInjuredWorkersPage() {
                                 {displayClaimInfo(worker.claims)}
                             </span>
                         </div>
+                    </TableCell>
+                    <TableCell> {/* DOB is now here, not sortable by header click */}
+                      {worker.date_of_birth && isValid(parseISO(worker.date_of_birth as string)) 
+                        ? format(parseISO(worker.date_of_birth as string), 'MM/dd/yyyy') 
+                        : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" asChild>

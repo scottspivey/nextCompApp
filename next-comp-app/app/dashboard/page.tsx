@@ -1,212 +1,435 @@
-// app/workers/page.tsx
+// app/dashboard/page.tsx
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import Link from 'next/link';
 import { Button } from '@/app/Components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/app/Components/ui/card';
+import { Textarea } from '@/app/Components/ui/textarea';
+import { Progress } from '@/app/Components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/Components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
+import { Label } from "@/app/Components/ui/label";
 import { useToast } from "@/app/Components/ui/use-toast";
-import { PlusCircle, Edit3, Loader2, AlertTriangle, Users, Briefcase, FileText } from 'lucide-react'; // Added Briefcase, FileText
-import { format, isValid } from 'date-fns'; // Added isValid
 
-// Define the structure of a Claim for the worker summary
-interface ClaimForWorkerSummary {
-  id: string;
-  wcc_file_number: string; // No longer null, defaults to 'N/A' from API
-  claim_status: string;    // No longer null, defaults to 'Unknown' from API
-  employerName: string;    // No longer null, defaults to 'N/A' from API
-  date_of_injury?: Date | string | null;
+import { PlusCircle, Settings, BookOpen, Calculator, StickyNote, FolderKanban, FileText, Download } from 'lucide-react';
+
+// TODO: Replace these dummy data imports with actual data fetching or remove if not used.
+// If these are kept, ensure their types are accurate or import types from data.ts if available.
+import { recentWorkersData, calculatorLinks } from '@/app/dashboard/data';
+
+// Define types for fetched data
+interface ClaimSummary {
+    id: string; // UUID
+    wcc_file_number: string | null;
+    date_of_injury?: Date | string | null;
+    injuredWorker: {
+        first_name: string;
+        last_name: string;
+    };
 }
 
-// Updated structure for an Injured Worker for this page
-interface InjuredWorkerSummary {
-  id: string;
-  first_name: string;
-  last_name: string;
-  date_of_birth?: Date | string | null;
-  ssn?: string | null; 
-  city?: string | null;
-  state?: string | null;
-  claims: ClaimForWorkerSummary[]; // Array of claims
-  employerNames: string[]; // Array of unique employer names
+interface UserProfile {
+    id: string; // This is the Profile ID (UUID)
+    userId?: string; // User ID (UUID), if returned
+    full_name?: string | null;
+    email?: string | null;
 }
 
-export default function AllInjuredWorkersPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const { data: session, status: sessionStatus } = useSession();
+// Interface for the structure of items in recentWorkersData
+// Adjusted claimNumber to be string | null to align with typical data structures and ?? usage
+interface RecentWorker {
+    id: string | null | undefined;
+    name: string | null | undefined; 
+    claimNumber?: string | null | undefined; 
+    lastAccessed: string | null | undefined;
+}
 
-  const [workers, setWorkers] = useState<InjuredWorkerSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchWorkers = useCallback(async (profileId: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/workers?profileId=${profileId}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to fetch workers: ${response.statusText}`);
-      }
-      const data: InjuredWorkerSummary[] = await response.json();
-      setWorkers(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "An unknown error occurred.";
-      console.error("Error fetching workers:", err);
-      setError(message);
-      toast({
-        title: "Error Fetching Workers",
-        description: message,
-        variant: "destructive",
-      });
-      setWorkers([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    if (sessionStatus === "authenticated" && session?.user?.profileId) {
-      fetchWorkers(session.user.profileId);
-    } else if (sessionStatus === "unauthenticated") {
-      toast({ title: "Authentication Required", description: "Please log in to view injured workers." });
-      router.push("/api/auth/signin");
-    }
-  }, [session, sessionStatus, fetchWorkers, router, toast]);
-
-  const displayClaimInfo = (claims: ClaimForWorkerSummary[]) => {
-    if (!claims || claims.length === 0) {
-      return "No Claims";
-    }
-    // Filter for "open" claims. Define "open" based on your claim_status values.
-    // Example: Assuming "Closed", "Settled", "Denied" are not open.
-    const openStatuses = ["Open", "Pending", "Active", "In Progress", "Unknown"]; // Customize this list
-    const openClaims = claims.filter(claim => openStatuses.includes(claim.claim_status));
-
-    if (openClaims.length === 0) {
-      return "No Open Claims";
-    }
-    if (openClaims.length === 1) {
-      return `1 Open Claim: ${openClaims[0].wcc_file_number || openClaims[0].id.substring(0,8)}`;
-    }
-    return `${openClaims.length} Open Claims`;
-  };
-  
-  const displayEmployerInfo = (employerNames: string[]) => {
-    if (!employerNames || employerNames.length === 0 || (employerNames.length === 1 && employerNames[0] === 'N/A')) {
-        return "N/A";
-    }
-    return employerNames.join(', ');
-  };
+// Interface for the structure of items in calculatorLinks
+interface CalculatorLink {
+    id: string;
+    name: string;
+    path: string;
+    premium?: boolean;
+}
 
 
-  if (sessionStatus === "loading" || isLoading) {
+export default function DashboardPage() {
+    const router = useRouter();
+    const { toast } = useToast();
+
+    const [selectedFormType, setSelectedFormType] = useState<string>('');
+    const [selectedClaimId, setSelectedClaimId] = useState<string>('');
+    const [claims, setClaims] = useState<ClaimSummary[]>([]);
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [isGenerating, setIsGenerating] = useState<boolean>(false);
+    const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(true);
+    const [isLoadingClaims, setIsLoadingClaims] = useState<boolean>(false);
+
+    const fetchProfile = useCallback(async () => {
+        setIsLoadingProfile(true);
+        try {
+            const response = await fetch('/api/me/profile');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Failed to fetch profile: ${response.statusText}`);
+            }
+            const data: UserProfile = await response.json();
+            setUserProfile(data);
+        } catch (error) {
+            console.error("Error fetching profile:", error);
+            toast({
+                title: "Error Fetching Profile",
+                description: error instanceof Error ? error.message : "Could not fetch user profile.",
+                variant: "destructive",
+            });
+            setUserProfile(null);
+        } finally {
+            setIsLoadingProfile(false);
+        }
+    }, [toast]);
+
+    const fetchClaims = useCallback(async (profileId: string) => {
+        if (!profileId || profileId === "mock-profile-id-replace-me") {
+            setClaims([]);
+            setIsLoadingClaims(false);
+            return;
+        }
+        setIsLoadingClaims(true);
+        try {
+            const response = await fetch(`/api/claims?profileId=${profileId}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Failed to fetch claims: ${response.statusText}`);
+            }
+            const data: ClaimSummary[] = await response.json();
+            setClaims(data);
+        } catch (error) {
+            console.error("Error fetching claims:", error);
+            toast({
+                title: "Error Fetching Claims",
+                description: error instanceof Error ? error.message : "Could not fetch claims list.",
+                variant: "destructive",
+            });
+            setClaims([]);
+        } finally {
+            setIsLoadingClaims(false);
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        fetchProfile();
+    }, [fetchProfile]);
+
+    useEffect(() => {
+        if (userProfile?.id && userProfile.id !== "mock-profile-id-replace-me") {
+            fetchClaims(userProfile.id);
+        } else if (!isLoadingProfile && !userProfile?.id) {
+            console.log("No valid user profile ID to fetch claims.");
+            setClaims([]);
+        }
+    }, [userProfile?.id, isLoadingProfile, fetchClaims]);
+
+    const hasPremiumAccess = () => true;
+
+    const handleGenerateForm = async () => {
+        if (!selectedFormType || !selectedClaimId || !userProfile?.id || userProfile.id === "mock-profile-id-replace-me") {
+            toast({
+                title: "Missing Information",
+                description: "Please select a form type, a valid claim, and ensure your profile is loaded.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsGenerating(true);
+        toast({
+            title: "Generating Form...",
+            description: `Preparing ${selectedFormType}. Please wait.`,
+        });
+
+        try {
+            const requestBody = {
+                formType: selectedFormType,
+                claimId: selectedClaimId,
+                profileId: userProfile.id,
+                additionalData: {
+                    // TODO: Populate this from UI inputs based on selectedFormType
+                }
+            };
+
+            console.log("Sending to /api/generate-form:", requestBody);
+
+            const response = await fetch('/api/generate-form', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) {
+                let errorMsg = `HTTP error! status: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorData.details || errorMsg;
+                } catch { // Corrected: Removed unused variable for the catch block
+                    // Ignore if response is not JSON, errorMsg will be the HTTP status
+                }
+                throw new Error(errorMsg);
+            }
+
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `${selectedFormType}_${Date.now()}.pdf`;
+
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+                if (filenameMatch?.[1]) {
+                    filename = filenameMatch[1];
+                }
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast({
+                title: "Success!",
+                description: `${filename} downloaded successfully.`,
+            });
+
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("Error generating form:", error);
+            toast({
+                title: "Generation Failed",
+                description: message,
+                variant: "destructive",
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     return (
-      <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">
-          {sessionStatus === "loading" ? "Loading session..." : "Fetching workers..."}
-        </p>
-      </div>
+        <div className="container mx-auto px-4 py-8 md:py-12">
+            <div className="flex justify-between items-center mb-8">
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                    Dashboard
+                </h1>
+                <Button variant="outline" size="sm" onClick={() => router.push('/settings')}>
+                    <Settings className="mr-2 h-4 w-4" /> Settings
+                </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-1">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <FileText className="h-5 w-5" /> Generate WCC Form
+                        </CardTitle>
+                        <CardDescription>Select a form and claim to generate a PDF.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-1">
+                            <Label htmlFor="formTypeSelect">Form Type</Label>
+                            <Select value={selectedFormType} onValueChange={setSelectedFormType}>
+                                <SelectTrigger id="formTypeSelect">
+                                    <SelectValue placeholder="Select form..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="SCWCC_Form21">Form 21 - Employer&apos;s Request for Hearing</SelectItem>
+                                    <SelectItem value="SCWCC_Form27">Form 27 - Subpoena</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                             <Label htmlFor="claimSelect">Claim</Label>
+                             <Select
+                                value={selectedClaimId}
+                                onValueChange={setSelectedClaimId}
+                                disabled={isLoadingProfile || isLoadingClaims || claims.length === 0}
+                             >
+                                <SelectTrigger id="claimSelect">
+                                    <SelectValue placeholder={
+                                        isLoadingProfile ? "Loading profile..." :
+                                        isLoadingClaims ? "Loading claims..." :
+                                        claims.length > 0 ? "Select claim..." : "No claims found"
+                                    } />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {claims.length > 0 ? (
+                                        claims.map(claim => (
+                                            <SelectItem key={claim.id} value={claim.id}>
+                                                {claim.wcc_file_number ? `${claim.wcc_file_number} - ` : `Claim ID: ${claim.id.substring(0,8)}... - `}
+                                                {claim.injuredWorker.first_name} {claim.injuredWorker.last_name}
+                                            </SelectItem>
+                                        ))
+                                    ) : (
+                                        <SelectItem value="loading" disabled>
+                                            {isLoadingClaims ? "Loading..." : "No claims available for this profile"}
+                                        </SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <Button
+                            onClick={handleGenerateForm}
+                            disabled={
+                                !selectedFormType ||
+                                !selectedClaimId ||
+                                isGenerating ||
+                                !userProfile?.id ||
+                                userProfile.id === "mock-profile-id-replace-me" ||
+                                isLoadingProfile ||
+                                isLoadingClaims
+                            }
+                            className="w-full"
+                        >
+                            {isGenerating ? (
+                                <><Download className="mr-2 h-4 w-4 animate-pulse" /> Generating...</>
+                            ) : (
+                                <><Download className="mr-2 h-4 w-4" /> Generate PDF</>
+                            )}
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                {/* Other dashboard cards remain the same */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <FolderKanban className="h-5 w-5" /> Overview
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-4 text-center">
+                        <div>
+                            <p className="text-2xl font-bold text-foreground">15</p>
+                            <p className="text-xs text-muted-foreground">Active Cases</p>
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-foreground">3</p>
+                            <p className="text-xs text-muted-foreground">Deadlines This Week</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Quick Actions</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2">
+                        <Button size="sm" onClick={() => router.push('/workers/new')}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Injured Worker
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => router.push('/Calculators')}>
+                            <Calculator className="mr-2 h-4 w-4" /> Start Calculation
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <BookOpen className="h-5 w-5" /> Training Progress
+                    </CardTitle>
+                    <CardDescription>Your continuing education status.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="space-y-2">
+                          <div className="flex justify-between text-sm mb-1">
+                              <span className="text-muted-foreground">Current Course:</span>
+                              <span className="font-medium text-foreground">Intro to AWW</span>
+                          </div>
+                          <Progress value={75} aria-label="Training progress for Intro to AWW at 75%" />
+                          <p className="text-xs text-muted-foreground text-right">75% Complete</p>
+                      </div>
+                    <Button variant="secondary" size="sm" className="mt-4" onClick={() => router.push('/training')} >
+                        View Training Library
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Recent Activity</CardTitle>
+                    <CardDescription>Recently accessed injured worker files.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {/* TODO: Replace recentWorkersData with actual fetched data */}
+                    {recentWorkersData.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Claim #</TableHead>
+                            <TableHead className="text-right">Last Accessed</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {/* Using defined RecentWorker type */}
+                          {recentWorkersData.slice(0, 5).map((worker: RecentWorker) => (
+                            <TableRow key={worker.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/workers/${worker.id}`)}>
+                              <TableCell className="font-medium">{worker.name}</TableCell>
+                              <TableCell>{worker.claimNumber ?? '-'}</TableCell>
+                              <TableCell className="text-right text-muted-foreground">{worker.lastAccessed}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No recent activity.</p>
+                    )}
+                      <Button variant="link" size="sm" className="mt-4 px-0" onClick={() => router.push('/workers')}>View All Workers</Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Calculator className="h-5 w-5" /> Calculators
+                    </CardTitle>
+                    <CardDescription>Quick access to calculation tools.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                      {/* TODO: Replace calculatorLinks with actual fetched data or configuration */}
+                      {/* Using defined CalculatorLink type */}
+                      {calculatorLinks.slice(0, 4).map((calc: CalculatorLink) => (
+                        <Button
+                            key={calc.id}
+                            variant="outline"
+                            size="sm"
+                            className="justify-start"
+                            onClick={() => router.push(calc.path)}
+                            disabled={calc.premium && !hasPremiumAccess()}
+                        >
+                          {calc.name}
+                          {calc.premium && <span className="ml-auto text-xs font-semibold text-primary">(Premium)</span>}
+                        </Button>
+                      ))}
+                      <Button variant="link" size="sm" className="mt-2 px-0 justify-start" onClick={() => router.push('/Calculators')}>View All Calculators</Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="md:col-span-2 lg:col-span-3">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                          <StickyNote className="h-5 w-5" /> Scratchpad
+                      </CardTitle>
+                      <CardDescription>Quick notes for your current session. Not saved automatically.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Textarea placeholder="Type your quick notes here..." className="min-h-[150px]" />
+                    </CardContent>
+                </Card>
+
+            </div>
+        </div>
     );
-  }
-
-  return (
-    <div className="container mx-auto px-4 py-8 md:py-12">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center">
-          <Users className="mr-3 h-8 w-8" /> Injured Workers
-        </h1>
-        <Button onClick={() => router.push('/workers/new')}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Worker
-        </Button>
-      </div>
-
-      {error && (
-        <Card className="mb-6 bg-destructive/10 border-destructive">
-          <CardHeader><CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5" /> Error</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-destructive-foreground">{error}</p>
-            <Button variant="outline" size="sm" onClick={() => session?.user?.profileId && fetchWorkers(session.user.profileId)} className="mt-4">
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Worker List</CardTitle>
-          <CardDescription>
-            A list of all injured workers associated with your profile.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {workers.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>DOB</TableHead>
-                  <TableHead>Employer(s)</TableHead>
-                  <TableHead>Claim(s) Info</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {workers.map((worker) => (
-                  <TableRow key={worker.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/workers/${worker.id}`} className="hover:underline text-primary">
-                        {worker.first_name} {worker.last_name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {worker.date_of_birth && isValid(new Date(worker.date_of_birth)) 
-                        ? format(new Date(worker.date_of_birth), 'MM/dd/yyyy') 
-                        : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                        <div className="flex items-center">
-                            <Briefcase className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="truncate" title={displayEmployerInfo(worker.employerNames)}>
-                                {displayEmployerInfo(worker.employerNames)}
-                            </span>
-                        </div>
-                    </TableCell>
-                    <TableCell>
-                        <div className="flex items-center">
-                            <FileText className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="truncate" title={worker.claims.map(c => `${c.wcc_file_number} (${c.claim_status})`).join('; ')}>
-                                {displayClaimInfo(worker.claims)}
-                            </span>
-                        </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/workers/${worker.id}`}>
-                          <Edit3 className="mr-2 h-3 w-3" /> View/Edit
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            !error && <p className="text-muted-foreground">No injured workers found for your profile. Add one to get started!</p>
-          )}
-        </CardContent>
-        {workers.length > 0 && (
-            <CardFooter className="text-sm text-muted-foreground">
-                Showing {workers.length} worker(s).
-            </CardFooter>
-        )}
-      </Card>
-    </div>
-  );
 }

@@ -84,7 +84,7 @@ export default function AllInjuredWorkersPage() {
     }
     // Filter for "open" claims. Define "open" based on your claim_status values.
     // Example: Assuming "Closed", "Settled", "Denied" are not open.
-    const openStatuses = ["Open", "Pending", "Active", "In Progress", "Unknown"]; // Customize this list
+    const openStatuses = ["Open", "Pending", "Active", "In Progress", "Unknown", "Accepted", "In Investigation", "In Litigation", "On Appeal", "Pending Review"]; // Customize this list
     const openClaims = claims.filter(claim => openStatuses.includes(claim.claim_status));
 
     if (openClaims.length === 0) {

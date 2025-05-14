@@ -28,19 +28,21 @@ interface AlternativeDatePickerProps<
     showMonthDropdown?: boolean;
     showYearDropdown?: boolean;
     dropdownMode?: "scroll" | "select";
+    disabled?: boolean; // Optional disabled prop
 }
 
 // Custom Input for react-datepicker to make it look like a ShadCN input
 const CustomDatePickerInput = forwardRef<
     HTMLInputElement,
-    { value?: string; onClick?: () => void; placeholder?: string, error?: boolean }
->(({ value, onClick, placeholder, error }, ref) => (
+    { value?: string; onClick?: () => void; placeholder?: string, error?: boolean, disabled?: boolean}
+>(({ value, onClick, placeholder, error, disabled }, ref) => (
     <div className="relative">
         <Input
             value={value}
             onClick={onClick}
             ref={ref}
             placeholder={placeholder}
+            disabled={disabled}
             className={cn(error && "border-destructive")}
             readOnly // Make input read-only to encourage use of picker
         />
@@ -66,7 +68,8 @@ export function AlternativeDatePicker<
     maxDate,
     showMonthDropdown = false, // Default to false, enable as needed when using component
     showYearDropdown = false,  // Default to false, enable as needed when using component
-    dropdownMode = "scroll"   // Default to scroll, can be "select"
+    dropdownMode = "scroll",   // Default to scroll, can be "select"
+    disabled,
 }: AlternativeDatePickerProps<TFieldValues, TName>) {
     return (
         <Controller
@@ -97,10 +100,11 @@ export function AlternativeDatePicker<
                             selected={currentDate} // Use the processed currentDate
                             onChange={(date: Date | null) => onChange(date)}
                             onBlur={onBlur}
+                            disabled={disabled}
                             dateFormat={dateFormat}
                             placeholderText={placeholder}
                             showPopperArrow={showPopperArrow}
-                            customInput={<CustomDatePickerInput error={!!error} placeholder={placeholder} />}
+                            customInput={<CustomDatePickerInput error={!!error} placeholder={placeholder} disabled={disabled} />}
                             wrapperClassName="w-full"
                             popperPlacement="bottom-start"
                             minDate={minDate || undefined} // Pass minDate, defaulting to undefined if null

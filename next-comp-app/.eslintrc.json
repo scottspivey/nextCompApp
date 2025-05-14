@@ -1,3 +1,5 @@
+//app/.eslintrc.json
+
 {
     "extends": [
       "next/core-web-vitals",

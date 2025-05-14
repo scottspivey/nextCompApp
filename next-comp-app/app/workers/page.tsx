@@ -235,11 +235,11 @@ export default function AllInjuredWorkersPage() {
         >
             <div className="flex items-center space-x-2">
                 <RadioGroupItem value="activeOnly" id="activeOnly" />
-                <Label htmlFor="activeOnly" className="cursor-pointer">Active Claims Only</Label>
+                <Label htmlFor="activeOnly" className="cursor-pointer">With Active Claims Only</Label>
             </div>
             <div className="flex items-center space-x-2">
                 <RadioGroupItem value="includeAll" id="includeAll" />
-                <Label htmlFor="includeAll" className="cursor-pointer">Include All</Label>
+                <Label htmlFor="includeAll" className="cursor-pointer">Include All Claims</Label>
             </div>
         </RadioGroup>
       </div>

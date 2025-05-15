@@ -36,7 +36,7 @@ const addClaimFormSchema = z.object({
   
   date_of_injury: z.date({ required_error: "Date of injury is required." })
     .min(minInjuryDate, { message: `Date of injury must be on or after ${minInjuryDate.toLocaleDateString()}.` }) // Dynamic message
-    .max(maxInjuryDate, { message: `Date of injury cannot be after ${maxInjuryDate.toLocaleDateString()}.` }), // Dynamic message
+    .max(maxInjuryDate, { message: `Date of injury cannot be in the future.` }),
   
   time_of_injury: z.string().optional().nullable(),
   place_of_injury: z.string().optional().nullable(),
@@ -318,7 +318,16 @@ export default function AddNewClaimPage() {
                 </FormItem>
                 
                 <div className="md:col-span-2">
-                    <AlternativeDatePicker name="date_of_injury" control={control} label="Date of Injury *" />
+                    <AlternativeDatePicker 
+                        name="date_of_injury" 
+                        control={control} 
+                        label="Date of Injury *"
+                        minDate={minInjuryDate}   // <-- Pass minInjuryDate
+                        maxDate={maxInjuryDate}   // <-- Pass maxInjuryDate
+                        showYearDropdown         // <-- Good to enable for wide date ranges
+                        dropdownMode="select"    // <-- 'select' mode is often better for year dropdowns with wide ranges
+                        // yearDropdownItemNumber={101} // Optional: to control items in year dropdown, react-datepicker default might be fine
+                    />
                     {errors.date_of_injury && <p className="text-sm text-destructive">{errors.date_of_injury.message}</p>}
                 </div>
 

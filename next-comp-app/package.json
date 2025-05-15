@@ -17,7 +17,7 @@
         "seed": "ts-node -P prisma/tsconfig.seed.json -r tsconfig-paths/register prisma/seed.ts"
     },
     "dependencies": {
-        "@auth/prisma-adapter": "^2.8.0",
+        "@auth/prisma-adapter": "^2.9.1",
         "@faker-js/faker": "^9.7.0",
         "@heroicons/react": "^2.2.0",
         "@hookform/resolvers": "^5.0.1",
@@ -48,7 +48,7 @@
         "date-fns": "^4.1.0",
         "lucide-react": "^0.486.0",
         "next": "^15.3.0",
-        "next-auth": "^5.0.0-beta.25",
+        "next-auth": "^5.0.0-beta.19",
         "next-themes": "^0.4.6",
         "pdf-lib": "^1.17.1",
         "postcss": "^8.5.3",

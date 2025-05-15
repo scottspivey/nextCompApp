@@ -1,94 +1,71 @@
 // app/api/auth/register/route.ts
 import { NextResponse } from 'next/server';
-import { PrismaClient, Prisma } from '@prisma/client'; // Import Prisma for TransactionClient type
+import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 
-const prisma = new PrismaClient();
-
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
-    const { email, password, name, firmName, role } = body;
+    const { email, password, name, /* other user fields if any */ 
+            // Profile specific fields if provided at registration
+            full_name, firm_name, phone_number, role: profileRole 
+          } = await request.json();
 
-    console.log("[REGISTER API] Received request body:", { name, email: email ? 'Email_Present' : 'Email_Missing', password: password ? 'Password_Present' : 'Password_Missing', firmName, role }); // Log received data (mask password in real prod logs)
-
-    // 1. Validate input
     if (!email || !password || !name) {
-      console.error("[REGISTER API] Validation Error: Missing required fields.");
-      return NextResponse.json({ error: 'Missing required fields: email, password, and name are required.' }, { status: 400 });
+      return NextResponse.json({ message: 'Missing required fields: email, password, and name are required.' }, { status: 400 });
     }
 
-    if (password.length < 6) {
-        console.error("[REGISTER API] Validation Error: Password too short.");
-        return NextResponse.json({ error: 'Password must be at least 6 characters long.' }, { status: 400 });
-    }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const normalizedEmail = email.toLowerCase();
-    console.log("[REGISTER API] Normalized email for lookup:", normalizedEmail);
-
-    // 2. Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (existingUser) {
-      console.log("[REGISTER API] User already exists:", existingUser.email);
-      return NextResponse.json({ error: 'User with this email already exists.' }, { status: 409 }); // 409 Conflict
-    } else {
-      console.log("[REGISTER API] No existing user found for email:", normalizedEmail);
-    }
-
-    // 3. Hash the password
-    const saltRounds = 10;
-    const hashedPassword = bcrypt.hashSync(password, saltRounds);
-    console.log("[REGISTER API] Password hashed successfully.");
-
-    // 4. Create the new user and their profile in a transaction
-    console.log("[REGISTER API] Attempting to create user and profile in transaction...");
-    const newUserWithProfile = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Create user and profile in a transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
-          email: normalizedEmail, // Store the normalized (lowercase) email
+          email,
+          name, // This is User.name
           password: hashedPassword,
-          name: name,
+          // emailVerified: null, // Set if you have an email verification flow
         },
       });
-      console.log("[REGISTER API] User created in transaction:", newUser.id);
 
+      // Create a profile linked to the new user
+      // Use provided profile fields or defaults
       const newProfile = await tx.profile.create({
         data: {
           userId: newUser.id,
-          full_name: name,
-          firm_name: firmName || null,
-          role: role || null,
+          full_name: full_name || name, // Default to user.name if full_name not provided
+          firm_name: firm_name,
+          phone_number: phone_number,
+          role: profileRole || 'user', // Default role for Profile
         },
       });
-      console.log("[REGISTER API] Profile created in transaction:", newProfile.id);
 
-      return { ...newUser, profile: newProfile };
+      // Exclude password from the returned user object
+      const { password: _, ...userWithoutPassword } = newUser;
+      
+      return { user: userWithoutPassword, profile: newProfile };
     });
 
-    console.log('[REGISTER API] User registered successfully:', newUserWithProfile.email);
 
-    const { password: _, ...userForResponse } = newUserWithProfile;
-
-    return NextResponse.json({
-        message: 'User registered successfully!',
-        user: {
-            id: userForResponse.id,
-            email: userForResponse.email,
-            name: userForResponse.name,
-            profileId: userForResponse.profile.id,
-            profileRole: userForResponse.profile.role,
-            profileFirmName: userForResponse.profile.firm_name
-        }
+    return NextResponse.json({ 
+      message: 'User and profile created successfully.', 
+      user: result.user,
+      profileId: result.profile.id // Send back the new profileId
     }, { status: 201 });
 
   } catch (error) {
-    console.error('[REGISTER API] Overall Registration error:', error);
-    const message = error instanceof Error ? error.message : 'An unknown error occurred during registration.';
-    return NextResponse.json({ error: 'Failed to register user.', details: message }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        const target = error.meta?.target as string[] | undefined;
+        if (target && target.includes('email')) { // Check if it's the email field on User
+          return NextResponse.json({ message: 'An account with this email already exists.' }, { status: 409 });
+        }
+        // Could also be a unique constraint on Profile.userId if something went wrong,
+        // though the transaction should handle it.
+        return NextResponse.json({ message: 'A unique constraint was violated during registration.' }, { status: 409 });
+      }
+    }
+    console.error('Registration error:', error); 
+    return NextResponse.json({ message: 'An unexpected error occurred during registration. Please try again.' }, { status: 500 });
   }
 }

@@ -1,6 +1,4 @@
 // app/api/auth/[...nextauth]/route.ts
 
-// Import handlers from central auth.ts file
-import { handlers } from "@/lib/auth";
-
+import { handlers } from "@/auth"; // Adjust path to your root auth.ts
 export const { GET, POST } = handlers;

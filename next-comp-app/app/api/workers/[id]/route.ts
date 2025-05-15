@@ -37,16 +37,17 @@ const updateWorkerFormSchema = z.object({
   num_dependents: z.number().int().min(0).optional().nullable(),
 });
 
-
 // GET Handler for fetching a specific worker
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } } // Sticking to the most common documented way
+  // Corrected signature for Next.js 15+ where params can be a Promise
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const workerId = params.id;
+  // Await the params to resolve them
+  const resolvedParams = await params;
+  const workerId = resolvedParams.id;
 
   try {
-    // ... (rest of your GET logic - it was correct)
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -101,12 +102,14 @@ export async function GET(
 // PUT Handler for updating a specific worker
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } } // Sticking to the most common documented way
+  // Corrected signature for Next.js 15+
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const workerId = params.id;
+  // Await the params to resolve them
+  const resolvedParams = await params;
+  const workerId = resolvedParams.id;
 
   try {
-    // ... (rest of your PUT logic - it was correct)
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });

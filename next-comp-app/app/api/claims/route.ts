@@ -6,17 +6,26 @@ import { getToken } from 'next-auth/jwt'; // For server-side session access
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
-  console.log("API - GET /api/claims - Request received."); // Log start of request
+  console.log("API - GET /api/claims - Request received."); 
   try {
+    // --- Log AUTH_SECRET status ---
+    const authSecretIsSet = !!process.env.AUTH_SECRET; // Check if the variable has a value
+    console.log("API - GET /api/claims - Is AUTH_SECRET environment variable set?", authSecretIsSet);
+    if (!authSecretIsSet) {
+        console.error("API - GET /api/claims - CRITICAL: AUTH_SECRET is not set in the environment for this function.");
+    }
+    // For more detailed debugging (REMOVE BEFORE PRODUCTION if logging actual length):
+    // console.log("API - GET /api/claims - AUTH_SECRET length (if set):", process.env.AUTH_SECRET?.length);
+
+
     // --- Authentication and Authorization ---
     console.log("API - GET /api/claims - Attempting to get token...");
     const token = await getToken({ req, secret: process.env.AUTH_SECRET });
 
-    // Log the entire token object to see its contents
     console.log("API - GET /api/claims - Token received by getToken:", JSON.stringify(token, null, 2));
 
     if (!token) {
-      console.error("API - GET /api/claims - Unauthorized: Token is null or undefined.");
+      console.error("API - GET /api/claims - Unauthorized: Token is null or undefined. AUTH_SECRET was set:", authSecretIsSet);
       return NextResponse.json({ error: 'Unauthorized. No valid session token.' }, { status: 401 });
     }
 
@@ -25,7 +34,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized. No valid profile ID in session.' }, { status: 401 });
     }
     
-    const sessionProfileId = token.profileId; // We've checked it exists, so assertion is okay here if your next-auth.d.ts types it as string | null | undefined
+    const sessionProfileId = token.profileId as string; 
     console.log("API - GET /api/claims - Authorized. Session Profile ID:", sessionProfileId);
 
     console.log(`API - GET /api/claims - Fetching claims for profileId: ${sessionProfileId}`);

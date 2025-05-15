@@ -1,7 +1,7 @@
 // app/claims/new/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; 
 import { useForm, SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,7 +13,7 @@ import { Textarea } from '@/app/Components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
 import { useToast } from "@/app/Components/ui/use-toast";
-import { Loader2, ArrowLeft, Save, AlertTriangle, UserCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { AlternativeDatePicker } from "@/app/Components/ui/date-picker";
 import { useSession } from 'next-auth/react';
 
@@ -69,18 +69,26 @@ interface InjuredWorkerOption {
     last_name: string;
 }
 
-// Corrected FormItemProps to include className
+interface NewClaimResponse {
+    id: string;
+    wcc_file_number?: string | null;
+}
+
+interface ApiErrorData {
+    error?: string;
+    details?: unknown; 
+}
+
 interface FormItemProps {
   label?: string;
   id: string;
   children: React.ReactNode;
   error?: string;
   description?: string;
-  className?: string; // Added className prop
+  className?: string; 
 }
 
 const FormItem: React.FC<FormItemProps> = ({ label, id, children, error, description, className }) => (
-  // Applied className to the root div of FormItem
   <div className={`space-y-1.5 ${className || ''}`}> 
     {label && <Label htmlFor={id} className={error ? 'text-destructive' : ''}>{label}</Label>}
     {children}
@@ -96,11 +104,11 @@ export default function AddNewClaimPage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [injuredWorkers, setInjuredWorkers] = useState<InjuredWorkerOption[]>([]);
-  const [employers, setEmployers] = useState<EmployerOption[]>([]); 
+  const [employers] = useState<EmployerOption[]>([]); 
   const [pageLoading, setPageLoading] = useState(true);
 
 
-  const { register, handleSubmit, control, formState: { errors }, reset, watch } = useForm<AddClaimFormData>({
+  const { register, handleSubmit, control, formState: { errors }, watch } = useForm<AddClaimFormData>({
     resolver: zodResolver(addClaimFormSchema),
     defaultValues: {
       wcc_file_number: '',
@@ -138,21 +146,26 @@ export default function AddNewClaimPage() {
         const fetchData = async () => {
             setPageLoading(true);
             try {
-                const workersResponse = await fetch(`/api/workers?profileId=${session.user.profileId}`);
+                const workersResponse = await fetch(`/api/workers`); 
                 if (!workersResponse.ok) {
-                    const errData = await workersResponse.json().catch(() => ({}));
-                    throw new Error(errData.error || "Failed to fetch injured workers list.");
+                    let errData: ApiErrorData = { error: "Failed to parse worker error response" };
+                    try {
+                        const parsedError: unknown = await workersResponse.json();
+                        if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError && typeof (parsedError as ApiErrorData).error === 'string') {
+                            errData = parsedError as ApiErrorData;
+                        }
+                    } catch (_e) { // Changed e to _e as it's not used (Error at line 159)
+                         errData.error = workersResponse.statusText || "Failed to fetch injured workers list.";
+                    }
+                    throw new Error(errData.error);
                 }
-                const workersData: InjuredWorkerOption[] = await workersResponse.json();
+                const workersData = await workersResponse.json() as InjuredWorkerOption[];
                 setInjuredWorkers(workersData.filter(w => w.first_name && w.last_name));
-
-                // Fetch employers (placeholder - implement /api/employers if needed)
-                // const employerResponse = await fetch(`/api/employers?profileId=${session.user.profileId}`);
-                // if (employerResponse.ok) setEmployers(await employerResponse.json());
 
             } catch (error) {
                 console.error("Error fetching initial data for new claim page:", error);
-                toast({ title: "Error", description: (error as Error).message || "Could not load required information.", variant: "destructive" });
+                const message = error instanceof Error ? error.message : "Could not load required information.";
+                toast({ title: "Error", description: message, variant: "destructive" });
             } finally {
                 setPageLoading(false);
             }
@@ -187,11 +200,21 @@ export default function AddNewClaimPage() {
       });
 
       if (!response.ok) {
-        const errorData: { error?: string, details?: any } = await response.json().catch(() => ({ error: "An unknown error occurred" }));
-        throw new Error(errorData.error || `Failed to add claim: ${response.statusText}`);
+        let errorData: ApiErrorData = { error: "An unknown error occurred" };
+        try {
+            const parsedError: unknown = await response.json();
+            if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError && typeof (parsedError as ApiErrorData).error === 'string') {
+                errorData = parsedError as ApiErrorData;
+            } else {
+                 errorData.error = `Failed to add claim: ${response.statusText}`;
+            }
+        } catch (_e) { // Changed e to _e as it's not used (Error at line 217)
+            errorData.error = `Failed to add claim: ${response.statusText}`;
+        }
+        throw new Error(errorData.error);
       }
 
-      const newClaim = await response.json();
+      const newClaim = await response.json() as NewClaimResponse;
       const worker = injuredWorkers.find(w => w.id === formData.injuredWorkerId);
       const displayWorkerName = worker ? `${worker.first_name} ${worker.last_name}` : "the selected worker";
 
@@ -246,7 +269,7 @@ export default function AddNewClaimPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={(e) => void handleSubmit(onSubmit)(e)}>
         <Card>
           <CardHeader>
             <CardTitle>Claim Information</CardTitle>
@@ -319,14 +342,22 @@ export default function AddNewClaimPage() {
                         name="employerId"
                         control={control}
                         render={({ field }) => (
-                            <Select onValueChange={field.onChange} value={field.value || ""} disabled={employers.length === 0}>
+                            <Select
+                                onValueChange={(value) => {
+                                    field.onChange(value === "NO_EMPLOYER_SELECTED" ? null : value);
+                                }}
+                                value={field.value || ""} 
+                                disabled={employers.length === 0}
+                            >
                                 <SelectTrigger id="employerId">
                                     <SelectValue placeholder={employers.length > 0 ? "Select an employer" : "No employers available"} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">None</SelectItem> 
+                                    <SelectItem value="NO_EMPLOYER_SELECTED">None</SelectItem> 
                                     {employers.map(emp => (
-                                        <SelectItem key={emp.id} value={emp.id}>{emp.name || `ID: ...${emp.id.slice(-6)}`}</SelectItem>
+                                        <SelectItem key={emp.id} value={emp.id}>
+                                            {emp.name || `ID: ...${emp.id.slice(-6)}`}
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -354,7 +385,26 @@ export default function AddNewClaimPage() {
               <Textarea id="initial_treatment_desc" {...register("initial_treatment_desc")} />
             </FormItem>
 
-            <h4 className="text-md font-semibold pt-4 border-t">Compensation & Work Status</h4>
+            <h4 className="text-md font-semibold pt-4 border-t">{"Claimant's Attorney (if any)"}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                <FormItem label="Attorney Name" id="claimant_attorney_name" error={errors.claimant_attorney_name?.message}>
+                    <Input id="claimant_attorney_name" {...register("claimant_attorney_name")} />
+                </FormItem>
+                <FormItem label="Attorney Firm" id="claimant_attorney_firm" error={errors.claimant_attorney_firm?.message}>
+                    <Input id="claimant_attorney_firm" {...register("claimant_attorney_firm")} />
+                </FormItem>
+                <FormItem label="Attorney Phone" id="claimant_attorney_phone" error={errors.claimant_attorney_phone?.message}>
+                    <Input type="tel" id="claimant_attorney_phone" {...register("claimant_attorney_phone")} placeholder="(XXX) XXX-XXXX" />
+                </FormItem>
+                <FormItem label="Attorney Email" id="claimant_attorney_email" error={errors.claimant_attorney_email?.message}>
+                    <Input type="email" id="claimant_attorney_email" {...register("claimant_attorney_email")} />
+                </FormItem>
+                <FormItem label="Attorney Address" id="claimant_attorney_address" error={errors.claimant_attorney_address?.message} description="Full address for attorney." className="md:col-span-2">
+                    <Textarea id="claimant_attorney_address" {...register("claimant_attorney_address")} />
+                </FormItem>
+            </div>
+
+             <h4 className="text-md font-semibold pt-4 border-t">Compensation &amp; Work Status</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                 <FormItem label="Average Weekly Wage ($)" id="average_weekly_wage" error={errors.average_weekly_wage?.message}>
                     <Input type="number" step="0.01" id="average_weekly_wage" {...register("average_weekly_wage")} />
@@ -385,32 +435,12 @@ export default function AddNewClaimPage() {
                     <Input type="number" id="permanent_impairment_rating" {...register("permanent_impairment_rating")} />
                 </FormItem>
             </div>
-            
-            <h4 className="text-md font-semibold pt-4 border-t">Claimant's Attorney (if any)</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                <FormItem label="Attorney Name" id="claimant_attorney_name" error={errors.claimant_attorney_name?.message}>
-                    <Input id="claimant_attorney_name" {...register("claimant_attorney_name")} />
-                </FormItem>
-                <FormItem label="Attorney Firm" id="claimant_attorney_firm" error={errors.claimant_attorney_firm?.message}>
-                    <Input id="claimant_attorney_firm" {...register("claimant_attorney_firm")} />
-                </FormItem>
-                <FormItem label="Attorney Phone" id="claimant_attorney_phone" error={errors.claimant_attorney_phone?.message}>
-                    <Input type="tel" id="claimant_attorney_phone" {...register("claimant_attorney_phone")} placeholder="(XXX) XXX-XXXX" />
-                </FormItem>
-                <FormItem label="Attorney Email" id="claimant_attorney_email" error={errors.claimant_attorney_email?.message}>
-                    <Input type="email" id="claimant_attorney_email" {...register("claimant_attorney_email")} />
-                </FormItem>
-                {/* Corrected: FormItemProps now includes className, so this should be fine */}
-                <FormItem label="Attorney Address" id="claimant_attorney_address" error={errors.claimant_attorney_address?.message} description="Full address for attorney." className="md:col-span-2">
-                    <Textarea id="claimant_attorney_address" {...register("claimant_attorney_address")} />
-                </FormItem>
-            </div>
 
           </CardContent>
           <CardFooter className="flex justify-end">
             <Button type="submit" disabled={isSubmitting || injuredWorkers.length === 0}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              {isSubmitting ? 'Adding Claim...' : 'Add Claim'}
+              {isSubmitting ? "Adding Claim..." : "Add Claim"}
             </Button>
           </CardFooter>
         </Card>

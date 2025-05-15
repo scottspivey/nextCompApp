@@ -5,16 +5,40 @@ import { auth } from '@/auth';     // Your NextAuth.js v5 auth
 import type { AppUser } from '@/types/next-auth';
 import * as z from 'zod';
 
-// Zod Schema for creating a new claim
+// Zod Schema for creating a new claim, aligned with Prisma schema
 const createClaimSchema = z.object({
   injuredWorkerId: z.string().min(1, "Injured Worker ID is required"),
+  employerId: z.string().optional().nullable(), // If you select an employer
+  
   wcc_file_number: z.string().optional().nullable(),
   carrier_file_number: z.string().optional().nullable(),
-  date_of_injury: z.coerce.date({ invalid_type_error: "Invalid date of injury" }).optional().nullable(),
-  body_parts_injured: z.string().optional().nullable(),
+  
+  date_of_injury: z.coerce.date({ required_error: "Date of injury is required.", invalid_type_error: "Invalid date of injury" }), // Now required
+  time_of_injury: z.string().optional().nullable(),
+  place_of_injury: z.string().optional().nullable(),
+  accident_description: z.string().optional().nullable(),
+  part_of_body_injured: z.string().optional().nullable(), // Renamed from body_parts_injured to match schema
+  nature_of_injury: z.string().optional().nullable(),
+  cause_of_injury: z.string().optional().nullable(),
+  notice_given_date: z.coerce.date().optional().nullable(),
+
+  average_weekly_wage: z.coerce.number().optional().nullable(),
+  compensation_rate: z.coerce.number().optional().nullable(),
+  date_disability_began: z.coerce.date().optional().nullable(),
+  date_returned_to_work: z.coerce.date().optional().nullable(),
+  mmi_date: z.coerce.date().optional().nullable(),
+
+  initial_treatment_desc: z.string().optional().nullable(),
+  current_work_status: z.string().optional().nullable(),
+  permanent_impairment_rating: z.coerce.number().int().optional().nullable(),
+
+  claimant_attorney_name: z.string().optional().nullable(),
+  claimant_attorney_firm: z.string().optional().nullable(),
+  claimant_attorney_address: z.string().optional().nullable(),
+  claimant_attorney_phone: z.string().optional().nullable(),
+  claimant_attorney_email: z.string().email().optional().nullable().or(z.literal('')),
+  
   claim_status: z.string().optional().nullable(),
-  employerName: z.string().optional().nullable(), // If storing employer name directly
-  // Add other fields that are part of your claim creation form
 });
 
 // GET Handler for fetching claims list
@@ -24,7 +48,6 @@ export async function GET(req: NextRequest) {
     const session = await auth(); 
     const user = session?.user as AppUser | undefined;
 
-    // Stricter check: Ensure user.profileId is a non-empty string
     if (typeof user?.profileId !== 'string' || user.profileId.trim() === '') {
       console.error("API - GET /api/claims - Unauthorized: No session user or profileId is not a valid string.");
       return NextResponse.json({ error: 'Unauthorized. No valid session or profile ID.' }, { status: 401 });
@@ -35,9 +58,9 @@ export async function GET(req: NextRequest) {
 
     const claims = await prisma.claim.findMany({
       where: {
-        profileId: sessionProfileId, // Now strictly a string
+        profileId: sessionProfileId, 
       },
-      select: {
+      select: { // Select fields needed for the claims list page
         id: true,
         wcc_file_number: true,
         date_of_injury: true,
@@ -49,7 +72,11 @@ export async function GET(req: NextRequest) {
             last_name: true,
           },
         },
-        // employer: { select: { name: true } } // Uncomment if 'employer' is a relation
+        employer: { // Include employer name if available
+            select: {
+                name: true,
+            }
+        }
       },
       orderBy: {
         updatedAt: 'desc',
@@ -73,12 +100,11 @@ export async function POST(req: NextRequest) {
     const session = await auth(); 
     const user = session?.user as AppUser | undefined;
 
-    // Stricter check: Ensure user.profileId is a non-empty string
     if (typeof user?.profileId !== 'string' || user.profileId.trim() === '') {
       console.error("API - POST /api/claims - Not authenticated or profile ID missing/invalid from session.");
       return NextResponse.json({ error: 'Not authenticated or profile ID missing/invalid' }, { status: 401 });
     }
-    const preparerProfileId: string = user.profileId; // Now strictly a string
+    const preparerProfileId: string = user.profileId;
 
     const body: unknown = await req.json();
     const validationResult = createClaimSchema.safeParse(body);
@@ -91,15 +117,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Destructure validated data
-    const { injuredWorkerId, date_of_injury, ...otherClaimData } = validationResult.data;
+    const { injuredWorkerId, employerId, date_of_injury, ...otherClaimData } = validationResult.data;
 
-    // Verify that the injuredWorkerId exists and is associated with the current user's profile
     console.log(`API - POST /api/claims - Verifying worker ${injuredWorkerId} for profile ${preparerProfileId}`);
     const worker = await prisma.injuredWorker.findFirst({
         where: {
             id: injuredWorkerId,
-            profileId: preparerProfileId, // Now strictly a string
+            profileId: preparerProfileId, 
         }
     });
 
@@ -109,28 +133,30 @@ export async function POST(req: NextRequest) {
     }
     console.log(`API - POST /api/claims - Worker ${injuredWorkerId} verified.`);
 
-    // Prepare data for claim creation.
-    // For `date_of_injury`, if it's a valid Date object, include it.
-    // If it's null or undefined (from Zod validation of an optional field),
-    // omit it from the `dataForCreate` object. Prisma will then handle it as an
-    // unprovided optional field, resulting in SQL NULL if the DB field is nullable.
-    const dataForCreate: { [key: string]: any } = {
+    // Prepare data for claim creation
+    const dataForCreate: any = {
       ...otherClaimData,
       injuredWorkerId: injuredWorkerId,
       profileId: preparerProfileId,
+      date_of_injury: date_of_injury, // Already a Date object from Zod coercion and is required
     };
 
-    if (date_of_injury instanceof Date) {
-      dataForCreate.date_of_injury = date_of_injury;
+    if (employerId) {
+        dataForCreate.employerId = employerId;
     }
-    // If date_of_injury is null or undefined, it's not added to dataForCreate,
-    // so the key will be absent, satisfying the "string | Date" type if the key were present.
+    
+    // Handle optional date fields: if undefined from Zod, pass null to Prisma (if DB field is nullable)
+    // or omit if not nullable and truly optional (though Zod would make it required if DB is)
+    const optionalDateFields: (keyof typeof otherClaimData)[] = ['notice_given_date', 'date_disability_began', 'date_returned_to_work', 'mmi_date'];
+    optionalDateFields.forEach(field => {
+        if (otherClaimData[field] === undefined) {
+            dataForCreate[field] = null;
+        }
+    });
+
 
     const newClaim = await prisma.claim.create({
-      data: dataForCreate as any, // Using 'as any' here is a pragmatic way to bypass TS if it still complains
-                                   // about the dynamically constructed object, assuming Prisma handles omitted optional fields correctly.
-                                   // A more type-safe way would be to ensure `dataForCreate` strictly matches
-                                   // `Prisma.ClaimUncheckedCreateInput` where optional fields are truly optional.
+      data: dataForCreate,
     });
     console.log(`API - POST /api/claims - Successfully created claim ${newClaim.id}`);
     return NextResponse.json(newClaim, { status: 201 });

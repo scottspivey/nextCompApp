@@ -13,7 +13,7 @@ import { Textarea } from '@/app/Components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
 import { useToast } from "@/app/Components/ui/use-toast";
-import { Loader2, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, AlertTriangle, FilePlus2 } from 'lucide-react';
 import { AlternativeDatePicker } from "@/app/Components/ui/date-picker";
 import { useSession } from 'next-auth/react';
 
@@ -271,7 +271,7 @@ export default function AddNewClaimPage() {
             <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-            <h1 className="text-3xl font-bold tracking-tight">Add New Claim</h1>
+            <h1 className="text-3xl font-bold tracking-tight"> <FilePlus2 className="mr-3 h-8 w-8" /> Add New Claim</h1>
             {selectedWorkerId && injuredWorkers.find(w => w.id === selectedWorkerId) && (
                 <p className="text-muted-foreground">
                     For: {injuredWorkers.find(w => w.id === selectedWorkerId)?.first_name} {injuredWorkers.find(w => w.id === selectedWorkerId)?.last_name}

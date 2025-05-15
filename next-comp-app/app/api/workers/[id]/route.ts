@@ -1,11 +1,12 @@
 // app/api/workers/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { auth } from '@/auth';
+import prisma from '@/lib/prisma'; // Use your shared Prisma instance
+import { auth } from '@/auth';     // Your NextAuth.js v5 auth
 import type { AppUser } from '@/types/next-auth';
 import * as z from 'zod';
+import { Prisma } from '@prisma/client'; // Import Prisma for error handling
 
-// ... (keep the Zod schema - updateWorkerFormSchema)
+// Zod schema for PUT request validation (updateWorkerFormSchema)
 const updateWorkerFormSchema = z.object({
   first_name: z.string().min(1, "First name is required").optional(),
   middle_name: z.string().optional().nullable(),
@@ -37,28 +38,29 @@ const updateWorkerFormSchema = z.object({
   num_dependents: z.number().int().min(0).optional().nullable(),
 });
 
-// GET Handler for fetching a specific worker
+interface ResolvedRouteParams {
+  id: string;
+}
+
+// GET Handler (existing - ensure it uses ResolvedRouteParams as per Next.js 15 fix)
 export async function GET(
   req: NextRequest,
-  // Corrected signature for Next.js 15+ where params can be a Promise
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<ResolvedRouteParams> }
 ) {
-  // Await the params to resolve them
   const resolvedParams = await params;
   const workerId = resolvedParams.id;
 
+  if (!workerId) {
+    return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
+  }
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
     const user = session.user as AppUser;
-    if (!user.profileId) {
+    if (typeof user.profileId !== 'string' || user.profileId.trim() === '') {
       return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
-    }
-
-    if (!workerId) {
-      return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
     }
 
     const worker = await prisma.injuredWorker.findUnique({
@@ -67,7 +69,7 @@ export async function GET(
         profileId: user.profileId,
       },
       include: {
-        claims: {
+        claims: { 
           select: {
             id: true,
             wcc_file_number: true,
@@ -90,37 +92,31 @@ export async function GET(
       ...worker,
       ssn: worker.ssn ? `XXX-XX-${worker.ssn.slice(-4)}` : null,
     };
-
     return NextResponse.json(workerDataToSend);
-
   } catch (error) {
     console.error(`Error fetching worker ${workerId}:`, error);
     return NextResponse.json({ error: 'Failed to fetch worker details' }, { status: 500 });
   }
 }
 
-// PUT Handler for updating a specific worker
+// PUT Handler (existing - ensure it uses ResolvedRouteParams)
 export async function PUT(
   req: NextRequest,
-  // Corrected signature for Next.js 15+
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<ResolvedRouteParams> }
 ) {
-  // Await the params to resolve them
   const resolvedParams = await params;
   const workerId = resolvedParams.id;
-
+   if (!workerId) {
+    return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
+  }
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
     const user = session.user as AppUser;
-    if (!user.profileId) {
+    if (typeof user.profileId !== 'string' || user.profileId.trim() === '') {
       return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
-    }
-
-    if (!workerId) {
-      return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
     }
 
     const existingWorker = await prisma.injuredWorker.findFirst({
@@ -145,7 +141,6 @@ export async function PUT(
     }
 
     const dataToUpdate = { ...validationResult.data };
-
     if ('ssn' in validationResult.data) {
         if (validationResult.data.ssn === null) {
             dataToUpdate.ssn = null;
@@ -157,9 +152,7 @@ export async function PUT(
     }
 
     const updatedWorker = await prisma.injuredWorker.update({
-      where: {
-        id: workerId,
-      },
+      where: { id: workerId },
       data: dataToUpdate,
     });
     
@@ -167,14 +160,72 @@ export async function PUT(
         ...updatedWorker,
         ssn: updatedWorker.ssn ? `XXX-XX-${updatedWorker.ssn.slice(-4)}` : null,
     };
-
     return NextResponse.json(updatedWorkerDataToSend);
-
   } catch (error) {
     console.error(`Error updating worker ${workerId}:`, error);
     if (error instanceof z.ZodError) {
         return NextResponse.json({ error: "Validation failed during processing.", details: error.errors }, { status: 400 });
     }
     return NextResponse.json({ error: 'Failed to update worker' }, { status: 500 });
+  }
+}
+
+// DELETE Handler for deleting a specific worker
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<ResolvedRouteParams> }
+) {
+  const resolvedParams = await params;
+  const workerId = resolvedParams.id;
+
+  if (!workerId) {
+    return NextResponse.json({ error: 'Worker ID is required for deletion' }, { status: 400 });
+  }
+
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+    const user = session.user as AppUser;
+    if (typeof user.profileId !== 'string' || user.profileId.trim() === '') {
+      return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
+    }
+
+    // Verify the worker exists and belongs to the authenticated user's profile before deleting
+    const workerToDelete = await prisma.injuredWorker.findFirst({
+      where: {
+        id: workerId,
+        profileId: user.profileId, // Authorization check
+      },
+    });
+
+    if (!workerToDelete) {
+      return NextResponse.json({ error: 'Worker not found or you are not authorized to delete this worker.' }, { status: 404 });
+    }
+
+    // Perform the deletion
+    // Note: If you have related records (like Claims) and want them to be deleted
+    // when a worker is deleted, ensure your Prisma schema has `onDelete: Cascade`
+    // for the relation. Otherwise, you might need to delete related records manually here
+    // in a transaction, or Prisma will throw an error if foreign key constraints are violated.
+    // For simplicity, this example assumes cascading delete is set up or no such constraints block deletion.
+    await prisma.injuredWorker.delete({
+      where: {
+        id: workerId,
+      },
+    });
+
+    return NextResponse.json({ message: `Worker ${workerToDelete.first_name} ${workerToDelete.last_name} deleted successfully.` }, { status: 200 });
+
+  } catch (error) {
+    console.error(`Error deleting worker ${workerId}:`, error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        // P2003: Foreign key constraint failed on the field: (usually when related records exist and onDelete is not Cascade)
+        if (error.code === 'P2003') {
+             return NextResponse.json({ error: 'Failed to delete worker. Ensure all associated claims are removed first or contact support.' }, { status: 409 }); // Conflict
+        }
+    }
+    return NextResponse.json({ error: 'Failed to delete worker.' }, { status: 500 });
   }
 }

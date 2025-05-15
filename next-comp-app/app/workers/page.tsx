@@ -12,7 +12,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { RadioGroup, RadioGroupItem } from "@/app/Components/ui/radio-group";
 import { Label } from "@/app/Components/ui/label";
 import { useToast } from "@/app/Components/ui/use-toast";
-import { PlusCircle, Edit3, Loader2, AlertTriangle, Users, Briefcase, FileText, ArrowUpDown, Search } from 'lucide-react';
+import { 
+    Edit3, 
+    Loader2, 
+    AlertTriangle, 
+    Users, 
+    Briefcase, 
+    FileText, 
+    ArrowUpDown, 
+    Search, 
+    UserPlus,
+    Trash2
+} from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    // AlertDialogTrigger, // We'll trigger it programmatically
+} from "@/app/Components/ui/alert-dialog"; // Import AlertDialog components
 import { format, isValid, parseISO } from 'date-fns';
 
 // Define the structure of a Claim for the worker summary
@@ -29,7 +51,7 @@ interface InjuredWorkerSummary {
   id: string;
   first_name: string;
   last_name: string;
-  date_of_birth?: Date | string | null; // Keep for data structure, though not sorting by it now
+  date_of_birth?: Date | string | null; 
   ssn?: string | null; 
   city?: string | null;
   state?: string | null;
@@ -43,16 +65,13 @@ interface ApiErrorData {
     details?: unknown; 
 }
 
-// Updated SortableWorkerKeys to include employerNames and remove date_of_birth for direct table sort
 type SortableWorkerKeys = keyof Pick<InjuredWorkerSummary, 'last_name' | 'first_name'> | 'employerNames';
-
 
 interface SortConfig {
     key: SortableWorkerKeys | null;
     direction: 'ascending' | 'descending';
 }
 
-// Define what constitutes an "open" or "active" claim status
 const OPEN_CLAIM_STATUSES = ["Open", "Pending", "Active", "In Progress", "Unknown", "Accepted", "Investigating", "In Litigation", "Pending Review"];
 
 export default function AllInjuredWorkersPage() {
@@ -67,6 +86,11 @@ export default function AllInjuredWorkersPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'last_name', direction: 'ascending' });
   const [claimFilter, setClaimFilter] = useState<'activeOnly' | 'includeAll'>('activeOnly');
+
+  // State for delete confirmation
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [workerToDelete, setWorkerToDelete] = useState<InjuredWorkerSummary | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchWorkers = useCallback(async (profileId: string) => {
     setIsLoading(true);
@@ -108,7 +132,7 @@ export default function AllInjuredWorkersPage() {
       void fetchWorkers(session.user.profileId); 
     } else if (sessionStatus === "unauthenticated") {
       void toast({ title: "Authentication Required", description: "Please log in to view injured workers." });
-      router.push("/api/auth/signin"); 
+      router.push("/login"); // Ensure this is your correct login page
     }
   }, [session, sessionStatus, fetchWorkers, router, toast]);
 
@@ -119,11 +143,9 @@ export default function AllInjuredWorkersPage() {
 
   const displayedWorkers = useMemo(() => {
     let processedWorkers = [...workers];
-
     if (claimFilter === 'activeOnly') {
       processedWorkers = processedWorkers.filter(workerHasActiveClaims);
     }
-
     if (searchTerm) {
       processedWorkers = processedWorkers.filter(worker => {
         const term = searchTerm.toLowerCase();
@@ -136,26 +158,19 @@ export default function AllInjuredWorkersPage() {
         );
       });
     }
-
     if (sortConfig.key !== null) {
       processedWorkers.sort((a, b) => {
         let aValue, bValue;
-
         if (sortConfig.key === 'employerNames') {
-          // Sort by the first employer name, case-insensitive. Handle 'N/A' or empty arrays.
           const getFirstEmployer = (names: string[]) => (names && names.length > 0 && names[0] !== 'N/A' ? names[0].toLowerCase() : '');
           aValue = getFirstEmployer(a.employerNames);
           bValue = getFirstEmployer(b.employerNames);
         } else {
-           // Accessing other sortable keys like 'last_name', 'first_name'
-           aValue = a[sortConfig.key as keyof Omit<InjuredWorkerSummary, 'employerNames' | 'claims' | 'id' | 'ssn' | 'city' | 'state' | 'date_of_birth'>];
-           bValue = b[sortConfig.key as keyof Omit<InjuredWorkerSummary, 'employerNames' | 'claims' | 'id' | 'ssn' | 'city' | 'state' | 'date_of_birth'>];
+          aValue = a[sortConfig.key as keyof Omit<InjuredWorkerSummary, 'employerNames' | 'claims' | 'id' | 'ssn' | 'city' | 'state' | 'date_of_birth'>];
+          bValue = b[sortConfig.key as keyof Omit<InjuredWorkerSummary, 'employerNames' | 'claims' | 'id' | 'ssn' | 'city' | 'state' | 'date_of_birth'>];
         }
-        
         if (aValue === null || aValue === undefined) return 1; 
         if (bValue === null || bValue === undefined) return -1;
-        
-        // Generic string comparison for other keys (first_name, last_name)
         if (typeof aValue === 'string' && typeof bValue === 'string') {
             const valA = aValue.toLowerCase();
             const valB = bValue.toLowerCase();
@@ -197,6 +212,45 @@ export default function AllInjuredWorkersPage() {
     return employerNames.join(', ');
   };
 
+  const openDeleteConfirmation = (worker: InjuredWorkerSummary) => {
+    setWorkerToDelete(worker);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteWorker = async () => {
+    if (!workerToDelete) return;
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/workers/${workerToDelete.id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData: ApiErrorData = await response.json().catch(() => ({ error: "An unknown error occurred during deletion."}));
+        throw new Error(errorData.error || `Failed to delete worker: ${response.statusText}`);
+      }
+      
+      // Remove worker from local state
+      setWorkers(prevWorkers => prevWorkers.filter(w => w.id !== workerToDelete.id));
+      toast({
+        title: "Success!",
+        description: `Worker ${workerToDelete.first_name} ${workerToDelete.last_name} has been deleted.`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
+      console.error("Error deleting worker:", err);
+      toast({
+        title: "Deletion Failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      setWorkerToDelete(null);
+    }
+  };
+
+
   if (sessionStatus === "loading" || isLoading) {
     return (
       <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
@@ -209,32 +263,33 @@ export default function AllInjuredWorkersPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12">
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center self-start sm:self-center">
-          <Users className="mr-3 h-8 w-8" /> Injured Workers
-        </h1>
-        <Button onClick={() => router.push('/workers/new')} className="self-end sm:self-center">
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Worker
-        </Button>
-      </div>
-
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-        <div className="relative w-full sm:max-w-xs">
-            <Input
-                type="text"
-                placeholder="Search workers, SSN, claims..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10" 
-            />
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    <>
+      <div className="container mx-auto px-4 py-8 md:py-12">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center self-start sm:self-center">
+            <Users className="mr-3 h-8 w-8" /> Injured Workers
+          </h1>
+          <Button onClick={() => router.push('/workers/new')} className="self-end sm:self-center">
+            <UserPlus className="mr-2 h-4 w-4" /> Add Worker
+          </Button>
         </div>
-        <RadioGroup
-            value={claimFilter}
-            onValueChange={(value: 'activeOnly' | 'includeAll') => setClaimFilter(value)}
-            className="flex items-center space-x-2 sm:space-x-4"
-        >
+
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          <div className="relative w-full sm:max-w-xs">
+              <Input
+                  type="text"
+                  placeholder="Search workers, SSN, claims..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10" 
+              />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
+          <RadioGroup
+              value={claimFilter}
+              onValueChange={(value: 'activeOnly' | 'includeAll') => setClaimFilter(value)}
+              className="flex items-center space-x-2 sm:space-x-4"
+          >
             <div className="flex items-center space-x-2">
                 <RadioGroupItem value="activeOnly" id="activeOnly" />
                 <Label htmlFor="activeOnly" className="cursor-pointer">With Active Claims Only</Label>
@@ -243,95 +298,124 @@ export default function AllInjuredWorkersPage() {
                 <RadioGroupItem value="includeAll" id="includeAll" />
                 <Label htmlFor="includeAll" className="cursor-pointer">Include All Claims</Label>
             </div>
-        </RadioGroup>
+          </RadioGroup>
+        </div>
+
+        {error && (
+          <Card className="mb-6 bg-destructive/10 border-destructive">
+            <CardHeader><CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5" /> Error</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-destructive-foreground">{error}</p>
+              <Button variant="outline" size="sm" onClick={() => { if (session?.user?.profileId) void fetchWorkers(session.user.profileId);}} className="mt-4">
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardContent>
+            {displayedWorkers.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="cursor-pointer group" onClick={() => requestSort('last_name')}>
+                      Name <span className="inline-flex align-middle">{getSortIndicator('last_name')}</span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer group" onClick={() => requestSort('employerNames')}>
+                      Employer(s) <span className="inline-flex align-middle">{getSortIndicator('employerNames')}</span>
+                    </TableHead>
+                    <TableHead>Claim(s) Info</TableHead>
+                    <TableHead>DOB</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayedWorkers.map((worker) => (
+                    <TableRow key={worker.id}>
+                      <TableCell className="font-medium">
+                        <Link href={`/workers/${worker.id}`} className="hover:underline text-primary">
+                          {worker.last_name}, {worker.first_name} 
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                          <div className="flex items-center">
+                              <Briefcase className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <span className="truncate" title={displayEmployerInfo(worker.employerNames)}>
+                                  {displayEmployerInfo(worker.employerNames)}
+                              </span>
+                          </div>
+                      </TableCell>
+                      <TableCell>
+                          <div className="flex items-center">
+                              <FileText className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <span className="truncate" title={worker.claims.map(c => `${c.wcc_file_number} (${c.claim_status})`).join('; ')}>
+                                  {displayClaimInfo(worker.claims)}
+                              </span>
+                          </div>
+                      </TableCell>
+                      <TableCell>
+                        {worker.date_of_birth && isValid(parseISO(worker.date_of_birth as string)) 
+                          ? format(parseISO(worker.date_of_birth as string), 'MM/dd/yyyy') 
+                          : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-right space-x-2"> {/* Added space-x-2 for button spacing */}
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/workers/${worker.id}`}>
+                            <Edit3 className="mr-2 h-3 w-3" /> View/Edit
+                          </Link>
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          onClick={() => openDeleteConfirmation(worker)}
+                          aria-label={`Delete worker ${worker.first_name} ${worker.last_name}`}
+                        >
+                          <Trash2 className="mr-2 h-3 w-3" /> Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              !error && <p className="text-center py-10 text-muted-foreground">
+                {searchTerm ? "No workers match your search criteria." : 
+                  (claimFilter === 'activeOnly' && workers.length > 0) ? "No workers with active claims match your criteria." :
+                  "No injured workers found for your profile. Add one to get started!"
+                }
+              </p>
+            )}
+          </CardContent>
+          {displayedWorkers.length > 0 && (
+              <CardFooter className="text-sm text-muted-foreground">
+                  Showing {displayedWorkers.length} of {workers.length} total worker(s) {claimFilter === 'activeOnly' ? "(matching claim filter)" : ""}.
+              </CardFooter>
+          )}
+        </Card>
       </div>
 
-
-      {error && (
-        <Card className="mb-6 bg-destructive/10 border-destructive">
-          <CardHeader><CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5" /> Error</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-destructive-foreground">{error}</p>
-            <Button variant="outline" size="sm" onClick={() => { if (session?.user?.profileId) void fetchWorkers(session.user.profileId);}} className="mt-4">
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardContent>
-          {displayedWorkers.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="cursor-pointer group" onClick={() => requestSort('last_name')}>
-                    Name <span className="inline-flex align-middle">{getSortIndicator('last_name')}</span>
-                  </TableHead>
-                  {/* Changed DOB to Employer for sorting */}
-                  <TableHead className="cursor-pointer group" onClick={() => requestSort('employerNames')}>
-                    Employer(s) <span className="inline-flex align-middle">{getSortIndicator('employerNames')}</span>
-                  </TableHead>
-                  <TableHead>Claim(s) Info</TableHead>
-                  <TableHead>DOB</TableHead> {/* Moved DOB here, not sortable for now via header click */}
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayedWorkers.map((worker) => (
-                  <TableRow key={worker.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/workers/${worker.id}`} className="hover:underline text-primary">
-                        {worker.last_name}, {worker.first_name} 
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                        <div className="flex items-center">
-                            <Briefcase className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="truncate" title={displayEmployerInfo(worker.employerNames)}>
-                                {displayEmployerInfo(worker.employerNames)}
-                            </span>
-                        </div>
-                    </TableCell>
-                    <TableCell>
-                        <div className="flex items-center">
-                            <FileText className="mr-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="truncate" title={worker.claims.map(c => `${c.wcc_file_number} (${c.claim_status})`).join('; ')}>
-                                {displayClaimInfo(worker.claims)}
-                            </span>
-                        </div>
-                    </TableCell>
-                    <TableCell> {/* DOB is now here, not sortable by header click */}
-                      {worker.date_of_birth && isValid(parseISO(worker.date_of_birth as string)) 
-                        ? format(parseISO(worker.date_of_birth as string), 'MM/dd/yyyy') 
-                        : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/workers/${worker.id}`}>
-                          <Edit3 className="mr-2 h-3 w-3" /> View/Edit
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            !error && <p className="text-muted-foreground">
-                {searchTerm ? "No workers match your search criteria." : 
-                 (claimFilter === 'activeOnly' && workers.length > 0) ? "No workers with active claims match your criteria." :
-                 "No injured workers found for your profile. Add one to get started!"
-                }
-            </p>
-          )}
-        </CardContent>
-        {displayedWorkers.length > 0 && (
-            <CardFooter className="text-sm text-muted-foreground">
-                Showing {displayedWorkers.length} of {workers.length} total worker(s) {claimFilter === 'activeOnly' ? "(matching claim filter)" : ""}.
-            </CardFooter>
-        )}
-      </Card>
-    </div>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the worker 
+              <span className="font-semibold"> {workerToDelete?.first_name} {workerToDelete?.last_name}</span>
+              {/* Consider mentioning if related claims will also be deleted based on your backend logic */}
+              {/* and all associated claims. */}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setWorkerToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteWorker} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              {isDeleting ? 'Deleting...' : 'Yes, delete worker'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

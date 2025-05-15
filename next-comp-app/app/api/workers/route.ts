@@ -1,14 +1,16 @@
 // app/api/workers/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import * as z from 'zod';
+import { auth } from '@/auth'; //  Adjust path if necessary
+import type { AppUser } from '@/types/next-auth'; // Optional, for clarity
 
-const prisma = new PrismaClient();
 
-// Zod schema for backend validation (for POST requests)
+// Zod schema remains the same
 const workerFormSchema = z.object({
-  profileId: z.string().min(1, "Profile ID is required"),
+  profileId: z.string().min(1, "Profile ID is required"), // Will be validated against session user's profileId
   first_name: z.string().min(1, "First name is required"),
+  // ... other fields ...
   middle_name: z.string().optional().nullable(),
   last_name: z.string().min(1, "Last name is required"),
   suffix: z.string().optional().nullable(),
@@ -38,53 +40,58 @@ const workerFormSchema = z.object({
   num_dependents: z.number().int().min(0).optional().nullable(),
 });
 
-// Infer the type from the Zod schema for explicit typing
 type ValidatedWorkerData = z.infer<typeof workerFormSchema>;
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+    const user = session.user as AppUser;
+    if (!user.profileId) {
+      return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
+    }
+
     const body: unknown = await req.json();
     const validationResult = workerFormSchema.safeParse(body);
 
     if (!validationResult.success) {
-      console.error("API - POST /api/workers - Validation errors:", validationResult.error.flatten().fieldErrors);
       return NextResponse.json(
-        { 
-          error: "Invalid input.",
-          details: validationResult.error.flatten().fieldErrors 
-        },
+        { error: "Invalid input.", details: validationResult.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
+    
+    const { profileId: requestProfileId, ...workerDataFields }: ValidatedWorkerData = validationResult.data;
 
-    // Explicitly type workerData using the inferred type from Zod
-    // This resolves the @typescript-eslint/no-unsafe-assignment error
-    const { ...workerData }: ValidatedWorkerData = validationResult.data;
+    // Authorization: Ensure the profileId in the request matches the session user's profileId
+    if (requestProfileId !== user.profileId) {
+      return NextResponse.json({ error: 'Forbidden: You can only add workers to your own profile.' }, { status: 403 });
+    }
 
+    // Check if the validated profileId (which is the user's own profileId) exists
     const profileExists = await prisma.profile.findUnique({
-      where: { id: workerData.profileId },
+      where: { id: user.profileId }, // Use the authenticated user's profileId
     });
 
     if (!profileExists) {
-      console.error("API - POST /api/workers - Profile not found for ID:", workerData.profileId);
-      return NextResponse.json(
-        { error: "Associated profile not found." },
-        { status: 404 }
-      );
+      // This case should be rare if profileId from session is always valid
+      return NextResponse.json({ error: "Associated profile not found for authenticated user." }, { status: 404 });
     }
     
     const newInjuredWorker = await prisma.injuredWorker.create({
       data: {
-        // Spread the validated and typed workerData
-        ...workerData,
+        ...workerDataFields,
+        profileId: user.profileId, // Ensure it uses the authenticated user's profileId
       },
     });
-    console.log("API - POST /api/workers - Successfully created worker:", newInjuredWorker.id);
     return NextResponse.json(newInjuredWorker, { status: 201 });
 
   } catch (error) {
+    // ... (keep existing error handling) ...
     console.error("API - POST /api/workers - Failed to create injured worker:", error);
-    if (error instanceof z.ZodError) { // This case should ideally be caught by safeParse
+    if (error instanceof z.ZodError) { 
         return NextResponse.json({ error: "Validation failed during processing.", details: error.errors }, { status: 400 });
     }
     return NextResponse.json(
@@ -97,20 +104,28 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const profileId = searchParams.get('profileId');
-
-    if (!profileId) {
-      return NextResponse.json(
-        { error: "profileId query parameter is required." },
-        { status: 400 }
-      );
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
+    const user = session.user as AppUser;
+
+    // The GET request for workers should be for the currently logged-in user's profile.
+    // So, we use user.profileId from the session instead of a query parameter.
+    if (!user.profileId) {
+      return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
+    }
+    const sessionProfileId = user.profileId;
+
+    // Removed: const { searchParams } = new URL(req.url);
+    // Removed: const profileId = searchParams.get('profileId');
+    // Removed: if (!profileId) { ... }
 
     const injuredWorkers = await prisma.injuredWorker.findMany({
       where: {
-        profileId: profileId,
+        profileId: sessionProfileId, // Fetch workers for the authenticated user's profile
       },
+      // ... (keep existing select, orderBy) ...
       select: { 
         id: true,
         first_name: true,
@@ -142,6 +157,7 @@ export async function GET(req: NextRequest) {
       ],
     });
 
+    // ... (keep existing processing logic for processedWorkers) ...
     const processedWorkers = injuredWorkers.map(worker => {
       const claimsInfo = worker.claims.map(claim => ({
         id: claim.id,
@@ -169,6 +185,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(processedWorkers, { status: 200 });
 
   } catch (error) {
+    // ... (keep existing error handling) ...
     console.error("API - GET /api/workers - Error fetching injured workers:", error);
     return NextResponse.json(
       { error: "An internal server error occurred while fetching injured workers." },

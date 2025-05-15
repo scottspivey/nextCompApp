@@ -1,40 +1,32 @@
 // app/api/claims/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getToken } from 'next-auth/jwt'; // For server-side session access
 
-const prisma = new PrismaClient();
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth'; 
+import type { AppUser } from '@/types/next-auth'; // Optional: for explicit typing if needed
+import prisma from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
   console.log("API - GET /api/claims - Request received."); 
   try {
-    // --- Log AUTH_SECRET status ---
-    const authSecretIsSet = !!process.env.AUTH_SECRET; // Check if the variable has a value
-    console.log("API - GET /api/claims - Is AUTH_SECRET environment variable set?", authSecretIsSet);
-    if (!authSecretIsSet) {
-        console.error("API - GET /api/claims - CRITICAL: AUTH_SECRET is not set in the environment for this function.");
-    }
-    // For more detailed debugging (REMOVE BEFORE PRODUCTION if logging actual length):
-    // console.log("API - GET /api/claims - AUTH_SECRET length (if set):", process.env.AUTH_SECRET?.length);
+    const session = await auth(); // Get the session using the new auth() function
 
-
-    // --- Authentication and Authorization ---
-    console.log("API - GET /api/claims - Attempting to get token...");
-    const token = await getToken({ req, secret: process.env.AUTH_SECRET });
-
-    console.log("API - GET /api/claims - Token received by getToken:", JSON.stringify(token, null, 2));
-
-    if (!token) {
-      console.error("API - GET /api/claims - Unauthorized: Token is null or undefined. AUTH_SECRET was set:", authSecretIsSet);
-      return NextResponse.json({ error: 'Unauthorized. No valid session token.' }, { status: 401 });
+    // The session object now directly contains the user with AppUser fields
+    // The 'user' object in the session is already typed as AppUser if your next-auth.d.ts is correct
+    if (!session?.user) {
+      console.error("API - GET /api/claims - Unauthorized: No session or user found.");
+      return NextResponse.json({ error: 'Unauthorized. No valid session.' }, { status: 401 });
     }
 
-    if (!token.profileId) { 
-      console.error("API - GET /api/claims - Unauthorized: profileId is missing from the token. Token content:", JSON.stringify(token, null, 2));
+    // Access custom fields directly from session.user
+    // session.user should be of type AppUser (which includes profileId, role, etc.)
+    const user = session.user as AppUser; // Cast for clarity or if inference isn't perfect
+
+    if (!user.profileId) { 
+      console.error("API - GET /api/claims - Unauthorized: profileId is missing from the session user object. User:", JSON.stringify(user, null, 2));
       return NextResponse.json({ error: 'Unauthorized. No valid profile ID in session.' }, { status: 401 });
     }
     
-    const sessionProfileId = token.profileId as string; 
+    const sessionProfileId = user.profileId; 
     console.log("API - GET /api/claims - Authorized. Session Profile ID:", sessionProfileId);
 
     console.log(`API - GET /api/claims - Fetching claims for profileId: ${sessionProfileId}`);
@@ -42,6 +34,7 @@ export async function GET(req: NextRequest) {
       where: {
         profileId: sessionProfileId, 
       },
+      // ... rest of your select and orderBy clauses
       select: {
         id: true,
         wcc_file_number: true,
@@ -72,5 +65,8 @@ export async function GET(req: NextRequest) {
     console.error('API - GET /api/claims - Error fetching claims:', error);
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: 'Failed to fetch claims.', details: message }, { status: 500 });
+  } finally {
+    // Consider if prisma.$disconnect() is needed here or managed globally
+    // await prisma.$disconnect(); 
   }
 }

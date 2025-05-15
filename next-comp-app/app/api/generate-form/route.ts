@@ -1,6 +1,6 @@
 // app/api/generate-form/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import { PDFDocument, PDFCheckBox, PDFTextField } from 'pdf-lib';
 import fs from 'fs/promises';
 import path from 'path';
@@ -10,30 +10,40 @@ import {
   splitSSN,
   splitPhoneNumber,
   getString,
-} from '@/lib/formMappings'; // Adjust path if your lib directory is elsewhere
+} from '@/lib/formMappings';
 
-const prisma = new PrismaClient();
+import { auth } from '@/auth';
+import type { AppUser } from '@/types/next-auth';
 
-// Define more specific types for the data that will eventually fill the PDF
 type PdfFieldValue = string | number | boolean | null | undefined;
 
-// For additionalData, using 'unknown' is safer than 'any',
-// forcing type checks when accessing its properties.
-// However, if you know the general shape, you can be more specific.
 interface GenerateFormRequestBody {
   formType: string;
   claimId: string;
-  profileId: string;
-  additionalData?: Record<string, unknown>; // Changed from any to unknown
+  additionalData?: Record<string, unknown>;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as GenerateFormRequestBody;
-    const { formType, claimId, profileId, additionalData = {} } = body;
+    // 1. Authentication
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
 
-    if (!formType || !claimId || !profileId) {
-      return NextResponse.json({ error: 'Missing required fields: formType, claimId, or profileId' }, { status: 400 });
+    const user = session.user as AppUser;
+    const preparerProfileId = user.profileId; // Profile ID of the authenticated preparer
+
+    if (!preparerProfileId) {
+      return NextResponse.json({ error: 'User profile ID not found in session. Cannot determine preparer.' }, { status: 403 });
+    }
+
+    // 2. Request Body Parsing
+    const body = await req.json() as GenerateFormRequestBody;
+    const { formType, claimId, additionalData = {} } = body;
+
+    if (!formType || !claimId) {
+      return NextResponse.json({ error: 'Missing required fields: formType or claimId' }, { status: 400 });
     }
 
     const fieldMap = formMappings[formType];
@@ -41,37 +51,52 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Form type "${formType}" is not supported or mappings not found.` }, { status: 400 });
     }
 
-    // 1. Fetch data from the database
-    const claim = await prisma.claim.findUnique({
-      where: { id: claimId },
+    // 3. Fetch data from the database with Authorization
+    // Ensure the claim is associated with the authenticated preparer's profileId via the InjuredWorker
+    const claim = await prisma.claim.findFirst({
+      where: {
+        id: claimId,
+        injuredWorker: { // The InjuredWorker related to this claim
+          profileId: preparerProfileId, // MUST be associated with the authenticated preparer
+        },
+      },
       include: {
         injuredWorker: true,
         employer: true,
       },
     });
 
+    if (!claim) { // If claim is null, it means either not found OR not authorized
+      return NextResponse.json({ error: 'Claim not found or you are not authorized to access this claim.' }, { status: 404 });
+    }
+
+    // Fetch preparer's profile (already known to be the authenticated user)
+    // This step is still useful for getting the preparer's full details for the form
     const preparerProfile = await prisma.profile.findUnique({
-      where: { id: profileId },
+      where: { id: preparerProfileId },
       include: {
           user: true
       }
     });
 
-    if (!claim?.injuredWorker || !claim?.employer) {
-      return NextResponse.json({ error: 'Claim, Injured Worker, or Employer not found.' }, { status: 404 });
+    // These checks are now more robust due to the authorized claim fetch
+    if (!claim.injuredWorker || !claim.employer) {
+      // This state should be less likely if the claim itself was found and authorized
+      console.error(`Data inconsistency: Claim ${claimId} found but missing related InjuredWorker or Employer.`);
+      return NextResponse.json({ error: 'Critical data missing for the claim (Injured Worker or Employer).' }, { status: 500 });
     }
     if (!preparerProfile?.user) {
-        return NextResponse.json({ error: 'Preparer profile or associated user not found.' }, { status: 404 });
+      console.error(`Data inconsistency: Preparer profile ${preparerProfileId} not found for authenticated user.`);
+      return NextResponse.json({ error: 'Preparer profile or associated user not found.' }, { status: 500 });
     }
 
     const { injuredWorker, employer } = claim;
     const preparerUser = preparerProfile.user;
 
-    // 2. Construct the data object for PDF filling
+    // 4. Construct the data object for PDF filling (logic remains largely the same)
     const preparerPhone = getString(preparerProfile.phone_number);
     const preparerPhoneParts = splitPhoneNumber(preparerPhone);
 
-    // Using a more specific type for pdfData
     const pdfData: Record<string, PdfFieldValue> = {
       // Common Header Info
       "WCC_File_No": getString(claim.wcc_file_number),
@@ -82,7 +107,7 @@ export async function POST(req: NextRequest) {
       // Parties
       "Claimant_Name": `${getString(injuredWorker.first_name)} ${getString(injuredWorker.middle_name)} ${getString(injuredWorker.last_name)}`.replace(/\s+/g, ' ').trim(),
       "Claimant_SSN_Full": getString(injuredWorker.ssn),
-      ...splitSSN(injuredWorker.ssn), // ssn1, ssn2, ssn3 are strings
+      ...splitSSN(injuredWorker.ssn),
       "Employer_Name": getString(employer.name),
       "Claimant_Address_Street": getString(injuredWorker.address_line1) + (injuredWorker.address_line2 ? ` ${getString(injuredWorker.address_line2)}` : ''),
       "Employer_Address_Street": getString(employer.address_line1) + (employer.address_line2 ? ` ${getString(employer.address_line2)}` : ''),
@@ -94,7 +119,7 @@ export async function POST(req: NextRequest) {
       "Employer_Zip_Code": getString(employer.zip_code),
 
       // Contact Info
-      ...splitPhoneNumber(injuredWorker.phone_number), // area, prefix, suffix are strings
+      ...splitPhoneNumber(injuredWorker.phone_number),
       "Claimant_Home_Phone_AreaCode": splitPhoneNumber(injuredWorker.phone_number).area,
       "Claimant_Home_Phone_Prefix": splitPhoneNumber(injuredWorker.phone_number).prefix,
       "Claimant_Home_Phone_Suffix": splitPhoneNumber(injuredWorker.phone_number).suffix,
@@ -143,8 +168,7 @@ export async function POST(req: NextRequest) {
       "Issuing_Officer_Phone_Suffix": preparerPhoneParts.suffix,
       "Date_Issued": formatDateForPDF(new Date()),
 
-      // Checkbox values (true/false) - MUST come from additionalData
-      // Type assertion 'as boolean' is used here assuming these will be booleans if present.
+      // Checkbox values
       "Checkbox_Stop_Payment_Compensation": additionalData?.checkbox_stop_payment === true,
       "Checkbox_Appear_For_Hearing_Testimony": additionalData?.checkbox_appear_hearing === true,
       "Checkbox_Appear_For_Deposition_Testimony": additionalData?.checkbox_appear_deposition === true,
@@ -167,29 +191,27 @@ export async function POST(req: NextRequest) {
       "Checkbox_Mediation_D_Conducted_Impasse": additionalData?.checkbox_mediation_D === true,
     };
 
-
-    // 3. Load the PDF template
+    // 5. Load the PDF template
     const formNumber = formType.replace('SCWCC_Form', '');
     const templateFileName = `${formNumber}.pdf`;
     const templatePath = path.join(process.cwd(), 'pdf-templates', templateFileName);
 
     console.log(`Attempting to load PDF template from: ${templatePath}`);
-
     let pdfBytes: Uint8Array;
     try {
       pdfBytes = await fs.readFile(templatePath);
     } catch (err) {
       console.error(`Error reading PDF template ${templatePath}:`, err);
-      return NextResponse.json({ error: `PDF template for ${formType} (${templateFileName}) not found at specified path.` }, { status: 500 });
+      return NextResponse.json({ error: `PDF template for ${formType} (${templateFileName}) not found.` }, { status: 500 });
     }
 
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const form = pdfDoc.getForm();
 
-    // 4. Fill the PDF fields
+    // 6. Fill the PDF fields
     for (const humanReadableName in fieldMap) {
       const pdfFieldName = fieldMap[humanReadableName];
-      const value: PdfFieldValue = pdfData[humanReadableName]; // Use the specific type
+      const value: PdfFieldValue = pdfData[humanReadableName];
 
       if (pdfFieldName.toLowerCase().startsWith('undefined')) {
         console.warn(`Skipping field "${humanReadableName}" with potentially problematic PDF name: "${pdfFieldName}"`);
@@ -201,32 +223,26 @@ export async function POST(req: NextRequest) {
 
       try {
         const field = form.getField(pdfFieldName);
-
         if (field instanceof PDFTextField) {
-          field.setText(String(value)); // Value is already string, number, boolean, or null
+          field.setText(String(value));
         } else if (field instanceof PDFCheckBox) {
-          if (value === true) { // Checkboxes expect boolean
-            field.check();
-          } else {
-             field.uncheck();
-          }
-        }
-        else if (field) {
-             console.warn(`Field "${pdfFieldName}" (mapped from "${humanReadableName}") has an unhandled type: ${field.constructor.name}`);
+          if (value === true) field.check();
+          else field.uncheck();
+        } else if (field) {
+          console.warn(`Field "${pdfFieldName}" (mapped from "${humanReadableName}") has an unhandled type: ${field.constructor.name}`);
         } else {
-             console.warn(`Field "${pdfFieldName}" (mapped from "${humanReadableName}") not found in the PDF form.`);
+          console.warn(`Field "${pdfFieldName}" (mapped from "${humanReadableName}") not found in the PDF form.`);
         }
-
       } catch (e: unknown) {
         const error = e instanceof Error ? e : new Error(String(e));
         console.warn(`Could not fill field "${pdfFieldName}" (mapped from "${humanReadableName}") with value "${value}". Error: ${error.message}`);
       }
     }
 
-    // 5. Serialize the PDF to bytes
+    // 7. Serialize the PDF to bytes
     const filledPdfBytes = await pdfDoc.save();
 
-    // 6. Return the PDF
+    // 8. Return the PDF
     const headers = new Headers();
     headers.set('Content-Type', 'application/pdf');
     const safeLastName = getString(injuredWorker.last_name).replace(/[^a-zA-Z0-9]/g, '_');
@@ -239,7 +255,6 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('Error generating PDF:', error);
     return NextResponse.json({ error: 'Failed to generate PDF.', details: message }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
+  // Removed prisma.$disconnect() as it's better handled by the shared Prisma instance pattern
 }

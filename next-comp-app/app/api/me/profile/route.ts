@@ -1,10 +1,8 @@
 // app/api/me/profile/route.ts
 import { NextResponse } from 'next/server';
 // Corrected: Import 'auth' from your central NextAuth.js setup file
-import { auth } from '@/lib/auth'; // Ensure this path points to your new lib/auth.ts
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { auth } from '@/auth';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
   try {

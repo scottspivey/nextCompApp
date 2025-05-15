@@ -1,12 +1,13 @@
 // app/claims/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/app/Components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/app/Components/ui/card';
+import { Input } from '@/app/Components/ui/input';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/app/Components/ui/card';
 import {
   Table,
   TableBody,
@@ -15,14 +16,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/app/Components/ui/table";
+import { RadioGroup, RadioGroupItem } from "@/app/Components/ui/radio-group";
+import { Label } from "@/app/Components/ui/label";
 import { useToast } from "@/app/Components/ui/use-toast";
-import { 
-    Loader2, 
-    ArrowLeft, 
-    Edit3,      // Changed from FileSearch
-    PlusCircle, 
+import {
+    Loader2,
+    ArrowLeft,
+    Edit3,
+    FilePlus2,
     AlertTriangle,
-    Trash2      // Added for delete
+    Trash2,
+    FileText, // Icon for claims
+    ArrowUpDown,
+    Search
 } from 'lucide-react';
 import {
     AlertDialog,
@@ -35,93 +41,192 @@ import {
     AlertDialogTitle,
 } from "@/app/Components/ui/alert-dialog";
 import { format, isValid, parseISO } from 'date-fns';
-import type { AppUser } from '@/types/next-auth'; 
+// import type { AppUser } from '@/types/next-auth'; // Not directly used in this component's logic
 
 interface ClaimListItem {
   id: string;
   wcc_file_number: string | null;
-  date_of_injury: string | null; 
+  date_of_injury: string | null;
   claim_status: string | null;
   injuredWorker: {
     id: string;
     first_name: string | null;
     last_name: string | null;
   } | null;
+  employerName?: string | null;
 }
 
 interface ApiErrorData {
     error?: string;
-    details?: unknown; 
+    details?: unknown;
 }
+
+type SortableClaimKeys = 'wcc_file_number' | 'injuredWorkerName' | 'date_of_injury' | 'claim_status' | 'employerName';
+
+interface SortConfig {
+    key: SortableClaimKeys | null;
+    direction: 'ascending' | 'descending';
+}
+
+const OPEN_CLAIM_STATUSES_FOR_CLAIMS: string[] = ["Open", "Pending", "Active", "In Progress", "Unknown", "Accepted", "Investigating", "In Litigation", "Pending Review"];
+const CLOSED_CLAIM_STATUSES_FOR_CLAIMS: string[] = ["Closed", "Settled", "Denied", "Finaled"];
+
 
 export default function ClaimsListPage() {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const { toast } = useToast();
 
-  const [claims, setClaims] = useState<ClaimListItem[]>([]);
-  const [pageStatus, setPageStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [allClaims, setAllClaims] = useState<ClaimListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date_of_injury', direction: 'descending' });
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('open');
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [claimToDelete, setClaimToDelete] = useState<ClaimListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Memoize fetchClaims to stabilize its reference if it were used in other useEffects,
-  // though in this case, it's defined and called within the main data-fetching useEffect.
-  // The primary benefit here is to clearly list its own dependencies.
-  const fetchClaimsCallback = useCallback(async (profileId: string) => {
-    setPageStatus('loading');
+  const fetchClaims = useCallback(async () => {
+    setIsLoading(true);
     setError(null);
     try {
-      // This is the correct endpoint for fetching claims for the current user's profile
-      const response = await fetch(`/api/claims`); 
+      const response = await fetch(`/api/claims`);
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({error: "Failed to parse error response"}));
-        throw new Error(errData.error || `Failed to fetch claims: ${response.statusText}`);
+        let errData: ApiErrorData = { error: "Failed to parse error response" }; // Default error
+        try {
+            // Attempt to parse the error response, assuming it might be JSON
+            const parsedError: unknown = await response.json();
+            if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError && typeof (parsedError as ApiErrorData).error === 'string') {
+                 errData = parsedError as ApiErrorData;
+            }
+        } catch (parseError) {
+            // If parsing fails, stick with the default or use response status text
+            console.warn("Failed to parse error JSON from API:", parseError);
+            errData.error = response.statusText || "Failed to fetch claims";
+        }
+        throw new Error(errData.error);
       }
-      const data: ClaimListItem[] = await response.json();
-      setClaims(data);
-      setPageStatus('loaded');
+      const data: ClaimListItem[] = await response.json() as ClaimListItem[]; // Type assertion
+      setAllClaims(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
       console.error("Error fetching claims:", err);
       setError(message);
-      setPageStatus('error');
+      toast({
+        title: "Error Fetching Claims",
+        description: message,
+        variant: "destructive",
+      });
+      setAllClaims([]);
+    } finally {
+      setIsLoading(false);
     }
-  }, []); // No external dependencies needed for the fetch URL itself, as profileId is handled by session in API
+  }, [toast]);
 
   useEffect(() => {
-    const userProfileId = session?.user?.profileId;
-
-    if (sessionStatus === "authenticated") {
-      if (userProfileId) {
-        // console.log("ClaimsListPage: Authenticated with profileId, attempting to fetch claims.");
-        void fetchClaimsCallback(userProfileId); 
-      } else {
-        // console.log("ClaimsListPage: Authenticated but profileId is missing.");
-        toast({ title: "Profile Error", description: "User profile ID is missing. Cannot load claims.", variant: "destructive" });
-        setError("User profile ID is missing. Cannot load claims.");
-        setPageStatus('error');
-      }
+    if (sessionStatus === "authenticated" && session?.user?.profileId) {
+      void fetchClaims();
     } else if (sessionStatus === "unauthenticated") {
-      // console.log("ClaimsListPage: Unauthenticated, redirecting to login.");
       toast({ title: "Authentication Required", description: "Please log in to view claims." });
       router.push("/login");
-    } else if (sessionStatus === "loading") {
-        // console.log("ClaimsListPage: Session status is loading.");
-        setPageStatus('loading'); // Explicitly set page to loading while session loads
     }
-  // Dependencies: these values trigger the effect when they change.
-  // fetchClaimsCallback is memoized and stable.
-  // router and toast are stable hooks.
-  }, [sessionStatus, session?.user?.profileId, fetchClaimsCallback, router, toast]);
+  }, [sessionStatus, session?.user?.profileId, fetchClaims, router, toast]);
 
+
+  const displayedClaims = useMemo(() => {
+    let processedClaims = [...allClaims];
+
+    if (statusFilter === 'open') {
+      processedClaims = processedClaims.filter(claim =>
+        claim.claim_status && OPEN_CLAIM_STATUSES_FOR_CLAIMS.includes(claim.claim_status)
+      );
+    } else if (statusFilter === 'closed') {
+      processedClaims = processedClaims.filter(claim =>
+        claim.claim_status && CLOSED_CLAIM_STATUSES_FOR_CLAIMS.includes(claim.claim_status)
+      );
+    }
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      processedClaims = processedClaims.filter(claim => {
+        const workerName = claim.injuredWorker
+          ? `${claim.injuredWorker.first_name || ''} ${claim.injuredWorker.last_name || ''}`.toLowerCase()
+          : '';
+        return (
+          (claim.wcc_file_number && claim.wcc_file_number.toLowerCase().includes(term)) ||
+          workerName.includes(term) ||
+          (claim.claim_status && claim.claim_status.toLowerCase().includes(term)) ||
+          (claim.employerName && claim.employerName.toLowerCase().includes(term))
+        );
+      });
+    }
+
+    if (sortConfig.key !== null) {
+      processedClaims.sort((a, b) => {
+        let aValue: string | number | null | undefined;
+        let bValue: string | number | null | undefined;
+
+        switch (sortConfig.key) {
+          case 'injuredWorkerName':
+            aValue = a.injuredWorker ? `${a.injuredWorker.last_name || ''} ${a.injuredWorker.first_name || ''}`.trim().toLowerCase() : '';
+            bValue = b.injuredWorker ? `${b.injuredWorker.last_name || ''} ${b.injuredWorker.first_name || ''}`.trim().toLowerCase() : '';
+            break;
+          case 'date_of_injury':
+            aValue = a.date_of_injury ? parseISO(a.date_of_injury).getTime() : null;
+            bValue = b.date_of_injury ? parseISO(b.date_of_injury).getTime() : null;
+            break;
+          case 'employerName':
+             aValue = a.employerName?.toLowerCase() || '';
+             bValue = b.employerName?.toLowerCase() || '';
+             break;
+          default:
+            // Ensure type safety for direct property access
+            const key = sortConfig.key as Exclude<SortableClaimKeys, 'injuredWorkerName' | 'date_of_injury' | 'employerName'>;
+            aValue = a[key]?.toLowerCase() || '';
+            bValue = b[key]?.toLowerCase() || '';
+        }
+        
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return processedClaims;
+  }, [allClaims, searchTerm, sortConfig, statusFilter]);
+
+  const requestSort = (key: SortableClaimKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key: SortableClaimKeys) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    }
+    return <ArrowUpDown className="ml-2 h-3 w-3 opacity-50 group-hover:opacity-100 inline-block" />;
+  };
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A';
-    const date = parseISO(dateString);
-    return isValid(date) ? format(date, 'MM/dd/yyyy') : 'Invalid Date';
+    try {
+        const date = parseISO(dateString);
+        return isValid(date) ? format(date, 'MM/dd/yyyy') : 'Invalid Date';
+    } catch { // Removed _e as it's not used
+        return 'Invalid Date';
+    }
   };
 
   const openDeleteConfirmation = (claim: ClaimListItem) => {
@@ -137,11 +242,20 @@ export default function ClaimsListPage() {
         method: 'DELETE',
       });
       if (!response.ok) {
-        const errorData: ApiErrorData = await response.json().catch(() => ({ error: "An unknown error occurred during deletion."}));
-        throw new Error(errorData.error || `Failed to delete claim: ${response.statusText}`);
+        let errorData: ApiErrorData = { error: "An unknown error occurred during deletion." }; // Default
+        try {
+            const parsedError: unknown = await response.json();
+             if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError && typeof (parsedError as ApiErrorData).error === 'string') {
+                 errorData = parsedError as ApiErrorData;
+            }
+        } catch (parseError) {
+            console.warn("Failed to parse error JSON from API during delete:", parseError);
+            errorData.error = response.statusText || "Failed to delete claim";
+        }
+        throw new Error(errorData.error);
       }
       
-      setClaims(prevClaims => prevClaims.filter(c => c.id !== claimToDelete.id));
+      setAllClaims(prevClaims => prevClaims.filter(c => c.id !== claimToDelete.id));
       toast({
         title: "Success!",
         description: `Claim (WCC#: ${claimToDelete.wcc_file_number || claimToDelete.id.substring(0,8)}) has been deleted.`,
@@ -161,7 +275,7 @@ export default function ClaimsListPage() {
     }
   };
 
-  if (pageStatus === 'loading') {
+  if (sessionStatus === "loading" || (isLoading && allClaims.length === 0)) {
     return (
       <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -171,70 +285,102 @@ export default function ClaimsListPage() {
       </div>
     );
   }
-
-  if (pageStatus === 'error') {
-    return (
-      <div className="container mx-auto px-4 py-8 flex flex-col items-center">
-        <Card className="w-full max-w-lg bg-destructive/10 border-destructive">
-          <CardHeader>
-            <CardTitle className="flex items-center text-destructive">
-              <AlertTriangle className="mr-2 h-5 w-5" /> Error Loading Claims
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-destructive-foreground">{error || "Claim data could not be loaded."}</p>
-            <Button variant="outline" onClick={() => router.push('/dashboard')} className="mt-4">
-              Back to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  
   return (
     <>
-      <div className="container mx-auto max-w-5xl px-4 py-8 md:py-12">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center space-x-3">
-              <Button variant="outline" size="icon" onClick={() => router.push('/dashboard')} aria-label="Back to Dashboard">
+      <div className="container mx-auto max-w-7xl px-4 py-8 md:py-12">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          <div className="flex items-center space-x-3 self-start sm:self-center">
+              <Button variant="outline" size="icon" onClick={() => router.back()} aria-label="Go Back">
                   <ArrowLeft className="h-5 w-5" />
               </Button>
-              <h1 className="text-3xl font-bold tracking-tight">My Claims</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center">
+                <FileText className="mr-3 h-8 w-8" /> My Claims
+              </h1>
           </div>
-          <Button asChild>
-            <Link href="/claims/new"> {/* Updated Link to new claims page */}
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Claim
+          <Button asChild className="self-end sm:self-center">
+            <Link href="/claims/new">
+              <FilePlus2 className="mr-2 h-4 w-4" /> Add New Claim
             </Link>
           </Button>
         </div>
 
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <div className="relative w-full sm:max-w-sm">
+                <Input
+                    type="text"
+                    placeholder="Search claims, worker, status..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            </div>
+            <RadioGroup
+                value={statusFilter}
+                onValueChange={(value: 'all' | 'open' | 'closed') => setStatusFilter(value)}
+                className="flex items-center space-x-2 sm:space-x-4"
+            >
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="all" id="allClaims" />
+                    <Label htmlFor="allClaims" className="cursor-pointer">All Claims</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="open" id="openClaims" />
+                    <Label htmlFor="openClaims" className="cursor-pointer">Open Claims</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="closed" id="closedClaims" />
+                    <Label htmlFor="closedClaims" className="cursor-pointer">Closed Claims</Label>
+                </div>
+            </RadioGroup>
+        </div>
+        
+        {error && !isLoading && (
+          <Card className="mb-6 bg-destructive/10 border-destructive">
+            <CardHeader><CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5" /> Error Loading Claims</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-destructive-foreground">{error}</p>
+              <Button variant="outline" size="sm" onClick={() => void fetchClaims()} className="mt-4">
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
-          <CardHeader>
-            <CardTitle>All Claims</CardTitle>
-            <CardDescription>
-              A list of all claims associated with your profile. Select a claim to view or edit its details.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {claims.length > 0 ? (
+          <CardContent className="pt-6">
+            {isLoading && displayedClaims.length === 0 && !error ? (
+                 <div className="text-center py-10 text-muted-foreground">
+                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary mb-2" />
+                    Loading claims...
+                </div>
+            ) : displayedClaims.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>WCC File #</TableHead>
-                    <TableHead>Injured Worker</TableHead>
-                    <TableHead>Date of Injury</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="cursor-pointer group" onClick={() => requestSort('wcc_file_number')}>
+                      WCC File # <span className="inline-flex align-middle">{getSortIndicator('wcc_file_number')}</span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer group" onClick={() => requestSort('injuredWorkerName')}>
+                      Injured Worker <span className="inline-flex align-middle">{getSortIndicator('injuredWorkerName')}</span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer group" onClick={() => requestSort('date_of_injury')}>
+                      Date of Injury <span className="inline-flex align-middle">{getSortIndicator('date_of_injury')}</span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer group" onClick={() => requestSort('claim_status')}>
+                      Status <span className="inline-flex align-middle">{getSortIndicator('claim_status')}</span>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {claims.map((claim) => (
+                  {displayedClaims.map((claim) => (
                     <TableRow key={claim.id}>
                       <TableCell className="font-medium">{claim.wcc_file_number || 'N/A'}</TableCell>
                       <TableCell>
-                        {claim.injuredWorker 
-                          ? `${claim.injuredWorker.first_name || ''} ${claim.injuredWorker.last_name || ''}`.trim() 
+                        {claim.injuredWorker
+                          ? `${claim.injuredWorker.first_name || ''} ${claim.injuredWorker.last_name || ''}`.trim()
                           : 'N/A'}
                       </TableCell>
                       <TableCell>{formatDate(claim.date_of_injury)}</TableCell>
@@ -242,12 +388,12 @@ export default function ClaimsListPage() {
                       <TableCell className="text-right space-x-2">
                         <Button variant="outline" size="sm" asChild>
                           <Link href={`/claims/${claim.id}`}>
-                            <Edit3 className="mr-2 h-4 w-4" /> View/Edit
+                            <Edit3 className="mr-2 h-3 w-3" /> View/Edit
                           </Link>
                         </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
+                        <Button
+                          variant="destructive"
+                          size="sm"
                           onClick={() => openDeleteConfirmation(claim)}
                           aria-label={`Delete claim ${claim.wcc_file_number || claim.id}`}
                         >
@@ -259,16 +405,30 @@ export default function ClaimsListPage() {
                 </TableBody>
               </Table>
             ) : (
-              <div className="text-center py-10">
-                <p className="text-muted-foreground">No claims found.</p>
-                <Button className="mt-4" asChild>
-                  <Link href="/claims/new"> {/* Updated Link to new claims page */}
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Your First Claim
-                  </Link>
-                </Button>
-              </div>
+              !error && (
+                <div className="text-center py-10">
+                  <p className="text-muted-foreground">
+                    {searchTerm || statusFilter !== 'all' ? "No claims match your criteria." : "No claims found."}
+                  </p>
+                  {!(searchTerm || statusFilter !== 'all') && (
+                     <Button className="mt-4" asChild>
+                        <Link href="/claims/new">
+                            <FilePlus2 className="mr-2 h-4 w-4" /> Add Your First Claim
+                        </Link>
+                    </Button>
+                  )}
+                </div>
+              )
             )}
           </CardContent>
+          {displayedClaims.length > 0 && (
+              <CardFooter className="text-sm text-muted-foreground justify-between">
+                  <span>
+                    Showing {displayedClaims.length} of {allClaims.length} total claim(s)
+                    {statusFilter !== 'all' ? ` (matching status: ${statusFilter})` : ""}.
+                  </span>
+              </CardFooter>
+          )}
         </Card>
       </div>
 
@@ -284,7 +444,7 @@ export default function ClaimsListPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setClaimToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteClaim} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction onClick={() => void confirmDeleteClaim()} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
               {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
               {isDeleting ? 'Deleting...' : 'Yes, delete claim'}
             </AlertDialogAction>

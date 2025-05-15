@@ -13,15 +13,15 @@ import {
     Users,
     UserPlus, 
     Calculator, 
-    Briefcase, 
+    //Briefcase, 
     FileText, 
     ClipboardList, 
-    FilePlus2, // For "Add a Claim" via workers list
+    FilePlus2, // For "Add a Claim"
     Settings, 
-    Bell, 
+    //Bell, 
     HelpCircle,
     BarChart3, // For Stats/Reports
-    DollarSign, // For Subscription/Billing
+    //DollarSign, // For Subscription/Billing
     LogOut,
     Loader2, // For Loading Spinner
     UserCircle, // For Profile
@@ -29,7 +29,6 @@ import {
     BookOpen // For Helpful Resources
 } from 'lucide-react';
 import { signOut } from "next-auth/react";
-import type { AppUser } from '@/types/next-auth'; // Ensure this path is correct
 
 // Define types for dashboard data - adjust as per your actual data structure
 interface UserProfile {
@@ -80,7 +79,7 @@ export default function DashboardPage() {
         if (status === "unauthenticated") {
             router.push('/login');
         } else if (status === "authenticated" && session?.user) {
-            const typedUser = session.user as AppUser; // Cast to your AppUser type
+            const typedUser = session.user; 
             
             setUserProfile({
                 full_name: typedUser.name, 
@@ -209,7 +208,7 @@ export default function DashboardPage() {
                                 {userProfile.subscriptionStatus && (
                                      <p className="text-xs text-center text-muted-foreground pt-2">Subscription: <span className="font-semibold text-primary">{userProfile.subscriptionStatus}</span></p>
                                 )}
-                                <Button variant="ghost" className="w-full justify-start text-destructive hover:text-destructive-foreground hover:bg-destructive/90" onClick={() => signOut({ callbackUrl: '/login' })}>
+                                <Button variant="ghost" className="w-full justify-start text-destructive hover:text-destructive-foreground hover:bg-destructive/90" onClick={() => void signOut({ callbackUrl: '/login' })}>
                                     <LogOut className="mr-2 h-4 w-4" /> Sign Out
                                 </Button>
                             </CardContent>

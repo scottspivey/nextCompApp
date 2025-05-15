@@ -17,6 +17,15 @@ import { Loader2, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { AlternativeDatePicker } from "@/app/Components/ui/date-picker";
 import { useSession } from 'next-auth/react';
 
+// Define date boundaries dynamically
+const maxInjuryDate = new Date(); // This is "today" at the moment of script execution/component rendering
+const minInjuryDate = new Date();
+minInjuryDate.setFullYear(maxInjuryDate.getFullYear() - 100);
+// To prevent issues with the time part making "today" fail for dates selected on "today":
+maxInjuryDate.setHours(23, 59, 59, 999); // Set maxInjuryDate to the end of the current day
+minInjuryDate.setHours(0, 0, 0, 0);    // Set minInjuryDate to the beginning of that day 100 years ago
+
+
 // Zod schema for the "Add Claim" form
 const addClaimFormSchema = z.object({
   injuredWorkerId: z.string({required_error: "Injured Worker is required."}).uuid("Injured Worker selection is required."), 
@@ -25,7 +34,9 @@ const addClaimFormSchema = z.object({
   wcc_file_number: z.string().optional().nullable(),
   carrier_file_number: z.string().optional().nullable(),
   
-  date_of_injury: z.date({ required_error: "Date of injury is required." }), 
+  date_of_injury: z.date({ required_error: "Date of injury is required." })
+    .min(minInjuryDate, { message: `Date of injury must be on or after ${minInjuryDate.toLocaleDateString()}.` }) // Dynamic message
+    .max(maxInjuryDate, { message: `Date of injury cannot be after ${maxInjuryDate.toLocaleDateString()}.` }), // Dynamic message
   
   time_of_injury: z.string().optional().nullable(),
   place_of_injury: z.string().optional().nullable(),
@@ -154,7 +165,7 @@ export default function AddNewClaimPage() {
                         if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError && typeof (parsedError as ApiErrorData).error === 'string') {
                             errData = parsedError as ApiErrorData;
                         }
-                    } catch (_e) { // Changed e to _e as it's not used (Error at line 159)
+                    } catch (_e) {
                          errData.error = workersResponse.statusText || "Failed to fetch injured workers list.";
                     }
                     throw new Error(errData.error);
@@ -208,7 +219,7 @@ export default function AddNewClaimPage() {
             } else {
                  errorData.error = `Failed to add claim: ${response.statusText}`;
             }
-        } catch (_e) { // Changed e to _e as it's not used (Error at line 217)
+        } catch (_e) { 
             errorData.error = `Failed to add claim: ${response.statusText}`;
         }
         throw new Error(errorData.error);

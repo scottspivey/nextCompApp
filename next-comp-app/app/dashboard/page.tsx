@@ -146,7 +146,7 @@ export default function DashboardPage() {
                                 </CardHeader>
                                 <CardContent className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
                                     <ActionButton icon={UserPlus} label="Add New Worker" description="Create a profile for an injured worker." href="/workers/new" />
-                                    <ActionButton icon={FilePlus2} label="Add a Claim" description="Start a new claim for an existing worker." href="/workers" />
+                                    <ActionButton icon={FilePlus2} label="Add a Claim" description="Start a new claim for an existing worker." href="/claims/new" />
                                     <ActionButton icon={Users} label="View Workers" description="See and manage all injured workers." href="/workers" />
                                     <ActionButton icon={ClipboardList} label="View Claims" description="Access and review all claims." href="/claims" />
                                     <ActionButton icon={FileText} label="Generate Forms" description="Create and fill SCWCC forms." href="/tools/generate-form" />

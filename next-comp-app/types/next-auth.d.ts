@@ -1,47 +1,45 @@
 // types/next-auth.d.ts
-import type { DefaultSession, User as CoreUser } from "@auth/core/types"; // Using CoreUser as alias for base
-import type { JWT as DefaultJWT } from "@auth/core/jwt";
 
-// These are the custom fields you want to add.
-interface CustomAuthUserFields {
-  profileId?: string | null;
-  role?: string | null;
-  subscriptionStatus?: string | null;
+import type { User as CoreNextAuthUser, Session as CoreNextAuthSession } from 'next-auth';
+import type { JWT as CoreJWT } from '@auth/core/jwt';
+
+// 1. Define and EXPORT our comprehensive AppUser interface.
+// This includes fields from NextAuth's base User (id, name, email, image)
+// and our explicitly added fields.
+export interface AppUser extends CoreNextAuthUser { 
+  emailVerified?: Date | null;        // Explicitly add emailVerified
+  profileId?: string | null;          // Your custom field
+  role?: string | null;               // Your custom field
+  subscriptionStatus?: string | null; // Your custom field
 }
 
-declare module "@auth/core/types" {
+// 2. Augment NextAuth's Session type.
+declare module 'next-auth' {
   /**
-   * The `user` object shape available in the session.
-   * Augmenting DefaultSession["user"] which includes id, name, email, image.
+   * The `user` property within Session will now be our AppUser.
    */
-  interface Session {
-    user: {
-      profileId?: string | null;
-      role?: string | null;
-      subscriptionStatus?: string | null;
-    } & DefaultSession["user"]; 
+  interface Session extends CoreNextAuthSession {
+    user: AppUser; // Use our exported AppUser interface
     error?: string;
   }
-
-  /**
-   * Augmenting the User type.
-   * CoreUser includes: id: string; name?: string | null; email?: string | null; image?: string | null;
-   * We explicitly add emailVerified and our custom fields.
-   * This augmented User type is what `authorize` should return, and what the `jwt` callback
-   * should use for its fully resolved user object.
-   */
-  interface User extends CoreUser, CustomAuthUserFields {
-    emailVerified?: Date | null; // Explicitly add emailVerified
-  }
+  // We do NOT augment 'next-auth''s User type directly here,
+  // as we are using our own AppUser type explicitly in auth.ts where needed.
+  // However, if 'next-auth' User type is used by Auth.js internally for parameters,
+  // and it's not picking up AppUser structure, that's where issues arise.
+  // Let's try augmenting it as well to cover all bases.
+  interface User extends AppUser {}
 }
 
-declare module "@auth/core/jwt" {
-  /** Augmenting the JWT type */
-  interface JWT extends DefaultJWT {
-    userId: string; // User.id (same as token.sub)
+// 3. Augment @auth/core/jwt's JWT type.
+declare module '@auth/core/jwt' {
+  interface JWT extends CoreJWT {
+    userId: string; // Ensure this is present and matches what's expected.
     profileId?: string | null;
     role?: string | null;
     subscriptionStatus?: string | null;
+    name?: string | null;
+    email?: string | null;
+    picture?: string | null;
     error?: string;
   }
 }

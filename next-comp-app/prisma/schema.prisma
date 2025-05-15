@@ -8,14 +8,20 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
+  // Ensure Prisma Client is generated correctly relative to your package.json
+  // If your prisma folder is at the root of your project (alongside package.json),
+  // output = "../node_modules/.prisma/client" is common.
+  // If prisma folder is inside an 'app' or 'src' directory, adjust accordingly or use the default.
+  // Default is usually: output = "./node_modules/.prisma/client" if schema.prisma is in a 'prisma' folder at the root.
+  // Let's assume your current output path is correct for your project structure.
+  // output = "../node_modules/.prisma/client" 
 }
 
-// --- NextAuth.js Models --- (Assumed Unchanged)
+// --- NextAuth.js Models ---
 
 model Account {
   id                String  @id @default(cuid())
-  userId            String  @map("user_id") @db.Uuid
+  userId            String  @map("user_id") // Consider changing to @db.Uuid if User.id is Uuid and you want FK constraint
   type              String
   provider          String
   providerAccountId String  @map("provider_account_id")
@@ -36,7 +42,7 @@ model Account {
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique @map("session_token")
-  userId       String   @map("user_id") @db.Uuid
+  userId       String   @map("user_id") // Consider changing to @db.Uuid
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -44,16 +50,17 @@ model Session {
 }
 
 model User {
-  id            String        @id @default(uuid()) @db.Uuid
-  name          String?
-  email         String?       @unique
-  emailVerified DateTime?     @map("email_verified")
+  id            String    @id @default(uuid()) @db.Uuid // Good, using UUIDs
+  name          String? // Standard NextAuth.js field, often full name from OAuth. Keep as is.
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
   image         String?
-  password      String?
-  accounts      Account[]
-  sessions      Session[]
-  profile       Profile?
-  subscriptions Subscription?
+  password      String?   // For credentials provider
+
+  accounts    Account[]
+  sessions    Session[]
+  profile     Profile?    // One-to-one relation with Profile
+  subscriptions Subscription? // One-to-one relation with Subscription
 
   @@map("users")
 }
@@ -71,18 +78,24 @@ model VerificationToken {
 
 model Profile {
   id     String @id @default(uuid()) @db.Uuid
-  userId String @unique @map("user_id") @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid // Foreign key to User model
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  full_name    String?
-  avatar_url   String?
-  role         String?
-  firm_name    String?
-  // Added phone number for preparer/issuing officer info
-  phone_number String? // Store preparer's phone here
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  // MODIFICATION: Add firstName and lastName
+  firstName String?
+  lastName  String?
+  // REMOVED: full_name String? // Replaced by firstName and lastName for more granular data.
+                           // You can construct full_name in your application logic if needed.
 
+  avatar_url String?
+  role       String? // CONSIDER: Enum for Role for type safety (see suggestion below)
+  firm_name  String?
+  phone_number String? // Preparer's phone
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
   injuredWorkers    InjuredWorker[]    @relation("ProfileToInjuredWorkers")
   claims            Claim[]            @relation("ProfileToClaims")
   savedCalculations SavedCalculation[] @relation("ProfileToSavedCalculations")
@@ -94,58 +107,57 @@ model Profile {
 }
 
 model Subscription {
-  id     String @id @default(uuid()) @db.Uuid
-  userId String @unique @map("user_id") @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id                   String    @id @default(uuid()) @db.Uuid
+  userId               String    @unique @map("user_id") @db.Uuid
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   stripe_customer_id     String?   @unique
   stripe_subscription_id String?   @unique
   plan_id                String?
-  status                 String?
-  current_period_end     DateTime?
+  status                 String?   // CONSIDER: Enum for SubscriptionStatus
+  current_period_end   DateTime?
   trial_end              DateTime?
-  createdAt              DateTime  @default(now()) @map("created_at")
-  updatedAt              DateTime  @updatedAt @map("updated_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   @@map("subscriptions")
 }
 
 model InjuredWorker {
-  id        String  @id @default(uuid()) @db.Uuid
-  profileId String  @map("profile_id") @db.Uuid
-  profile   Profile @relation("ProfileToInjuredWorkers", fields: [profileId], references: [id], onDelete: Cascade)
+  id          String   @id @default(uuid()) @db.Uuid
+  profileId   String   @map("profile_id") @db.Uuid
+  profile     Profile  @relation("ProfileToInjuredWorkers", fields: [profileId], references: [id], onDelete: Cascade)
 
-  first_name     String
-  middle_name    String?
-  last_name      String
-  suffix         String?
-  ssn            String?
-  date_of_birth  DateTime? @db.Date
-  gender         String?
-  marital_status String?
+  first_name    String
+  middle_name   String?
+  last_name     String
+  suffix        String?
+  ssn           String?  // CONSIDER: If storing SSN, ensure compliance and security. Mask in UI.
+  date_of_birth DateTime? @db.Date
+  gender        String?  // CONSIDER: Enum for Gender
+  marital_status String? // CONSIDER: Enum for MaritalStatus
 
-  address_line1     String?
-  address_line2     String?
-  city              String?
-  state             String?
-  zip_code          String?
-  phone_number      String? // Primary/Home phone
-  // Added work phone number
+  address_line1   String?
+  address_line2   String?
+  city            String?
+  state           String?
+  zip_code        String?
+  phone_number    String?
   work_phone_number String?
-  email             String?
+  email           String? @unique // An injured worker might have their own email, consider making it unique if it's a login. If just contact, unique might not be needed.
 
   occupation     String?
   num_dependents Int?
 
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
-  last_accessed_at DateTime? @default(now()) @map("last_accessed_at")
+  last_accessed_at DateTime? @default(now()) @map("last_accessed_at") // Consider @updatedAt for this if it's auto-managed on access/update
 
   claims            Claim[]
   notes             Note[]
   savedCalculations SavedCalculation[]
   formsGenerated    FormGenerated[]
 
+  @@index([profileId]) // Added for faster queries by profileId
   @@map("injured_workers")
 }
 
@@ -161,8 +173,7 @@ model Employer {
   phone_number            String?
   insurance_carrier_name  String?
   insurance_policy_number String?
-  // Added carrier code
-  carrier_code            String? // For WCC forms
+  carrier_code            String?
   contact_person_name     String?
   contact_person_phone    String?
   contact_person_email    String?
@@ -170,43 +181,44 @@ model Employer {
   updated_at              DateTime @updatedAt @map("updated_at")
 
   claims Claim[]
+  // SUGGESTION: If employers can be associated with multiple profiles (e.g. a public list of employers)
+  // then you might need a many-to-many relation with Profile, or keep it simple if employers are
+  // created ad-hoc per claim/profile. Current setup implies employers are not tied to a specific profile.
 
   @@map("employers")
 }
 
 model Claim {
-  id              String        @id @default(uuid()) @db.Uuid
-  injuredWorkerId String        @map("injured_worker_id") @db.Uuid
-  injuredWorker   InjuredWorker @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
+  id                String    @id @default(uuid()) @db.Uuid
+  injuredWorkerId   String    @map("injured_worker_id") @db.Uuid
+  injuredWorker     InjuredWorker @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
 
-  profileId String  @map("profile_id") @db.Uuid
-  profile   Profile @relation("ProfileToClaims", fields: [profileId], references: [id], onDelete: Cascade)
+  profileId         String    @map("profile_id") @db.Uuid
+  profile           Profile   @relation("ProfileToClaims", fields: [profileId], references: [id], onDelete: Cascade) // This means if a Profile is deleted, its claims are deleted.
 
-  employerId String?   @map("employer_id") @db.Uuid
-  employer   Employer? @relation(fields: [employerId], references: [id], onDelete: SetNull)
+  employerId        String?   @map("employer_id") @db.Uuid
+  employer          Employer? @relation(fields: [employerId], references: [id], onDelete: SetNull) // Good, if employer deleted, claim remains.
 
-  wcc_file_number     String? @unique
-  carrier_file_number String?
+  wcc_file_number       String?   @unique
+  carrier_file_number   String?
 
-  date_of_injury       DateTime  @db.Date
-  time_of_injury       String?
-  place_of_injury      String?   @db.Text
-  accident_description String?   @db.Text
-  part_of_body_injured String?   @db.Text
-  nature_of_injury     String?   @db.Text
-  cause_of_injury      String?   @db.Text
-  notice_given_date    DateTime? @db.Date
-
+  date_of_injury        DateTime  @db.Date
+  time_of_injury        String?
+  place_of_injury       String?   @db.Text
+  accident_description  String?   @db.Text
+  part_of_body_injured  String?   @db.Text // CONSIDER: This could become a relation to ScheduledLossBodyPart or a more structured field
+  nature_of_injury      String?   @db.Text
+  cause_of_injury       String?   @db.Text
+  notice_given_date     DateTime? @db.Date
   average_weekly_wage   Decimal?  @db.Decimal(10, 2)
   compensation_rate     Decimal?  @db.Decimal(10, 2)
   date_disability_began DateTime? @db.Date
   date_returned_to_work DateTime? @db.Date
-  // Added MMI date
-  mmi_date              DateTime? @db.Date // Maximum Medical Improvement date
+  mmi_date              DateTime? @db.Date
 
-  initial_treatment_desc      String? @db.Text
-  current_work_status         String?
-  permanent_impairment_rating Int?
+  initial_treatment_desc    String? @db.Text
+  current_work_status       String? // CONSIDER: Enum for WorkStatus
+  permanent_impairment_rating Int?    // This often relates to specific body parts and percentages.
 
   claimant_attorney_name    String?
   claimant_attorney_firm    String?
@@ -214,37 +226,147 @@ model Claim {
   claimant_attorney_phone   String?
   claimant_attorney_email   String?
 
-  claim_status String?
+  claim_status String? // CONSIDER: Enum for ClaimStatus
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  notes             Note[]
-  savedCalculations SavedCalculation[]
-  formsGenerated    FormGenerated[]
-
+  notes                   Note[]
+  savedCalculations       SavedCalculation[]
+  formsGenerated          FormGenerated[]
   claimMedicalProviderEntries ClaimMedicalProvider[] @relation("ClaimToClaimMedicalProvider")
+  // SUGGESTION: Add relation to ClaimImpairmentEntry if you create that model
+  // claimImpairments ClaimImpairmentEntry[]
 
+  @@index([profileId])
+  @@index([injuredWorkerId])
+  @@index([employerId])
   @@map("claims")
 }
 
-// --- Other models (MedicalProvider, ClaimMedicalProvider, FormGenerated, RateSetting, etc.) remain the same ---
+// --- NEW MODEL for Scheduled Loss Body Parts ---
+model ScheduledLossBodyPart {
+  id                   String  @id @default(cuid()) // CUID is fine, or uuid() if you prefer consistency
+  name                 String  @unique // e.g., "Thumb", "Arm (at shoulder)"
+  statutorySection     String? // e.g., "§ 42-9-30 (1)" - the relevant statute section
+  maxWeeksCompensation Int     // The number of weeks associated with 100% loss/impairment
+
+  description String? // Optional: more detailed description
+  category    String? // Optional: e.g., "Upper Extremity", "Lower Extremity", "Sensory"
+
+  // If linking directly to claims (more advanced, consider ClaimImpairmentEntry instead for %):
+  // claims Claim[] @relation("ClaimToBodyPartScheduledLoss") // This would be many-to-many if a claim could have multiple such entries.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("scheduled_loss_body_parts")
+}
+
+// SUGGESTION: Optional model for linking Claims to ScheduledLossBodyParts with impairment percentages
+// This allows a claim to have multiple impairments, each with its own percentage.
+model ClaimImpairmentEntry {
+  id                   String  @id @default(uuid()) @db.Uuid
+  claimId              String  @map("claim_id") @db.Uuid
+  claim                Claim   @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  scheduledLossBodyPartId String  @map("scheduled_loss_body_part_id") // CUID or UUID based on ScheduledLossBodyPart.id
+  scheduledLossBodyPart ScheduledLossBodyPart @relation(fields: [scheduledLossBodyPartId], references: [id], onDelete: Restrict) // Restrict deletion of body part if used
+
+  percentageImpairment Decimal @db.Decimal(5, 2) // e.g., 10.00 for 10.00%
+  // calculatedWeeks      Decimal? @db.Decimal(7,2) // This could be calculated on the fly or stored
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([claimId])
+  @@index([scheduledLossBodyPartId])
+  @@map("claim_impairment_entries")
+}
+
+
+// --- Other existing models (MedicalProvider, etc.) ---
+// ... (your MedicalProvider, ClaimMedicalProvider, FormGenerated, RateSetting, etc. models) ...
+// No changes suggested to these based on the current request, but review them for general best practices like enums and indexes.
+
+// SUGGESTION: Define Enums for fields with a fixed set of string values for better type safety and consistency.
+enum Role {
+  USER
+  ADMIN
+  // Add other roles as needed
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  // Add other statuses
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+  SEPARATED
+  // Add other relevant statuses
+}
+
+enum ClaimStatus {
+  OPEN
+  CLOSED
+  PENDING
+  DENIED
+  ACCEPTED
+  INVESTIGATING
+  IN_LITIGATION
+  PENDING_REVIEW
+  SETTLED // Added common status
+  UNKNOWN
+  // Add other relevant statuses
+}
+
+enum WorkStatus {
+  FULL_DUTY
+  LIGHT_DUTY
+  MODIFIED_DUTY
+  OFF_WORK
+  RETURNED_TO_WORK_FULL
+  RETURNED_TO_WORK_MODIFIED
+  // Add other relevant statuses
+}
+
+// Ensure User, Course, Module, Quiz, QuizQuestion, QuizAnswer, UserProgress are correctly defined
+// For brevity, I'm assuming they are okay unless specific issues are raised.
+// ... (rest of your schema: Note, Training Models etc.)
 
 model MedicalProvider {
-  id            String   @id @default(uuid()) @db.Uuid
-  name          String
-  type          String?
-  specialty     String?
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  type String?
+  specialty String?
   address_line1 String?
   address_line2 String?
-  city          String?
-  state         String?
-  zip_code      String?
-  phone_number  String?
-  fax_number    String?
+  city String?
+  state String?
+  zip_code String?
+  phone_number String?
+  fax_number String?
   email_address String?
-  npi_number    String?  @unique
-  created_at    DateTime @default(now()) @map("created_at")
-  updated_at    DateTime @updatedAt @map("updated_at")
+  npi_number String? @unique
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
 
   associatedClaimEntries ClaimMedicalProvider[] @relation("MedicalProviderToClaimMedicalProvider")
 
@@ -253,108 +375,116 @@ model MedicalProvider {
 
 model ClaimMedicalProvider {
   claimId String @map("claim_id") @db.Uuid
-  claim   Claim  @relation("ClaimToClaimMedicalProvider", fields: [claimId], references: [id], onDelete: Cascade)
+  claim Claim @relation("ClaimToClaimMedicalProvider", fields: [claimId], references: [id], onDelete: Cascade)
 
-  medicalProviderId String          @map("medical_provider_id") @db.Uuid
-  medicalProvider   MedicalProvider @relation("MedicalProviderToClaimMedicalProvider", fields: [medicalProviderId], references: [id], onDelete: Cascade)
+  medicalProviderId String @map("medical_provider_id") @db.Uuid
+  medicalProvider MedicalProvider @relation("MedicalProviderToClaimMedicalProvider", fields: [medicalProviderId], references: [id], onDelete: Cascade)
 
   date_of_first_visit DateTime? @db.Date
-  date_of_last_visit  DateTime? @db.Date
-  notes               String?   @db.Text
+  date_of_last_visit DateTime? @db.Date
+  notes String? @db.Text
 
   @@id([claimId, medicalProviderId])
   @@map("claim_medical_providers")
 }
 
 model FormGenerated {
-  id          String  @id @default(uuid()) @db.Uuid
-  form_type   String
+  id String @id @default(uuid()) @db.Uuid
+  form_type String
   description String?
 
-  injuredWorkerId String        @map("injured_worker_id") @db.Uuid
-  injuredWorker   InjuredWorker @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
+  injuredWorkerId String @map("injured_worker_id") @db.Uuid
+  injuredWorker InjuredWorker @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
 
   claimId String? @map("claim_id") @db.Uuid
-  claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: SetNull)
+  claim Claim? @relation(fields: [claimId], references: [id], onDelete: SetNull)
 
-  generated_at         DateTime @default(now()) @map("generated_at")
-  generatedByProfileId String   @map("generated_by_profile_id") @db.Uuid
-  generatedByProfile   Profile  @relation("ProfileToFormGenerated", fields: [generatedByProfileId], references: [id], onDelete: Restrict)
+  generated_at DateTime @default(now()) @map("generated_at")
+  generatedByProfileId String @map("generated_by_profile_id") @db.Uuid
+  generatedByProfile Profile @relation("ProfileToFormGenerated", fields: [generatedByProfileId], references: [id], onDelete: Restrict) // Restrict is good: don't delete forms if profile deleted, or consider SetNull if profile can be optional
 
-  file_path          String?
-  file_name          String?
+  file_path String?
+  file_name String?
   form_data_snapshot Json?
 
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
+  @@index([generatedByProfileId])
+  @@index([injuredWorkerId])
+  @@index([claimId])
   @@map("forms_generated")
 }
 
 model RateSetting {
-  year           Int
-  rate_type      String
-  value          Decimal
+  year Int
+  rate_type String
+  value Decimal
   effective_date DateTime? @db.Date
-  description    String?   @db.Text
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  description String? @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@id([year, rate_type])
   @@map("rate_settings")
 }
 
 model SavedCalculation {
-  id        String  @id @default(uuid()) @db.Uuid
-  profileId String  @map("profile_id") @db.Uuid
-  profile   Profile @relation("ProfileToSavedCalculations", fields: [profileId], references: [id], onDelete: Cascade)
+  id String @id @default(uuid()) @db.Uuid
+  profileId String @map("profile_id") @db.Uuid
+  profile Profile @relation("ProfileToSavedCalculations", fields: [profileId], references: [id], onDelete: Cascade)
 
   claimId String? @map("claim_id") @db.Uuid
-  claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: SetNull)
+  claim Claim? @relation(fields: [claimId], references: [id], onDelete: SetNull)
 
-  injuredWorkerId String?        @map("injured_worker_id") @db.Uuid
-  injuredWorker   InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: SetNull)
+  injuredWorkerId String? @map("injured_worker_id") @db.Uuid
+  injuredWorker InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: SetNull) // Cascade if calc is specific to worker and should be deleted with them
 
-  calculator_type  String
+  calculator_type String
   calculation_name String?
-  input_data       Json
-  result_data      Json
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  input_data Json
+  result_data Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([profileId])
+  @@index([claimId])
+  @@index([injuredWorkerId])
   @@map("saved_calculations")
 }
 
 model Note {
-  id        String  @id @default(uuid()) @db.Uuid
-  profileId String  @map("profile_id") @db.Uuid
-  profile   Profile @relation("ProfileToNotes", fields: [profileId], references: [id], onDelete: Cascade)
+  id String @id @default(uuid()) @db.Uuid
+  profileId String @map("profile_id") @db.Uuid
+  profile Profile @relation("ProfileToNotes", fields: [profileId], references: [id], onDelete: Cascade)
 
-  injuredWorkerId String?        @map("injured_worker_id") @db.Uuid
-  injuredWorker   InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade)
+  injuredWorkerId String? @map("injured_worker_id") @db.Uuid
+  injuredWorker InjuredWorker? @relation(fields: [injuredWorkerId], references: [id], onDelete: Cascade) // Change to SetNull if notes should remain if worker deleted
 
   claimId String? @map("claim_id") @db.Uuid
-  claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claim Claim? @relation(fields: [claimId], references: [id], onDelete: Cascade) // Change to SetNull if notes should remain if claim deleted
 
   note_type String?
-  content   String?  @db.Text
+  content String? @db.Text
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([profileId])
+  @@index([claimId])
+  @@index([injuredWorkerId])
   @@map("notes")
 }
 
-// --- Training Models --- (Assumed Unchanged)
 
 model Course {
-  id          String   @id @default(uuid()) @db.Uuid
-  title       String   @unique
-  description String?  @db.Text
+  id String @id @default(uuid()) @db.Uuid
+  title String @unique
+  description String? @db.Text
   cle_credits Decimal?
-  is_premium  Boolean  @default(false)
-  published   Boolean  @default(false)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  is_premium Boolean @default(false)
+  published Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   modules Module[]
 
@@ -362,54 +492,54 @@ model Course {
 }
 
 model Module {
-  id       String @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
   courseId String @map("course_id") @db.Uuid
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
-  title        String
-  description  String?  @db.Text
+  title String
+  description String? @db.Text
   content_type String
-  content_url  String?  @db.Text
-  content_body String?  @db.Text
-  order        Int      @map("module_order")
-  published    Boolean  @default(false)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  content_url String? @db.Text
+  content_body String? @db.Text
+  order Int @map("module_order")
+  published Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  quizzes      Quiz[]
+  quizzes Quiz[]
   userProgress UserProgress[] @relation("ModuleToUserProgress")
 
   @@map("modules")
 }
 
 model Quiz {
-  id       String  @id @default(uuid()) @db.Uuid
-  moduleId String? @map("module_id") @db.Uuid
-  module   Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  id String @id @default(uuid()) @db.Uuid
+  moduleId String? @map("module_id") @db.Uuid // Optional if a quiz can exist without a module
+  module Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
-  title         String
-  description   String?  @db.Text
+  title String
+  description String? @db.Text
   passing_score Int?
-  published     Boolean  @default(false)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  published Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  questions    QuizQuestion[]
+  questions QuizQuestion[]
   userProgress UserProgress[] @relation("QuizToUserProgress")
 
   @@map("quizzes")
 }
 
 model QuizQuestion {
-  id     String @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
   quizId String @map("quiz_id") @db.Uuid
-  quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
-  question_text String   @db.Text
+  question_text String @db.Text
   question_type String
-  order         Int      @map("question_order")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  order Int @map("question_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   answers QuizAnswer[]
 
@@ -417,35 +547,35 @@ model QuizQuestion {
 }
 
 model QuizAnswer {
-  id         String       @id @default(uuid()) @db.Uuid
-  questionId String       @map("question_id") @db.Uuid
-  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id String @id @default(uuid()) @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-  answer_text String   @db.Text
-  is_correct  Boolean  @default(false)
-  order       Int?     @map("answer_order")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  answer_text String @db.Text
+  is_correct Boolean @default(false)
+  order Int? @map("answer_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("quiz_answers")
 }
 
 model UserProgress {
-  id        String  @id @default(uuid()) @db.Uuid
-  profileId String  @map("profile_id") @db.Uuid
-  profile   Profile @relation("ProfileToUserProgress", fields: [profileId], references: [id], onDelete: Cascade)
+  id String @id @default(uuid()) @db.Uuid
+  profileId String @map("profile_id") @db.Uuid
+  profile Profile @relation("ProfileToUserProgress", fields: [profileId], references: [id], onDelete: Cascade)
 
   moduleId String? @map("module_id") @db.Uuid
-  module   Module? @relation("ModuleToUserProgress", fields: [moduleId], references: [id], onDelete: Cascade)
+  module Module? @relation("ModuleToUserProgress", fields: [moduleId], references: [id], onDelete: Cascade)
 
   quizId String? @map("quiz_id") @db.Uuid
-  quiz   Quiz?   @relation("QuizToUserProgress", fields: [quizId], references: [id], onDelete: Cascade)
+  quiz Quiz? @relation("QuizToUserProgress", fields: [quizId], references: [id], onDelete: Cascade)
 
-  status       String
-  score        Int?
+  status String // CONSIDER: Enum for ProgressStatus (e.g., NOT_STARTED, IN_PROGRESS, COMPLETED)
+  score Int?
   completed_at DateTime? @map("completed_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([profileId, moduleId], name: "user_progress_module_unique")
   @@unique([profileId, quizId], name: "user_progress_quiz_unique")

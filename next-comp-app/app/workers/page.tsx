@@ -402,9 +402,7 @@ export default function AllInjuredWorkersPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the worker 
-              <span className="font-semibold"> {workerToDelete?.first_name} {workerToDelete?.last_name}</span>
-              {/* Consider mentioning if related claims will also be deleted based on your backend logic */}
-              {/* and all associated claims. */}
+              <span className="font-semibold"> {workerToDelete?.first_name} {workerToDelete?.last_name}.  This will also delete all claims associated with this worker.  </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

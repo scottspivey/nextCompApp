@@ -5,35 +5,36 @@ import { auth } from '@/auth';     // Your NextAuth.js v5 auth
 import type { AppUser } from '@/types/next-auth';
 import { Prisma } from '@prisma/client'; // Import Prisma namespace for types
 
-interface RouteContextParams {
+// Interface for the resolved params, not the Promise itself
+interface ResolvedRouteParams {
   claimId: string;
 }
 
 // GET Handler for fetching a specific claim
 export async function GET(
   req: NextRequest,
-  context: { params: RouteContextParams } 
+  // Corrected signature for Next.js 15+: params is a Promise
+  { params }: { params: Promise<ResolvedRouteParams> } 
 ) {
-  const { params } = context;
-  const claimId = params.claimId;
+  // Await the params to resolve them
+  const resolvedParams = await params;
+  const claimId = resolvedParams.claimId;
 
   if (!claimId) {
+    // This check is somewhat redundant as Next.js routing ensures claimId is present,
+    // but it's harmless.
     return NextResponse.json({ error: 'Claim ID is required' }, { status: 400 });
   }
 
   try {
     const session = await auth();
-    const user = session?.user as AppUser | undefined; // Get user, can be undefined
+    const user = session?.user as AppUser | undefined; 
 
-    // Ensure user and user.profileId exist
-    if (!user?.profileId) {
-      return NextResponse.json({ error: 'Not authenticated or profile ID missing' }, { status: 401 });
+    if (typeof user?.profileId !== 'string' || user.profileId.trim() === '') {
+      return NextResponse.json({ error: 'Not authenticated or profile ID missing/invalid' }, { status: 401 });
     }
-    // At this point, user.profileId is guaranteed to be a string because AppUser types it as string | null | undefined,
-    // and we've checked it's not null/undefined.
     const sessionProfileId: string = user.profileId;
 
-    // Define the expected payload type for the claim
     type ClaimWithRelations = Prisma.ClaimGetPayload<{
       include: {
         injuredWorker: {
@@ -52,16 +53,15 @@ export async function GET(
             fein: true,
           }
         },
-        // documents: true, // Example: if you have these relations
-        // notes: true,     // Example: if you have these relations
+        // documents: true, 
+        // notes: true,     
       }
     }>;
 
     const claim: ClaimWithRelations | null = await prisma.claim.findFirst({
       where: {
         id: claimId,
-        // Authorization: Ensure the claim is associated with the logged-in user's profile
-        profileId: sessionProfileId, // Now sessionProfileId is correctly typed as string
+        profileId: sessionProfileId, 
       },
       include: {
         injuredWorker: {
@@ -70,19 +70,18 @@ export async function GET(
             first_name: true,
             last_name: true,
             date_of_birth: true,
-            ssn: true, // Fetches raw SSN from DB
+            ssn: true, 
           }
         },
-        employer: { // If you have an Employer relation on your Claim model
+        employer: { 
           select: {
             id: true,
             name: true,
             fein: true,
-            // other employer details
           }
         },
-        // documents: true, // Uncomment if you have this relation
-        // notes: true,     // Uncomment if you have this relation
+        // documents: true, 
+        // notes: true,     
       }
     });
 
@@ -90,14 +89,12 @@ export async function GET(
       return NextResponse.json({ error: 'Claim not found or you are not authorized to view it.' }, { status: 404 });
     }
 
-    // Optionally, mask sensitive data like SSN before sending to client
-    // The explicit typing of ClaimWithRelations helps TypeScript understand claim.injuredWorker here
     const claimDataToSend = {
       ...claim,
-      injuredWorker: claim.injuredWorker ? { // Check if injuredWorker object exists
+      injuredWorker: claim.injuredWorker ? { 
         ...claim.injuredWorker,
         ssn: claim.injuredWorker.ssn ? `XXX-XX-${claim.injuredWorker.ssn.slice(-4)}` : null,
-      } : null, // If claim.injuredWorker is null, keep it null
+      } : null, 
     };
 
     return NextResponse.json(claimDataToSend);
@@ -109,6 +106,14 @@ export async function GET(
   }
 }
 
-// You can also add PUT and DELETE handlers here later for editing and deleting claims
-// export async function PUT(req: NextRequest, context: { params: RouteContextParams }) { /* ... */ }
-// export async function DELETE(req: NextRequest, context: { params: RouteContextParams }) { /* ... */ }
+// If you add PUT or DELETE handlers, they will also need the corrected params signature:
+// export async function PUT(req: NextRequest, { params }: { params: Promise<ResolvedRouteParams> }) {
+//   const resolvedParams = await params;
+//   const claimId = resolvedParams.claimId;
+//   /* ... */
+// }
+// export async function DELETE(req: NextRequest, { params }: { params: Promise<ResolvedRouteParams> }) {
+//   const resolvedParams = await params;
+//   const claimId = resolvedParams.claimId;
+//   /* ... */
+// }

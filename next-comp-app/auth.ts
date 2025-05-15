@@ -14,6 +14,7 @@ import type { JWT } from "@auth/core/jwt"; // Correct import for JWT
 import type { AdapterUser } from "@auth/core/adapters";
 
 // Import your custom AppUser type (defined in types/next-auth.d.ts)
+import type { JWT as AugmentedJWT } from "@auth/core/jwt";
 import type { AppUser } from "@/types/next-auth"; // Adjust path as necessary
 
 // --- Custom Error Classes (Define these once) ---
@@ -121,6 +122,7 @@ export const authConfig: NextAuthConfig = {
     async jwt({ token, user, account, profile, trigger, isNewUser }) {
         // `user` here can be NextAuthUser (from next-auth) or AdapterUser.
         // We need to ensure we are working with our AppUser structure for the token.
+        const augmentedToken = token as AugmentedJWT; // Cast to our augmented JWT type
       if (user) { // This block is primarily for initial sign-in
         let userDetailsToPopulateToken: AppUser;
 
@@ -135,7 +137,7 @@ export const authConfig: NextAuthConfig = {
           if (!dbUser) {
             // This should ideally not happen if the adapter and events.createUser are working.
             console.error(`JWT: User with ID ${user.id} not found in database during OAuth.`);
-            return token; // Return original token to avoid errors
+            return augmentedToken; // Return original token to avoid errors
           }
           
           userDetailsToPopulateToken = {
@@ -153,38 +155,47 @@ export const authConfig: NextAuthConfig = {
           // `user` comes from the `authorize` function, which returns `AppUser`.
           userDetailsToPopulateToken = user as AppUser;
         }
-        
-        // Add custom claims to the JWT from our AppUser structure
-        token.userId = userDetailsToPopulateToken.id; // `userId` is on our augmented JWT
-        token.profileId = userDetailsToPopulateToken.profileId;
-        token.role = userDetailsToPopulateToken.role;
-        token.subscriptionStatus = userDetailsToPopulateToken.subscriptionStatus;
-        token.emailVerified = userDetailsToPopulateToken.emailVerified; // Add if needed on JWT
+
+        const currentUserId = userDetailsToPopulateToken.id;
+       
+        if (typeof currentUserId !== 'string' || currentUserId.trim() === '') {
+          // This is a critical issue if user.id is not a valid string.
+          // Log the error and throw an exception to prevent an invalid token.
+          console.error('CRITICAL: User ID from userDetailsToPopulateToken is not a valid string:', currentUserId);
+          throw new Error('User ID is missing or invalid; cannot create JWT.');
+        }
+        augmentedToken.userId = currentUserId;
+        augmentedToken.profileId = userDetailsToPopulateToken.profileId;
+        augmentedToken.role = userDetailsToPopulateToken.role;
+        augmentedToken.subscriptionStatus = userDetailsToPopulateToken.subscriptionStatus;
+        augmentedToken.emailVerified = userDetailsToPopulateToken.emailVerified; // Add if needed on JWT
 
         // Also ensure standard claims are present if needed, Auth.js usually handles these
         // but being explicit can be good.
-        token.name = userDetailsToPopulateToken.name;
-        token.email = userDetailsToPopulateToken.email;
-        token.picture = userDetailsToPopulateToken.image;
+        augmentedToken.name = userDetailsToPopulateToken.name;
+        augmentedToken.email = userDetailsToPopulateToken.email;
+        augmentedToken.picture = userDetailsToPopulateToken.image;
       }
-      return token;
+      return augmentedToken;
     },
 
     // The session callback is called when a session is checked.
     // `token` is the JWT from the `jwt` callback.
     // `session` is the session object.
-    async session({ session, token, user }) {
+    async session({ session, token }) {
       // `session.user` should be our augmented AppUser type due to types/next-auth.d.ts
       // `token` is our augmented JWT type.
-      if (token && session.user) {
-        session.user.id = token.userId; // id is standard on User, but ensure it's from our userId claim
+      const augmentedToken = token as AugmentedJWT;
+      if (augmentedToken && session.user) {
+        session.user.id = augmentedToken.userId; // id is standard on User, but ensure it's from our userId claim
         
         // Assign custom properties from token to session.user
         // TypeScript should recognize these properties on session.user due to augmentation.
-        (session.user as AppUser).profileId = token.profileId;
-        (session.user as AppUser).role = token.role;
-        (session.user as AppUser).subscriptionStatus = token.subscriptionStatus;
-        (session.user as AppUser).emailVerified = token.emailVerified; // If you added it to JWT
+        const sUser = session.user as AppUser;
+        sUser.profileId = augmentedToken.profileId;
+        sUser.role = augmentedToken.role;
+        sUser.subscriptionStatus = augmentedToken.subscriptionStatus;
+        sUser.emailVerified = augmentedToken.emailVerified;
       }
       return session;
     },

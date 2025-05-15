@@ -1,9 +1,8 @@
-// app/claims/[claimId]/new/page.tsx
-
+// app/claims/new/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation'; 
 import { useForm, SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,24 +13,24 @@ import { Textarea } from '@/app/Components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
 import { useToast } from "@/app/Components/ui/use-toast";
-import { Loader2, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, AlertTriangle, UserCircle } from 'lucide-react';
 import { AlternativeDatePicker } from "@/app/Components/ui/date-picker";
 import { useSession } from 'next-auth/react';
 
-// Zod schema for the "Add Claim" form, aligned with API and Prisma schema
+// Zod schema for the "Add Claim" form
 const addClaimFormSchema = z.object({
-  // injuredWorkerId is from URL, employerId is selected
-  employerId: z.string().uuid("Invalid employer ID").optional().nullable(), // Assuming UUID for employerId
+  injuredWorkerId: z.string({required_error: "Injured Worker is required."}).uuid("Injured Worker selection is required."), 
+  employerId: z.string().uuid("Invalid employer ID").optional().nullable(),
   
   wcc_file_number: z.string().optional().nullable(),
   carrier_file_number: z.string().optional().nullable(),
   
-  date_of_injury: z.date({ required_error: "Date of injury is required." }), // Required
+  date_of_injury: z.date({ required_error: "Date of injury is required." }), 
   
   time_of_injury: z.string().optional().nullable(),
   place_of_injury: z.string().optional().nullable(),
   accident_description: z.string().optional().nullable(),
-  part_of_body_injured: z.string().min(1, "Part of body injured is required.").optional().nullable(), // Example if you want to make it required on form
+  part_of_body_injured: z.string().optional().nullable(), 
   nature_of_injury: z.string().optional().nullable(),
   cause_of_injury: z.string().optional().nullable(),
   notice_given_date: z.date().optional().nullable(),
@@ -64,8 +63,25 @@ interface EmployerOption {
     name: string | null;
 }
 
-const FormItem = ({ label, id, children, error, description }: { label?: string, id: string, children: React.ReactNode, error?: string, description?: string }) => (
-  <div className="space-y-1.5">
+interface InjuredWorkerOption {
+    id: string;
+    first_name: string; 
+    last_name: string;
+}
+
+// Corrected FormItemProps to include className
+interface FormItemProps {
+  label?: string;
+  id: string;
+  children: React.ReactNode;
+  error?: string;
+  description?: string;
+  className?: string; // Added className prop
+}
+
+const FormItem: React.FC<FormItemProps> = ({ label, id, children, error, description, className }) => (
+  // Applied className to the root div of FormItem
+  <div className={`space-y-1.5 ${className || ''}`}> 
     {label && <Label htmlFor={id} className={error ? 'text-destructive' : ''}>{label}</Label>}
     {children}
     {description && !error && <p className="text-xs text-muted-foreground">{description}</p>}
@@ -75,36 +91,33 @@ const FormItem = ({ label, id, children, error, description }: { label?: string,
 
 export default function AddNewClaimPage() {
   const router = useRouter();
-  const params = useParams();
-  const workerId = params.workerId as string; 
-
   const { toast } = useToast();
   const { data: session, status: sessionStatus } = useSession();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [injuredWorkerName, setInjuredWorkerName] = useState<string | null>(null);
-  const [employers, setEmployers] = useState<EmployerOption[]>([]);
+  const [injuredWorkers, setInjuredWorkers] = useState<InjuredWorkerOption[]>([]);
+  const [employers, setEmployers] = useState<EmployerOption[]>([]); 
   const [pageLoading, setPageLoading] = useState(true);
 
 
-  const { register, handleSubmit, control, formState: { errors }, reset } = useForm<AddClaimFormData>({
+  const { register, handleSubmit, control, formState: { errors }, reset, watch } = useForm<AddClaimFormData>({
     resolver: zodResolver(addClaimFormSchema),
     defaultValues: {
       wcc_file_number: '',
       carrier_file_number: '',
-      // date_of_injury: null, // Will be set by date picker, required by Zod
+      date_of_injury: undefined, 
       time_of_injury: '',
       place_of_injury: '',
       accident_description: '',
       part_of_body_injured: '',
       nature_of_injury: '',
       cause_of_injury: '',
-      notice_given_date: null,
+      notice_given_date: undefined,
       average_weekly_wage: null,
       compensation_rate: null,
-      date_disability_began: null,
-      date_returned_to_work: null,
-      mmi_date: null,
+      date_disability_began: undefined,
+      date_returned_to_work: undefined,
+      mmi_date: undefined,
       initial_treatment_desc: '',
       current_work_status: '',
       permanent_impairment_rating: null,
@@ -117,37 +130,29 @@ export default function AddNewClaimPage() {
       employerId: null,
     }
   });
+  
+  const selectedWorkerId = watch("injuredWorkerId"); 
 
   useEffect(() => {
-    if (sessionStatus === "authenticated" && session?.user?.profileId && workerId) {
+    if (sessionStatus === "authenticated" && session?.user?.profileId) {
         const fetchData = async () => {
             setPageLoading(true);
             try {
-                // Fetch worker details (for name and authorization)
-                const workerResponse = await fetch(`/api/workers/${workerId}`); 
-                if (!workerResponse.ok) {
-                    throw new Error("Failed to fetch worker details for claim association.");
+                const workersResponse = await fetch(`/api/workers?profileId=${session.user.profileId}`);
+                if (!workersResponse.ok) {
+                    const errData = await workersResponse.json().catch(() => ({}));
+                    throw new Error(errData.error || "Failed to fetch injured workers list.");
                 }
-                const worker = await workerResponse.json();
-                // @ts-ignore
-                if (worker.profileId !== session.user.profileId) {
-                    toast({ title: "Authorization Error", description: "You are not authorized to add claims for this worker.", variant: "destructive" });
-                    router.push(`/workers`); 
-                    return;
-                }
-                setInjuredWorkerName(`${worker.first_name} ${worker.last_name}`);
+                const workersData: InjuredWorkerOption[] = await workersResponse.json();
+                setInjuredWorkers(workersData.filter(w => w.first_name && w.last_name));
 
-                // Fetch employers (assuming you have an API endpoint for this)
-                // For now, this is a placeholder. You'll need an API like /api/employers?profileId=...
+                // Fetch employers (placeholder - implement /api/employers if needed)
                 // const employerResponse = await fetch(`/api/employers?profileId=${session.user.profileId}`);
-                // if (!employerResponse.ok) throw new Error("Failed to fetch employers");
-                // const employerData: EmployerOption[] = await employerResponse.json();
-                // setEmployers(employerData);
+                // if (employerResponse.ok) setEmployers(await employerResponse.json());
 
             } catch (error) {
-                console.error("Error fetching initial data:", error);
+                console.error("Error fetching initial data for new claim page:", error);
                 toast({ title: "Error", description: (error as Error).message || "Could not load required information.", variant: "destructive" });
-                router.push(`/workers/${workerId}`); 
             } finally {
                 setPageLoading(false);
             }
@@ -160,19 +165,18 @@ export default function AddNewClaimPage() {
         router.push("/dashboard"); 
         setPageLoading(false);
     }
-  }, [sessionStatus, session, workerId, router, toast]);
+  }, [sessionStatus, session, router, toast]);
 
 
   const onSubmit: SubmitHandler<AddClaimFormData> = async (formData) => {
-    if (!workerId) {
-        toast({ title: "Error", description: "Worker ID is missing.", variant: "destructive" });
+    if (!formData.injuredWorkerId) { 
+        toast({ title: "Validation Error", description: "Please select an Injured Worker.", variant: "destructive" });
         return;
     }
     setIsSubmitting(true);
     try {
       const payload = {
-        ...formData,
-        injuredWorkerId: workerId,
+        ...formData, 
         claimant_attorney_phone: formData.claimant_attorney_phone ? formData.claimant_attorney_phone.replace(/\D/g, '') : null,
       };
 
@@ -188,8 +192,12 @@ export default function AddNewClaimPage() {
       }
 
       const newClaim = await response.json();
-      toast({ title: "Success!", description: `Claim added successfully for ${injuredWorkerName}. WCC File #: ${newClaim.wcc_file_number || 'N/A'}` });
-      router.push(`/workers/${workerId}`); 
+      const worker = injuredWorkers.find(w => w.id === formData.injuredWorkerId);
+      const displayWorkerName = worker ? `${worker.first_name} ${worker.last_name}` : "the selected worker";
+
+      toast({ title: "Success!", description: `Claim added successfully for ${displayWorkerName}. WCC File #: ${newClaim.wcc_file_number || 'N/A'}` });
+      router.push(`/claims`); 
+      
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
       console.error("Failed to add claim:", error);
@@ -203,22 +211,20 @@ export default function AddNewClaimPage() {
     return (
         <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-lg text-muted-foreground">Loading form...</p>
+            <p className="mt-4 text-lg text-muted-foreground">Loading...</p>
         </div>
     );
   }
   
-  if (!injuredWorkerName && !pageLoading) { 
+  if (sessionStatus === "authenticated" && injuredWorkers.length === 0 && !pageLoading) { 
       return (
           <div className="container mx-auto px-4 py-8 text-center">
-              <Card className="w-full max-w-lg mx-auto bg-destructive/10 border-destructive">
-                <CardHeader><CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5"/>Access Error</CardTitle></CardHeader>
-                <CardContent>
-                    <p className="text-destructive-foreground">Could not load worker information or access denied.</p>
-                    <Button variant="outline" onClick={() => router.push(`/workers/${workerId}`)} className="mt-4">
-                        Back to Worker
-                    </Button>
-                </CardContent>
+              <Card className="w-full max-w-lg mx-auto">
+                  <CardHeader><CardTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-destructive"/> No Workers Found</CardTitle></CardHeader>
+                  <CardContent>
+                      <p>You do not have any injured workers associated with your profile. Please add a worker first before creating a claim.</p>
+                      <Button onClick={() => router.push('/workers/new')} className="mt-4">Add New Worker</Button>
+                  </CardContent>
               </Card>
           </div>
       );
@@ -227,12 +233,16 @@ export default function AddNewClaimPage() {
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8 md:py-12">
       <div className="flex items-center mb-6 space-x-3">
-        <Button variant="outline" size="icon" onClick={() => router.push(`/workers/${workerId}`)} aria-label="Back to Worker Details">
+        <Button variant="outline" size="icon" onClick={() => router.back()} aria-label="Go Back">
             <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
             <h1 className="text-3xl font-bold tracking-tight">Add New Claim</h1>
-            <p className="text-muted-foreground">For Injured Worker: {injuredWorkerName}</p>
+            {selectedWorkerId && injuredWorkers.find(w => w.id === selectedWorkerId) && (
+                <p className="text-muted-foreground">
+                    For: {injuredWorkers.find(w => w.id === selectedWorkerId)?.first_name} {injuredWorkers.find(w => w.id === selectedWorkerId)?.last_name}
+                </p>
+            )}
         </div>
       </div>
 
@@ -243,6 +253,28 @@ export default function AddNewClaimPage() {
             <CardDescription>Fill in the details for the new claim. <span className="text-destructive">*</span> indicates required fields.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <FormItem label="Injured Worker *" id="injuredWorkerId" error={errors.injuredWorkerId?.message}>
+                <Controller
+                    name="injuredWorkerId"
+                    control={control}
+                    rules={{ required: "Please select an Injured Worker."}}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || ""} disabled={injuredWorkers.length === 0}>
+                            <SelectTrigger id="injuredWorkerId">
+                                <SelectValue placeholder={injuredWorkers.length > 0 ? "Select an Injured Worker..." : "No workers available to select"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {injuredWorkers.map(worker => (
+                                    <SelectItem key={worker.id} value={worker.id}>
+                                        {worker.first_name} {worker.last_name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                />
+            </FormItem>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                 <FormItem label="WCC File Number" id="wcc_file_number" error={errors.wcc_file_number?.message}>
                     <Input id="wcc_file_number" {...register("wcc_file_number")} />
@@ -292,6 +324,7 @@ export default function AddNewClaimPage() {
                                     <SelectValue placeholder={employers.length > 0 ? "Select an employer" : "No employers available"} />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="">None</SelectItem> 
                                     {employers.map(emp => (
                                         <SelectItem key={emp.id} value={emp.id}>{emp.name || `ID: ...${emp.id.slice(-6)}`}</SelectItem>
                                     ))}
@@ -299,7 +332,6 @@ export default function AddNewClaimPage() {
                             </Select>
                         )}
                     />
-                    {/* You might want a way to add a new employer if not in the list */}
                 </FormItem>
             </div>
 
@@ -368,14 +400,15 @@ export default function AddNewClaimPage() {
                 <FormItem label="Attorney Email" id="claimant_attorney_email" error={errors.claimant_attorney_email?.message}>
                     <Input type="email" id="claimant_attorney_email" {...register("claimant_attorney_email")} />
                 </FormItem>
-                <FormItem label="Attorney Address" id="claimant_attorney_address" error={errors.claimant_attorney_address?.message} description="Full address for attorney.">
-                    <Textarea id="claimant_attorney_address" {...register("claimant_attorney_address")} className="md:col-span-2"/>
+                {/* Corrected: FormItemProps now includes className, so this should be fine */}
+                <FormItem label="Attorney Address" id="claimant_attorney_address" error={errors.claimant_attorney_address?.message} description="Full address for attorney." className="md:col-span-2">
+                    <Textarea id="claimant_attorney_address" {...register("claimant_attorney_address")} />
                 </FormItem>
             </div>
 
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || injuredWorkers.length === 0}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               {isSubmitting ? 'Adding Claim...' : 'Add Claim'}
             </Button>

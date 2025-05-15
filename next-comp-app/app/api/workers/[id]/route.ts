@@ -5,8 +5,7 @@ import { auth } from '@/auth';
 import type { AppUser } from '@/types/next-auth';
 import * as z from 'zod';
 
-// Zod schema for PUT request validation (updateWorkerFormSchema)
-// ... (keep the Zod schema as defined in the previous correct version)
+// ... (keep the Zod schema - updateWorkerFormSchema)
 const updateWorkerFormSchema = z.object({
   first_name: z.string().min(1, "First name is required").optional(),
   middle_name: z.string().optional().nullable(),
@@ -39,20 +38,15 @@ const updateWorkerFormSchema = z.object({
 });
 
 
-// Define an interface for the context object's params
-interface RouteContextParams {
-  id: string;
-}
-
 // GET Handler for fetching a specific worker
 export async function GET(
   req: NextRequest,
-  context: { params: RouteContextParams } // Updated signature
+  { params }: { params: { id: string } } // Sticking to the most common documented way
 ) {
-  const { params } = context; // Destructure params from context
-  const workerId = params.id;  // Access id from params
+  const workerId = params.id;
 
   try {
+    // ... (rest of your GET logic - it was correct)
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -62,14 +56,14 @@ export async function GET(
       return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
     }
 
-    if (!workerId) { // Should be guaranteed by routing, but good check
+    if (!workerId) {
       return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
     }
 
     const worker = await prisma.injuredWorker.findUnique({
       where: {
         id: workerId,
-        profileId: user.profileId, // Authorization check
+        profileId: user.profileId,
       },
       include: {
         claims: {
@@ -107,12 +101,12 @@ export async function GET(
 // PUT Handler for updating a specific worker
 export async function PUT(
   req: NextRequest,
-  context: { params: RouteContextParams } // Updated signature
+  { params }: { params: { id: string } } // Sticking to the most common documented way
 ) {
-  const { params } = context; // Destructure params from context
-  const workerId = params.id;  // Access id from params
+  const workerId = params.id;
 
   try {
+    // ... (rest of your PUT logic - it was correct)
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -122,7 +116,7 @@ export async function PUT(
       return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
     }
 
-    if (!workerId) { // Should be guaranteed
+    if (!workerId) {
       return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
     }
 

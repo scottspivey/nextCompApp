@@ -10,19 +10,20 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/app
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/Components/ui/avatar"; // Assuming this path is correct
 import { Progress } from "@/app/Components/ui/progress"; // Assuming this path is correct
 import { 
-    Users, 
+    Users,
+    UserPlus, 
     Calculator, 
     Briefcase, 
     FileText, 
     ClipboardList, 
     FilePlus2, // For "Add a Claim" via workers list
     Settings, 
-    Loader2,
     Bell, 
     HelpCircle,
     BarChart3, // For Stats/Reports
     DollarSign, // For Subscription/Billing
     LogOut,
+    Loader2, // For Loading Spinner
     UserCircle, // For Profile
     ShieldCheck, // For Security/Privacy
     BookOpen // For Helpful Resources
@@ -47,7 +48,7 @@ interface DashboardStats {
     recentActivity: Array<{ id: string; description: string; time: string; type: 'claim' | 'worker' | 'form' }>;
 }
 
-// ActionButton component (assuming it's defined here or imported)
+// ActionButton component
 interface ActionButtonProps {
     icon: React.ElementType;
     label: string;
@@ -57,10 +58,11 @@ interface ActionButtonProps {
 
 const ActionButton: React.FC<ActionButtonProps> = ({ icon: Icon, label, description, href }) => (
     <Link href={href} passHref>
-        <Button variant="outline" className="w-full h-auto flex flex-col items-center justify-center p-6 space-y-2 text-center hover:bg-accent hover:text-accent-foreground transition-colors duration-150 ease-in-out group">
-            <Icon className="w-10 h-10 mb-2 text-primary group-hover:text-primary-focus transition-colors" />
+        <Button variant="outline" className="w-full h-auto flex flex-col items-center justify-center p-4 sm:p-6 space-y-2 text-center hover:bg-accent hover:text-accent-foreground transition-colors duration-150 ease-in-out group">
+            <Icon className="w-8 h-8 sm:w-10 sm:h-10 mb-1 sm:mb-2 text-primary group-hover:text-primary-focus transition-colors" />
             <span className="text-sm font-semibold text-foreground group-hover:text-foreground">{label}</span>
-            <p className="text-xs text-muted-foreground group-hover:text-foreground/80">{description}</p>
+            {/* Description text is hidden on extra-small screens, visible from 'sm' breakpoint upwards */}
+            <p className="hidden sm:block text-xs text-muted-foreground group-hover:text-foreground/80">{description}</p>
         </Button>
     </Link>
 );
@@ -80,20 +82,17 @@ export default function DashboardPage() {
         } else if (status === "authenticated" && session?.user) {
             const typedUser = session.user as AppUser; // Cast to your AppUser type
             
-            // Set basic profile info from session immediately
             setUserProfile({
-                full_name: typedUser.name, // NextAuth 'name'
+                full_name: typedUser.name, 
                 email: typedUser.email,
-                role: typedUser.role, // Custom role from AppUser
-                profileId: typedUser.profileId, // Custom profileId from AppUser
-                subscriptionStatus: typedUser.subscriptionStatus, // Custom status
-                image: typedUser.image, // NextAuth 'image'
+                role: typedUser.role, 
+                profileId: typedUser.profileId, 
+                subscriptionStatus: typedUser.subscriptionStatus, 
+                image: typedUser.image, 
             });
-            setIsLoadingProfile(false); // Basic info loaded
+            setIsLoadingProfile(false); 
 
-            // Example: Fetch more detailed profile or dashboard stats if needed
-            // For now, we'll use mock stats
-            // TODO: Replace with actual API calls
+            // Mock stats - TODO: Replace with actual API calls
             setDashboardStats({
                 activeCases: 12,
                 pendingTasks: 5,
@@ -116,7 +115,6 @@ export default function DashboardPage() {
     }
 
     if (!session || !userProfile) {
-        // This case should ideally be handled by the redirect or loading state
         return <p className="text-center mt-10">Could not load user data.</p>;
     }
 
@@ -129,7 +127,6 @@ export default function DashboardPage() {
         <div className="min-h-screen bg-background text-foreground">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 
-                {/* Header Welcome Message */}
                 <header className="mb-10">
                     <h1 className="text-3xl font-bold tracking-tight">
                         Welcome back, {userProfile.full_name || userProfile.email || 'User'}!
@@ -139,11 +136,8 @@ export default function DashboardPage() {
                     </p>
                 </header>
 
-                {/* Main Dashboard Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left Column / Main Content Area */}
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Quick Actions */}
                         <section>
                             <Card>
                                 <CardHeader>
@@ -151,7 +145,7 @@ export default function DashboardPage() {
                                     <CardDescription>Get started with common tasks.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                                    <ActionButton icon={Users} label="Add New Worker" description="Create a profile for an injured worker." href="/workers/new" />
+                                    <ActionButton icon={UserPlus} label="Add New Worker" description="Create a profile for an injured worker." href="/workers/new" />
                                     <ActionButton icon={FilePlus2} label="Add a Claim" description="Start a new claim for an existing worker." href="/workers" />
                                     <ActionButton icon={Users} label="View Workers" description="See and manage all injured workers." href="/workers" />
                                     <ActionButton icon={ClipboardList} label="View Claims" description="Access and review all claims." href="/claims" />
@@ -161,7 +155,6 @@ export default function DashboardPage() {
                             </Card>
                         </section>
 
-                        {/* Recent Activity */}
                         <section>
                             <Card>
                                 <CardHeader>
@@ -193,9 +186,7 @@ export default function DashboardPage() {
                         </section>
                     </div>
 
-                    {/* Right Sidebar */}
                     <aside className="space-y-6">
-                        {/* User Profile Card */}
                         <Card>
                             <CardHeader className="flex flex-row items-center space-x-4 pb-4">
                                 <Avatar className="h-16 w-16">
@@ -224,7 +215,6 @@ export default function DashboardPage() {
                             </CardContent>
                         </Card>
 
-                        {/* Key Statistics (Example) */}
                         <Card>
                             <CardHeader>
                                 <CardTitle>At a Glance</CardTitle>
@@ -250,7 +240,6 @@ export default function DashboardPage() {
                             </CardContent>
                         </Card>
                         
-                        {/* Helpful Links */}
                         <Card>
                             <CardHeader><CardTitle>Resources</CardTitle></CardHeader>
                             <CardContent className="space-y-2">

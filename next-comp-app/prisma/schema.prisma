@@ -9,7 +9,7 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
   // Assuming your output path is correct:
-  // output = "../node_modules/.prisma/client"
+ output = "../node_modules/.prisma/client"
 }
 
 // --- Enums ---

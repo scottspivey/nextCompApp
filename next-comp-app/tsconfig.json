@@ -23,6 +23,6 @@
       "@/lib/*": ["./lib/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/page.tsx", "app/layout.tsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/page.tsx", "app/layout.tsx", "prisma/seed.ts",],
   "exclude": ["node_modules", "prisma/seed.ts", "dist-prisma", "prisma/test-prisma.ts", "prisma/**/*.ts"]
 }

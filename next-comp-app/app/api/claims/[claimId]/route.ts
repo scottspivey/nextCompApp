@@ -1,9 +1,8 @@
 // app/api/claims/[claimId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma'; 
-import { auth } from '@/auth';     
-import type { AppUser } from '@/types/next-auth';
-import { Prisma } from '@prisma/client'; 
+import { auth } from '@/auth';
+import { Prisma, WorkStatus, ClaimStatus } from '@prisma/client'; 
 import * as z from 'zod';
 
 interface ResolvedRouteParams {
@@ -15,8 +14,6 @@ const updateClaimSchema = z.object({
   wcc_file_number: z.string().optional().nullable(),
   carrier_file_number: z.string().optional().nullable(),
   
-  // date_of_injury is now required in the DB. For PUT, it's optional if not changing.
-  // If provided, it must be a valid date.
   date_of_injury: z.coerce.date({ invalid_type_error: "Invalid date of injury" }).optional(), 
   
   time_of_injury: z.string().optional().nullable(),
@@ -34,7 +31,8 @@ const updateClaimSchema = z.object({
   mmi_date: z.coerce.date().optional().nullable(),
 
   initial_treatment_desc: z.string().optional().nullable(),
-  current_work_status: z.string().optional().nullable(),
+  // Use nativeEnum for fields based on Prisma enums
+  current_work_status: z.nativeEnum(WorkStatus).optional().nullable(), 
   permanent_impairment_rating: z.coerce.number().int().optional().nullable(),
 
   claimant_attorney_name: z.string().optional().nullable(),
@@ -45,7 +43,8 @@ const updateClaimSchema = z.object({
   }),
   claimant_attorney_email: z.string().email({ message: "Invalid email address" }).optional().nullable().or(z.literal('')),
   
-  claim_status: z.string().optional().nullable(),
+  // Use nativeEnum for fields based on Prisma enums
+  claim_status: z.nativeEnum(ClaimStatus).optional().nullable(), 
   employerId: z.string().uuid({ message: "Invalid Employer ID format"}).optional().nullable(),
 });
 
@@ -64,14 +63,15 @@ export async function GET(
 
   try {
     const session = await auth();
-    const user = session?.user as AppUser | undefined; 
+    // Removed unnecessary type assertion: TypeScript can infer this.
+    // The type of session.user is likely already { id: string; profileId?: string | null ... } & AppUser or similar
+    const user = session?.user; 
 
     if (typeof user?.profileId !== 'string' || user.profileId.trim() === '') {
       return NextResponse.json({ error: 'Not authenticated or profile ID missing/invalid' }, { status: 401 });
     }
     const sessionProfileId: string = user.profileId;
 
-    // Define payload type to ensure all fields from schema are potentially included
     type ClaimWithRelations = Prisma.ClaimGetPayload<{
       include: {
         injuredWorker: {
@@ -90,7 +90,6 @@ export async function GET(
             fein: true,
           }
         },
-        // Add other relations if needed, e.g., notes, formsGenerated
       }
     }>;
 
@@ -99,7 +98,6 @@ export async function GET(
         id: claimId,
         profileId: sessionProfileId, 
       },
-      // Select all scalar fields by default, and include relations
       include: {
         injuredWorker: {
           select: {
@@ -158,7 +156,8 @@ export async function PUT(
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-    const user = session.user as AppUser;
+    // Removed unnecessary type assertion: session.user is already typed by NextAuth
+    const user = session.user; 
     if (typeof user.profileId !== 'string' || user.profileId.trim() === '') {
       return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
     }
@@ -175,6 +174,7 @@ export async function PUT(
     }
 
     const body: unknown = await req.json();
+    // Using .partial() means all fields in updateClaimSchema are optional for the update
     const validationResult = updateClaimSchema.partial().safeParse(body); 
 
     if (!validationResult.success) {
@@ -184,18 +184,18 @@ export async function PUT(
       );
     }
     
+    // Destructure validated data.
+    // current_work_status and claim_status will now be correctly typed as their respective enums (or null/undefined)
     const { date_of_injury, claimant_attorney_phone, ...otherDataToUpdate } = validationResult.data;
     
+    // This assignment should now be type-correct because otherDataToUpdate's
+    // enum fields (current_work_status, claim_status) match Prisma.ClaimUpdateInput expectations.
     const dataToUpdate: Prisma.ClaimUpdateInput = { ...otherDataToUpdate };
 
-    // Handle date_of_injury: if undefined (not sent for update), do nothing.
-    // If null, set to null (if DB allows). If Date, set to Date.
     if (date_of_injury !== undefined) {
-        dataToUpdate.date_of_injury = date_of_injury; // Prisma handles Date or null for DateTime?
+        dataToUpdate.date_of_injury = date_of_injury; 
     }
-    // If date_of_injury is required and user tries to set to null, Zod should catch if not .nullable()
 
-     // Clean phone numbers
     if (claimant_attorney_phone) {
         dataToUpdate.claimant_attorney_phone = claimant_attorney_phone.replace(/\D/g, '');
     } else if (claimant_attorney_phone === null) {
@@ -219,6 +219,8 @@ export async function PUT(
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
         // Handle specific Prisma errors if needed
+        // For example, P2025 (Record to update not found) is already implicitly handled by the existingClaim check,
+        // but other errors might warrant specific messages.
     }
     return NextResponse.json({ error: 'Failed to update claim.' }, { status: 500 });
   }
@@ -242,7 +244,8 @@ export async function DELETE(
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-    const user = session.user as AppUser;
+    // Removed unnecessary type assertion: session.user is already typed by NextAuth
+    const user = session.user; 
     if (typeof user.profileId !== 'string' || user.profileId.trim() === '') {
       return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
     }
@@ -273,7 +276,7 @@ export async function DELETE(
   } catch (error) {
     console.error(`Error deleting claim ${claimId}:`, error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2003') { 
+        if (error.code === 'P2003') { // Foreign key constraint failed
              return NextResponse.json({ error: 'Failed to delete claim. It may have related records that need to be addressed first.' }, { status: 409 });
         }
     }

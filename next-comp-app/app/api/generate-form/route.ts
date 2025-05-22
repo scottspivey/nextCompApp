@@ -13,7 +13,7 @@ import {
 } from '@/lib/formMappings';
 
 import { auth } from '@/auth';
-import type { AppUser } from '@/types/next-auth';
+import type { AppUser } from '@/types/next-auth'; // Ensure AppUser includes profileId and Profile has firstName, lastName
 
 type PdfFieldValue = string | number | boolean | null | undefined;
 
@@ -31,8 +31,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const user = session.user as AppUser;
-    const preparerProfileId = user.profileId; // Profile ID of the authenticated preparer
+    // Assuming AppUser is correctly typed and session.user will conform to it.
+    const user = session.user as AppUser; 
+    const preparerProfileId = user.profileId; 
 
     if (!preparerProfileId) {
       return NextResponse.json({ error: 'User profile ID not found in session. Cannot determine preparer.' }, { status: 403 });
@@ -52,12 +53,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Fetch data from the database with Authorization
-    // Ensure the claim is associated with the authenticated preparer's profileId via the InjuredWorker
     const claim = await prisma.claim.findFirst({
       where: {
         id: claimId,
-        injuredWorker: { // The InjuredWorker related to this claim
-          profileId: preparerProfileId, // MUST be associated with the authenticated preparer
+        injuredWorker: { 
+          profileId: preparerProfileId, 
         },
       },
       include: {
@@ -66,22 +66,19 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (!claim) { // If claim is null, it means either not found OR not authorized
+    if (!claim) { 
       return NextResponse.json({ error: 'Claim not found or you are not authorized to access this claim.' }, { status: 404 });
     }
 
-    // Fetch preparer's profile (already known to be the authenticated user)
-    // This step is still useful for getting the preparer's full details for the form
+
     const preparerProfile = await prisma.profile.findUnique({
       where: { id: preparerProfileId },
       include: {
-          user: true
+          user: true 
       }
     });
 
-    // These checks are now more robust due to the authorized claim fetch
     if (!claim.injuredWorker || !claim.employer) {
-      // This state should be less likely if the claim itself was found and authorized
       console.error(`Data inconsistency: Claim ${claimId} found but missing related InjuredWorker or Employer.`);
       return NextResponse.json({ error: 'Critical data missing for the claim (Injured Worker or Employer).' }, { status: 500 });
     }
@@ -93,9 +90,13 @@ export async function POST(req: NextRequest) {
     const { injuredWorker, employer } = claim;
     const preparerUser = preparerProfile.user;
 
-    // 4. Construct the data object for PDF filling (logic remains largely the same)
+    // 4. Construct the data object for PDF filling
     const preparerPhone = getString(preparerProfile.phone_number);
     const preparerPhoneParts = splitPhoneNumber(preparerPhone);
+
+    
+    const preparerFullName = `${getString(preparerProfile.firstName)} ${getString(preparerProfile.lastName)}`.trim();
+
 
     const pdfData: Record<string, PdfFieldValue> = {
       // Common Header Info
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
       // Parties
       "Claimant_Name": `${getString(injuredWorker.first_name)} ${getString(injuredWorker.middle_name)} ${getString(injuredWorker.last_name)}`.replace(/\s+/g, ' ').trim(),
       "Claimant_SSN_Full": getString(injuredWorker.ssn),
-      ...splitSSN(injuredWorker.ssn),
+      ...splitSSN(injuredWorker.ssn), 
       "Employer_Name": getString(employer.name),
       "Claimant_Address_Street": getString(injuredWorker.address_line1) + (injuredWorker.address_line2 ? ` ${getString(injuredWorker.address_line2)}` : ''),
       "Employer_Address_Street": getString(employer.address_line1) + (employer.address_line2 ? ` ${getString(employer.address_line2)}` : ''),
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
       "Employer_Zip_Code": getString(employer.zip_code),
 
       // Contact Info
-      ...splitPhoneNumber(injuredWorker.phone_number),
+      ...splitPhoneNumber(injuredWorker.phone_number), 
       "Claimant_Home_Phone_AreaCode": splitPhoneNumber(injuredWorker.phone_number).area,
       "Claimant_Home_Phone_Prefix": splitPhoneNumber(injuredWorker.phone_number).prefix,
       "Claimant_Home_Phone_Suffix": splitPhoneNumber(injuredWorker.phone_number).suffix,
@@ -130,12 +131,12 @@ export async function POST(req: NextRequest) {
       "Insurance_Carrier_Name": getString(employer.insurance_carrier_name),
 
       // Preparer Info
-      "Preparer_Name": getString(preparerProfile.full_name),
+      "Preparer_Name": preparerFullName,
       "Preparer_Law_Firm": getString(preparerProfile.firm_name),
       "Preparer_Phone_AreaCode": preparerPhoneParts.area,
       "Preparer_Phone_Prefix": preparerPhoneParts.prefix,
       "Preparer_Phone_Suffix": preparerPhoneParts.suffix,
-      "Preparer_Title": getString(preparerProfile.role),
+      "Preparer_Title": getString(preparerProfile.role), 
       "Preparer_Email": getString(preparerUser.email),
 
       // Form 21 Specifics
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
       "Documents_Inspection_DateTime": getString(additionalData?.documents_inspection_datetime as string | null | undefined),
       "Premises_Address": getString(additionalData?.premises_address as string | null | undefined),
       "Premises_Inspection_DateTime": getString(additionalData?.premises_inspection_datetime as string | null | undefined),
-      "Issuing_Officer_Signature_Title": `${getString(preparerProfile.full_name)}, ${getString(preparerProfile.role)}`,
+      "Issuing_Officer_Signature_Title": `${preparerFullName}, ${getString(preparerProfile.role)}`,
       "Issuing_Officer_Phone_AreaCode": preparerPhoneParts.area,
       "Issuing_Officer_Phone_Prefix": preparerPhoneParts.prefix,
       "Issuing_Officer_Phone_Suffix": preparerPhoneParts.suffix,
@@ -218,16 +219,18 @@ export async function POST(req: NextRequest) {
         continue;
       }
       if (value === undefined || value === null) {
-        continue;
+        if (!(form.getField(pdfFieldName) instanceof PDFCheckBox)) {
+            continue;
+        }
       }
 
       try {
         const field = form.getField(pdfFieldName);
         if (field instanceof PDFTextField) {
-          field.setText(String(value));
+          field.setText(String(value)); 
         } else if (field instanceof PDFCheckBox) {
           if (value === true) field.check();
-          else field.uncheck();
+          else field.uncheck(); 
         } else if (field) {
           console.warn(`Field "${pdfFieldName}" (mapped from "${humanReadableName}") has an unhandled type: ${field.constructor.name}`);
         } else {
@@ -256,5 +259,4 @@ export async function POST(req: NextRequest) {
     console.error('Error generating PDF:', error);
     return NextResponse.json({ error: 'Failed to generate PDF.', details: message }, { status: 500 });
   }
-  // Removed prisma.$disconnect() as it's better handled by the shared Prisma instance pattern
 }

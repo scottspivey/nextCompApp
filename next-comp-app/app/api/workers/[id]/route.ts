@@ -4,19 +4,13 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/auth'; // Assuming you use this for authentication
 import type { AppUser } from '@/types/next-auth'; // Assuming this type
 
-// IMPORTANT: If you see errors like "Module '@prisma/client' has no exported member 'Gender'..."
-// YOU MUST RUN `npx prisma generate` in your terminal to update your Prisma Client.
-import { Prisma, Gender, MaritalStatus } from '@prisma/client'; 
+// PrismaClientKnownRequestError is a top-level export from @prisma/client.
+// Prisma (the namespace) is used for generated types like Prisma.InjuredWorkerUpdateInput.
+import { Prisma, PrismaClientKnownRequestError } from '@prisma/client'; 
 import * as z from 'zod';
 
-interface RouteContext {
-  params: {
-    id: string; // Worker ID from the route
-  };
-}
-
 // Zod schema for updating an InjuredWorker
-// This is an example; adjust it to match all fields you allow for update.
+// Adjusted gender and marital_status to be strings, as per the user's Prisma schema.
 const updateWorkerSchema = z.object({
   first_name: z.string().min(1, "First name is required.").optional(),
   middle_name: z.string().optional().nullable(),
@@ -25,11 +19,8 @@ const updateWorkerSchema = z.object({
   ssn: z.string().optional().nullable(), // Add validation like regex if needed
   date_of_birth: z.coerce.date().optional().nullable(),
   
-  // Use nativeEnum for the gender field
-  gender: z.nativeEnum(Gender).optional().nullable(), 
-  
-  // Example for another enum-based field from your schema
-  marital_status: z.nativeEnum(MaritalStatus).optional().nullable(), 
+  gender: z.string().optional().nullable(), 
+  marital_status: z.string().optional().nullable(), 
 
   address_line1: z.string().optional().nullable(),
   address_line2: z.string().optional().nullable(),
@@ -47,7 +38,11 @@ const updateWorkerSchema = z.object({
 });
 
 // PUT Handler for updating a specific InjuredWorker
-export async function PUT(req: NextRequest, { params }: RouteContext) {
+// Updated the type for the second argument to match Next.js expectations
+export async function PUT(
+    req: NextRequest, 
+    { params }: { params: { id: string } }
+) {
   const workerId = params.id;
 
   if (!workerId) {
@@ -88,24 +83,15 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       );
     }
 
-    // The data from validationResult.data should now have `gender` correctly typed as the Gender enum
-    // (or null/undefined if optional and not provided).
     const dataToUpdate = validationResult.data;
 
-    // The error "Type '{ ... }' is not assignable to type 'InjuredWorkerUpdateInput'"
-    // should be resolved if `dataToUpdate` (specifically its `gender` field)
-    // is now correctly typed due to `z.nativeEnum(Gender)`.
     const updatedWorker = await prisma.injuredWorker.update({
       where: { 
         id: workerId 
-        // No need to re-check profileId here if you trust the existingWorker fetch,
-        // but for extra safety, you could add it:
-        // AND: { profileId: user.profileId } 
       },
-      data: dataToUpdate, // This is line 156 from your error message
+      data: dataToUpdate, 
     });
 
-    // Mask SSN before sending back (example)
     const { ssn: rawSsn, ...workerWithoutRawSsn } = updatedWorker;
     const updatedWorkerDataToSend = {
         ...workerWithoutRawSsn,
@@ -116,9 +102,10 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
   } catch (error) {
     console.error(`Error updating worker ${workerId}:`, error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Handle specific Prisma errors, e.g., P2025 (Record to update not found)
-      // This is already implicitly handled by the existingWorker check above.
+    if (error instanceof PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json({ error: 'Worker to update not found.'}, { status: 404 });
+      }
     }
     if (error instanceof z.ZodError) {
         return NextResponse.json({ error: "Validation processing error.", details: error.errors }, { status: 400 });
@@ -128,9 +115,12 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-// You would also have GET, DELETE handlers here, potentially.
-// Example GET handler:
-export async function GET(req: NextRequest, { params }: RouteContext) {
+// GET handler for fetching a specific InjuredWorker
+// Updated the type for the second argument to match Next.js expectations
+export async function GET(
+    req: NextRequest, 
+    { params }: { params: { id: string } }
+) {
     const workerId = params.id;
 
     if (!workerId) {
@@ -150,16 +140,14 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         const worker = await prisma.injuredWorker.findFirst({
             where: {
                 id: workerId,
-                profileId: user.profileId, // Authorization: worker must belong to user's profile
+                profileId: user.profileId, 
             },
-            // include other relations if needed
         });
 
         if (!worker) {
             return NextResponse.json({ error: 'Injured worker not found or not authorized' }, { status: 404 });
         }
         
-        // Mask SSN before sending back
         const { ssn: rawSsn, ...workerWithoutRawSsn } = worker;
         const workerDataToSend = {
             ...workerWithoutRawSsn,

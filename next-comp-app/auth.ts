@@ -14,7 +14,8 @@ import type { JWT } from "@auth/core/jwt"; // Correct import for JWT
 import type { AdapterUser } from "@auth/core/adapters";
 
 // Import your custom AppUser type (defined in types/next-auth.d.ts)
-import type { JWT as AugmentedJWT } from "@auth/core/jwt";
+// Ensure your AppUser and AugmentedJWT types align with the fields you're using.
+import type { JWT as AugmentedJWT } from "@auth/core/jwt"; 
 import type { AppUser } from "@/types/next-auth"; // Adjust path as necessary
 
 // --- Custom Error Classes (Define these once) ---
@@ -46,12 +47,11 @@ export const authConfig: NextAuthConfig = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      // The adapter handles user creation. Profile creation is handled in events.
     }),
     MicrosoftEntraIDProvider({
       clientId: process.env.MICROSOFT_CLIENT_ID!,
       clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
-      tenantId: process.env.MICROSOFT_TENANT_ID!, // Ensure this is set for Entra ID
+      tenantId: process.env.MICROSOFT_TENANT_ID!,
     }),
     CredentialsProvider({
       name: 'Credentials',
@@ -69,8 +69,8 @@ export const authConfig: NextAuthConfig = {
         const userFromDb = await prisma.user.findUnique({
           where: { email: email },
           include: { 
-            profile: true,      // To get profileId and role
-            subscriptions: true // To get subscriptionStatus
+            profile: true,       // To get profileId and role
+            subscriptions: true  // To get subscriptionStatus
           }
         });
 
@@ -79,7 +79,6 @@ export const authConfig: NextAuthConfig = {
         }
 
         if (!userFromDb.password) {
-          // User exists but has no password (e.g., signed up via OAuth)
           throw new MissingPasswordError("This account does not have a password set. Try an alternative sign-in method.");
         }
 
@@ -89,55 +88,49 @@ export const authConfig: NextAuthConfig = {
         }
         
         // Construct and return the AppUser object
+        // Ensure your AppUser type definition includes all these fields.
         const authorizedUser: AppUser = {
           id: userFromDb.id,
           email: userFromDb.email,
-          name: userFromDb.name,
+          name: userFromDb.name, // This is NextAuthUser.name
           image: userFromDb.image,
-          emailVerified: userFromDb.emailVerified, // From your AppUser definition
+          emailVerified: userFromDb.emailVerified,
           // Custom fields from AppUser definition
           profileId: userFromDb.profile?.id,
-          role: userFromDb.profile?.role,
-          subscriptionStatus: userFromDb.subscriptions?.status,
+          // Assuming 'role' is on Profile model and part of AppUser
+          role: userFromDb.profile?.role as AppUser['role'], 
+          // Assuming 'subscriptionStatus' is on Subscription model and part of AppUser
+          subscriptionStatus: userFromDb.subscriptions?.status as AppUser['subscriptionStatus'], 
         };
         return authorizedUser;
       }
     })
   ],
   session: {
-    strategy: 'jwt', // Using JWTs for session management
+    strategy: 'jwt', 
   },
   callbacks: {
-    // The signIn callback can be used for access control or to link accounts.
-    // Profile creation for OAuth is better handled in the 'events.createUser' callback.
     async signIn({ user, account, profile }) {
-      // console.log("signIn callback", { user, account, profile });
-      return true; // Allow sign-in
+      return true; 
     },
 
-    // The jwt callback is called when a JWT is created or updated.
-    // `user` is only passed on initial sign-in.
-    // `token` is the existing token (if any).
-    // `account` is provider details (only on initial OAuth sign-in).
     async jwt({ token, user, account, profile, trigger, isNewUser }) {
-        // `user` here can be NextAuthUser (from next-auth) or AdapterUser.
-        // We need to ensure we are working with our AppUser structure for the token.
-        const augmentedToken = token as AugmentedJWT; // Cast to our augmented JWT type
-      if (user) { // This block is primarily for initial sign-in
+      const augmentedToken = token as AugmentedJWT; 
+
+      if (user) { 
         let userDetailsToPopulateToken: AppUser;
 
-        if (account) { // OAuth sign-in (Google, Microsoft)
-          // The `user` object from an OAuth provider might be basic.
-          // Fetch the full user details from your database to ensure all custom fields are included.
+        // For OAuth, user.id is reliable. Fetch from DB to get all AppUser fields.
+        // For credentials, 'user' is already the AppUser from authorize.
+        if (account || (trigger === "signUp" && user.id)) { // OAuth or initial sign-up
           const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
+            where: { id: user.id! }, // user.id should be present
             include: { profile: true, subscriptions: true },
           });
 
           if (!dbUser) {
-            // This should ideally not happen if the adapter and events.createUser are working.
-            console.error(`JWT: User with ID ${user.id} not found in database during OAuth.`);
-            return augmentedToken; // Return original token to avoid errors
+            console.error(`JWT: User with ID ${user.id} not found in database.`);
+            return augmentedToken; 
           }
           
           userDetailsToPopulateToken = {
@@ -147,31 +140,33 @@ export const authConfig: NextAuthConfig = {
             image: dbUser.image,
             emailVerified: dbUser.emailVerified,
             profileId: dbUser.profile?.id,
-            role: dbUser.profile?.role,
-            subscriptionStatus: dbUser.subscriptions?.status,
+            role: dbUser.profile?.role as AppUser['role'],
+            subscriptionStatus: dbUser.subscriptions?.status as AppUser['subscriptionStatus'],
           };
-
-        } else { // Credentials sign-in
-          // `user` comes from the `authorize` function, which returns `AppUser`.
-          userDetailsToPopulateToken = user as AppUser;
+        } else if (!account && user) { // Credentials sign-in (user is already AppUser)
+           userDetailsToPopulateToken = user as AppUser;
+        } else {
+            // Should not happen if user object is always present on initial sign-in
+            return augmentedToken;
+        }
+        
+        // Ensure critical IDs are present
+        if (typeof userDetailsToPopulateToken.id !== 'string' || userDetailsToPopulateToken.id.trim() === '') {
+          console.error('CRITICAL: User ID is missing or invalid; cannot create JWT from user:', userDetailsToPopulateToken);
+          throw new Error('User ID is missing or invalid for JWT.');
+        }
+        if (userDetailsToPopulateToken.profileId && (typeof userDetailsToPopulateToken.profileId !== 'string' || userDetailsToPopulateToken.profileId.trim() === '')) {
+            console.warn('WARN: profileId is present but invalid for JWT from user:', userDetailsToPopulateToken);
+            // Decide if this is critical enough to throw an error or just proceed without it
         }
 
-        const currentUserId = userDetailsToPopulateToken.id;
-       
-        if (typeof currentUserId !== 'string' || currentUserId.trim() === '') {
-          // This is a critical issue if user.id is not a valid string.
-          // Log the error and throw an exception to prevent an invalid token.
-          console.error('CRITICAL: User ID from userDetailsToPopulateToken is not a valid string:', currentUserId);
-          throw new Error('User ID is missing or invalid; cannot create JWT.');
-        }
-        augmentedToken.userId = currentUserId;
+
+        augmentedToken.userId = userDetailsToPopulateToken.id;
         augmentedToken.profileId = userDetailsToPopulateToken.profileId;
         augmentedToken.role = userDetailsToPopulateToken.role;
         augmentedToken.subscriptionStatus = userDetailsToPopulateToken.subscriptionStatus;
-        augmentedToken.emailVerified = userDetailsToPopulateToken.emailVerified; // Add if needed on JWT
-
-        // Also ensure standard claims are present if needed, Auth.js usually handles these
-        // but being explicit can be good.
+        augmentedToken.emailVerified = userDetailsToPopulateToken.emailVerified;
+        
         augmentedToken.name = userDetailsToPopulateToken.name;
         augmentedToken.email = userDetailsToPopulateToken.email;
         augmentedToken.picture = userDetailsToPopulateToken.image;
@@ -179,38 +174,47 @@ export const authConfig: NextAuthConfig = {
       return augmentedToken;
     },
 
-    // The session callback is called when a session is checked.
-    // `token` is the JWT from the `jwt` callback.
-    // `session` is the session object.
     async session({ session, token }) {
-      // `session.user` should be our augmented AppUser type due to types/next-auth.d.ts
-      // `token` is our augmented JWT type.
       const augmentedToken = token as AugmentedJWT;
       if (augmentedToken && session.user) {
-        session.user.id = augmentedToken.userId; // id is standard on User, but ensure it's from our userId claim
+        // Ensure session.user is treated as AppUser for assignment
+        const sUser = session.user as AppUser; 
         
-        // Assign custom properties from token to session.user
-        // TypeScript should recognize these properties on session.user due to augmentation.
-        const sUser = session.user as AppUser;
+        sUser.id = augmentedToken.userId!; // userId in token should always be defined
         sUser.profileId = augmentedToken.profileId;
         sUser.role = augmentedToken.role;
         sUser.subscriptionStatus = augmentedToken.subscriptionStatus;
         sUser.emailVerified = augmentedToken.emailVerified;
+        // Standard fields also populated from token if needed
+        sUser.name = augmentedToken.name;
+        sUser.email = augmentedToken.email;
+        sUser.image = augmentedToken.picture;
       }
       return session;
     },
   },
   events: {
-    // This event is triggered after a user is created by the adapter (e.g., first OAuth sign-in).
-    // It's a reliable place to create related records like the Profile.
     async createUser(message) {
       const userId = message.user.id;
-      const userName = message.user.name;
+      const userName = message.user.name; // This is typically the full name
 
       if (!userId) {
         console.error("createUser event: User ID is undefined. Cannot create profile.");
         return;
       }
+
+      // Split userName into firstName and lastName
+      // This is a simple split; consider more robust parsing for complex names.
+      let firstName = userName || '';
+      let lastName = '';
+      if (userName) {
+        const nameParts = userName.split(' ');
+        firstName = nameParts[0];
+        if (nameParts.length > 1) {
+          lastName = nameParts.slice(1).join(' ');
+        }
+      }
+
 
       try {
         const existingProfile = await prisma.profile.findUnique({
@@ -218,14 +222,17 @@ export const authConfig: NextAuthConfig = {
         });
 
         if (!existingProfile) {
+          // Use firstName and lastName instead of full_name
+          // Ensure your Profile model in schema.prisma has firstName and lastName fields.
           await prisma.profile.create({
             data: {
               userId: userId,
-              full_name: userName, // Populate from user data
-              // role: 'user', // Set a default role if desired
+              firstName: firstName, 
+              lastName: lastName,
+              // role: 'USER', // Example: Set a default role if your Profile model has 'role'
             },
           });
-          // console.log(`Profile created for new user: ${userId}`);
+          // console.log(`Profile created for new user: ${userId} with name ${firstName} ${lastName}`);
         }
       } catch (error) {
         console.error(`Error creating profile for user ${userId} in createUser event:`, error);
@@ -233,15 +240,10 @@ export const authConfig: NextAuthConfig = {
     },
   },
   pages: {
-    signIn: '/login', // Your custom login page
-    error: '/login',  // Redirect to login page on error (error codes in query params)
-    // verifyRequest: '/auth/verify-request', // For email magic links
-    // newUser: '/auth/new-user' // Redirect new users here (if not using events.createUser for setup)
+    signIn: '/login', 
+    error: '/login', 
   },
-  // secret: process.env.NEXTAUTH_SECRET, // In v5, NEXTAUTH_SECRET env var is automatically used.
-  // trustHost: true, // Set if deploying to environments where NEXTAUTH_URL might be misconfigured.
-  debug: process.env.NODE_ENV === 'development', // Enable more logs in development
-} satisfies NextAuthConfig; // Use "satisfies" for strong type checking against NextAuthConfig
+  debug: process.env.NODE_ENV === 'development',
+} satisfies NextAuthConfig; 
 
-// Export handlers and helper functions
 export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);

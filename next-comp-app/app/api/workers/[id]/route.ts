@@ -39,9 +39,9 @@ const updateWorkerSchema = z.object({
 // PUT Handler for updating a specific InjuredWorker
 export async function PUT(
     req: NextRequest, 
-    { params }: { params: { id: string } } // Reverted to inline type for params
+    context: { params: { id: string } }
 ) {
-  const workerId = params.id; 
+  const workerId = context.params.id; 
 
   if (!workerId) {
     return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
@@ -117,9 +117,9 @@ export async function PUT(
 // GET handler for fetching a specific InjuredWorker
 export async function GET(
     req: NextRequest, 
-    { params }: { params: { id: string } } // Reverted to inline type for params
+    context: { params: { id: string } }
 ) {
-    const workerId = params.id; 
+    const workerId = context.params.id; 
 
     if (!workerId) {
         return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });

@@ -37,11 +37,9 @@ const updateWorkerSchema = z.object({
 });
 
 // PUT Handler for updating a specific InjuredWorker
-export async function PUT(
-    req: NextRequest, 
-    context: { params: { id: string } }
-) {
-  const workerId = context.params.id; 
+export async function PUT(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const workerId = pathname.split('/').pop();
 
   if (!workerId) {
     return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
@@ -115,51 +113,49 @@ export async function PUT(
 }
 
 // GET handler for fetching a specific InjuredWorker
-export async function GET(
-    req: NextRequest, 
-    context: { params: { id: string } }
-) {
-    const workerId = context.params.id; 
+export async function GET(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const workerId = pathname.split('/').pop();
 
-    if (!workerId) {
-        return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
-    }
+  if (!workerId) {
+    return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
+  }
 
-    try {
-        const session = await auth();
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
-        const user = session.user as AppUser;
-        if (!user.profileId) {
-            return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
-        }
+  try {
+      const session = await auth();
+      if (!session?.user) {
+          return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      }
+      const user = session.user as AppUser;
+      if (!user.profileId) {
+          return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
+      }
 
-        const worker = await prisma.injuredWorker.findFirst({
-            where: {
-                id: workerId,
-                profileId: user.profileId, 
-            },
-        });
+      const worker = await prisma.injuredWorker.findFirst({
+          where: {
+              id: workerId,
+              profileId: user.profileId, 
+          },
+      });
 
-        if (!worker) {
-            return NextResponse.json({ error: 'Injured worker not found or not authorized' }, { status: 404 });
-        }
-        
-        const { ssn: rawSsn, ...workerWithoutRawSsn } = worker;
-        const workerDataToSend = {
-            ...workerWithoutRawSsn,
-            ssn: rawSsn ? `XXX-XX-${rawSsn.slice(-4)}` : null,
-        };
+      if (!worker) {
+          return NextResponse.json({ error: 'Injured worker not found or not authorized' }, { status: 404 });
+      }
+      
+      const { ssn: rawSsn, ...workerWithoutRawSsn } = worker;
+      const workerDataToSend = {
+          ...workerWithoutRawSsn,
+          ssn: rawSsn ? `XXX-XX-${rawSsn.slice(-4)}` : null,
+      };
 
-        return NextResponse.json(workerDataToSend);
+      return NextResponse.json(workerDataToSend);
 
-    } catch (error: unknown) { 
-        console.error(`Error fetching worker ${workerId}:`, error);
-        let message = 'An unknown error occurred';
-        if (error instanceof Error) {
-            message = error.message;
-        }
-        return NextResponse.json({ error: 'Failed to fetch injured worker details.', details: message }, { status: 500 });
-    }
+  } catch (error: unknown) { 
+      console.error(`Error fetching worker ${workerId}:`, error);
+      let message = 'An unknown error occurred';
+      if (error instanceof Error) {
+          message = error.message;
+      }
+      return NextResponse.json({ error: 'Failed to fetch injured worker details.', details: message }, { status: 500 });
+  }
 }

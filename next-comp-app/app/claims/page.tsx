@@ -41,7 +41,6 @@ import {
     AlertDialogTitle,
 } from "@/app/Components/ui/alert-dialog";
 import { format, isValid, parseISO } from 'date-fns';
-// import type { AppUser } from '@/types/next-auth'; // Not directly used in this component's logic
 
 interface ClaimListItem {
   id: string;
@@ -68,7 +67,7 @@ interface SortConfig {
     direction: 'ascending' | 'descending';
 }
 
-const OPEN_CLAIM_STATUSES_FOR_CLAIMS: string[] = ["Open", "Pending", "Active", "In Progress", "Unknown", "Accepted", "Investigating", "In Litigation", "Pending Review"];
+const OPEN_CLAIM_STATUSES_FOR_CLAIMS: string[] = ["Open", "OPEN", "Pending", "Active", "In Progress", "Unknown", "Accepted", "Investigating", "In Litigation", "Pending Review"];
 const CLOSED_CLAIM_STATUSES_FOR_CLAIMS: string[] = ["Closed", "Settled", "Denied", "Finaled"];
 
 

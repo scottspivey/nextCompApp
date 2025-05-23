@@ -2,15 +2,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import * as z from 'zod';
-import { auth } from '@/auth'; //  Adjust path if necessary
-import type { AppUser } from '@/types/next-auth'; // Optional, for clarity
+import { auth } from '@/auth'; 
+import type { AppUser } from '@/types/next-auth'; 
+
+import { Gender, MaritalStatus } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 
-// Zod schema remains the same
+// Zod schema updated to use nativeEnum for gender and marital_status
 const workerFormSchema = z.object({
-  profileId: z.string().min(1, "Profile ID is required"), // Will be validated against session user's profileId
+  profileId: z.string().min(1, "Profile ID is required"),
   first_name: z.string().min(1, "First name is required"),
-  // ... other fields ...
   middle_name: z.string().optional().nullable(),
   last_name: z.string().min(1, "Last name is required"),
   suffix: z.string().optional().nullable(),
@@ -18,8 +20,10 @@ const workerFormSchema = z.object({
     message: "SSN must be 9 digits or empty",
   }),
   date_of_birth: z.coerce.date().optional().nullable(),
-  gender: z.string().optional().nullable(),
-  marital_status: z.string().optional().nullable(),
+  // Assuming Gender is an enum in your Prisma schema
+  gender: z.nativeEnum(Gender).optional().nullable(),
+  // Assuming MaritalStatus is an enum in your Prisma schema
+  marital_status: z.nativeEnum(MaritalStatus).optional().nullable(),
   address_line1: z.string().optional().nullable(),
   address_line2: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
@@ -63,39 +67,44 @@ export async function POST(req: NextRequest) {
       );
     }
     
+    // workerDataFields will now have gender and marital_status typed as their respective enums (or null/undefined)
     const { profileId: requestProfileId, ...workerDataFields }: ValidatedWorkerData = validationResult.data;
 
-    // Authorization: Ensure the profileId in the request matches the session user's profileId
     if (requestProfileId !== user.profileId) {
       return NextResponse.json({ error: 'Forbidden: You can only add workers to your own profile.' }, { status: 403 });
     }
 
-    // Check if the validated profileId (which is the user's own profileId) exists
     const profileExists = await prisma.profile.findUnique({
-      where: { id: user.profileId }, // Use the authenticated user's profileId
+      where: { id: user.profileId }, 
     });
 
     if (!profileExists) {
-      // This case should be rare if profileId from session is always valid
       return NextResponse.json({ error: "Associated profile not found for authenticated user." }, { status: 404 });
     }
     
+    // This should now be type-correct if `workerDataFields` has correctly typed enums
     const newInjuredWorker = await prisma.injuredWorker.create({
       data: {
-        ...workerDataFields,
-        profileId: user.profileId, // Ensure it uses the authenticated user's profileId
+        ...workerDataFields, // gender and marital_status are now expected to be enums
+        profileId: user.profileId, 
       },
     });
     return NextResponse.json(newInjuredWorker, { status: 201 });
 
-  } catch (error) {
-    // ... (keep existing error handling) ...
+  } catch (error: unknown) { 
     console.error("API - POST /api/workers - Failed to create injured worker:", error);
     if (error instanceof z.ZodError) { 
         return NextResponse.json({ error: "Validation failed during processing.", details: error.errors }, { status: 400 });
     }
+    if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+           return NextResponse.json({ error: 'A worker with some unique information already exists.' }, { status: 409 });
+        }
+        return NextResponse.json({ error: 'A database error occurred while creating the worker.' }, { status: 500 });
+    }
+    const message = error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
-      { error: "An internal server error occurred while creating the injured worker." },
+      { error: "An internal server error occurred while creating the injured worker.", details: message },
       { status: 500 }
     );
   }
@@ -110,22 +119,15 @@ export async function GET(req: NextRequest) {
     }
     const user = session.user as AppUser;
 
-    // The GET request for workers should be for the currently logged-in user's profile.
-    // So, we use user.profileId from the session instead of a query parameter.
     if (!user.profileId) {
       return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
     }
     const sessionProfileId = user.profileId;
 
-    // Removed: const { searchParams } = new URL(req.url);
-    // Removed: const profileId = searchParams.get('profileId');
-    // Removed: if (!profileId) { ... }
-
     const injuredWorkers = await prisma.injuredWorker.findMany({
       where: {
-        profileId: sessionProfileId, // Fetch workers for the authenticated user's profile
+        profileId: sessionProfileId, 
       },
-      // ... (keep existing select, orderBy) ...
       select: { 
         id: true,
         first_name: true,
@@ -134,6 +136,8 @@ export async function GET(req: NextRequest) {
         ssn: true, 
         city: true,
         state: true,
+        // Assuming claim_status is String? in Claim model as per previous discussions
+        // If it becomes an enum, ensure Zod validation and types are consistent.
         claims: { 
           select: {
             id: true,
@@ -157,7 +161,6 @@ export async function GET(req: NextRequest) {
       ],
     });
 
-    // ... (keep existing processing logic for processedWorkers) ...
     const processedWorkers = injuredWorkers.map(worker => {
       const claimsInfo = worker.claims.map(claim => ({
         id: claim.id,
@@ -167,7 +170,7 @@ export async function GET(req: NextRequest) {
         date_of_injury: claim.date_of_injury
       }));
 
-      const employerNames = Array.from(new Set(worker.claims.map(claim => claim.employer?.name).filter(name => name)));
+      const employerNames = Array.from(new Set(worker.claims.map(claim => claim.employer?.name).filter(Boolean)));
 
       return {
         id: worker.id,
@@ -184,11 +187,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(processedWorkers, { status: 200 });
 
-  } catch (error) {
-    // ... (keep existing error handling) ...
+  } catch (error: unknown) { 
     console.error("API - GET /api/workers - Error fetching injured workers:", error);
+    const message = error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
-      { error: "An internal server error occurred while fetching injured workers." },
+      { error: "An internal server error occurred while fetching injured workers.", details: message },
       { status: 500 }
     );
   }

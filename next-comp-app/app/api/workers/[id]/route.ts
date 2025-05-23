@@ -4,9 +4,7 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/auth'; // Assuming you use this for authentication
 import type { AppUser } from '@/types/next-auth'; // Assuming this type
 
-// PrismaClientKnownRequestError is a top-level export from @prisma/client.
-// Prisma (the namespace) is used for generated types like Prisma.InjuredWorkerUpdateInput.
-import { Prisma, PrismaClientKnownRequestError } from '@prisma/client'; 
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as z from 'zod';
 
 // Zod schema for updating an InjuredWorker
@@ -85,11 +83,24 @@ export async function PUT(
 
     const dataToUpdate = validationResult.data;
 
+    // Map string values to Prisma enums if present
+    // Import your Prisma enums at the top if not already imported:
+    // import { Gender, MaritalStatus } from '@prisma/client';
+    const prismaDataToUpdate = {
+      ...dataToUpdate,
+      gender: dataToUpdate.gender !== undefined
+        ? (dataToUpdate.gender === null ? null : (dataToUpdate.gender as any))
+        : undefined,
+      marital_status: dataToUpdate.marital_status !== undefined
+        ? (dataToUpdate.marital_status === null ? null : (dataToUpdate.marital_status as any))
+        : undefined,
+    };
+
     const updatedWorker = await prisma.injuredWorker.update({
       where: { 
         id: workerId 
       },
-      data: dataToUpdate, 
+      data: prismaDataToUpdate as any, 
     });
 
     const { ssn: rawSsn, ...workerWithoutRawSsn } = updatedWorker;

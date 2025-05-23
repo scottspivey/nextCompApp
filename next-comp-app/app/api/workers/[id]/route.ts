@@ -4,11 +4,17 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/auth'; // Assuming you use this for authentication
 import type { AppUser } from '@/types/next-auth'; // Assuming this type
 
+import { Prisma, Gender, MaritalStatus } from '@prisma/client'; 
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as z from 'zod';
 
+// Define an interface for the route handler's context
+interface RouteHandlerContext {
+  params: { id: string };
+}
+
 // Zod schema for updating an InjuredWorker
-// Adjusted gender and marital_status to be strings, as per the user's Prisma schema.
+// Assuming Gender and MaritalStatus are enums in your schema.prisma and will be available after `npx prisma generate`.
 const updateWorkerSchema = z.object({
   first_name: z.string().min(1, "First name is required.").optional(),
   middle_name: z.string().optional().nullable(),
@@ -17,8 +23,10 @@ const updateWorkerSchema = z.object({
   ssn: z.string().optional().nullable(), // Add validation like regex if needed
   date_of_birth: z.coerce.date().optional().nullable(),
   
-  gender: z.string().optional().nullable(), 
-  marital_status: z.string().optional().nullable(), 
+  // Switched to z.nativeEnum assuming 'Gender' is an enum in your schema and available after `prisma generate`
+  gender: z.nativeEnum(Gender).optional().nullable(), 
+  // Switched to z.nativeEnum assuming 'MaritalStatus' is an enum in your schema and available after `prisma generate`
+  marital_status: z.nativeEnum(MaritalStatus).optional().nullable(), 
 
   address_line1: z.string().optional().nullable(),
   address_line2: z.string().optional().nullable(),
@@ -36,12 +44,11 @@ const updateWorkerSchema = z.object({
 });
 
 // PUT Handler for updating a specific InjuredWorker
-// Updated the type for the second argument to match Next.js expectations
 export async function PUT(
     req: NextRequest, 
-    { params }: { params: { id: string } }
+    context: RouteHandlerContext 
 ) {
-  const workerId = params.id;
+  const workerId = context.params.id; 
 
   if (!workerId) {
     return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
@@ -52,17 +59,15 @@ export async function PUT(
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-    // Assuming AppUser has profileId, and you authorize based on that
     const user = session.user as AppUser; 
     if (!user.profileId) {
         return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
     }
 
-    // Fetch the existing worker to ensure it belongs to the authenticated user's profile
     const existingWorker = await prisma.injuredWorker.findFirst({
         where: {
             id: workerId,
-            profileId: user.profileId, // Authorization check
+            profileId: user.profileId, 
         },
     });
 
@@ -71,7 +76,6 @@ export async function PUT(
     }
 
     const body: unknown = await req.json();
-    // Use .partial() if you want to allow partial updates (not all fields required)
     const validationResult = updateWorkerSchema.partial().safeParse(body);
 
     if (!validationResult.success) {
@@ -81,26 +85,15 @@ export async function PUT(
       );
     }
 
-    const dataToUpdate = validationResult.data;
-
-    // Map string values to Prisma enums if present
-    // Import your Prisma enums at the top if not already imported:
-    // import { Gender, MaritalStatus } from '@prisma/client';
-    const prismaDataToUpdate = {
-      ...dataToUpdate,
-      gender: dataToUpdate.gender !== undefined
-        ? (dataToUpdate.gender === null ? null : (dataToUpdate.gender as any))
-        : undefined,
-      marital_status: dataToUpdate.marital_status !== undefined
-        ? (dataToUpdate.marital_status === null ? null : (dataToUpdate.marital_status as any))
-        : undefined,
-    };
+    // If Gender and MaritalStatus are correctly typed as enums by Zod (after `prisma generate`),
+    // this data should align with Prisma.InjuredWorkerUpdateInput.
+    const dataToUpdate: Prisma.InjuredWorkerUpdateInput = validationResult.data;
 
     const updatedWorker = await prisma.injuredWorker.update({
       where: { 
         id: workerId 
       },
-      data: prismaDataToUpdate as any, 
+      data: dataToUpdate, 
     });
 
     const { ssn: rawSsn, ...workerWithoutRawSsn } = updatedWorker;
@@ -111,28 +104,34 @@ export async function PUT(
 
     return NextResponse.json(updatedWorkerDataToSend);
 
-  } catch (error) {
+  } catch (error: unknown) { // Catch error as unknown
     console.error(`Error updating worker ${workerId}:`, error);
+    
+    // Type narrowing for error handling
     if (error instanceof PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
+      if (error.code === 'P2025') { // Record to update not found
         return NextResponse.json({ error: 'Worker to update not found.'}, { status: 404 });
       }
+      // Add other specific Prisma error codes as needed
+      const details = `Prisma error code: ${error.code}`;
+      return NextResponse.json({ error: 'Failed to update injured worker due to a database issue.', details }, { status: 500 });
     }
     if (error instanceof z.ZodError) {
         return NextResponse.json({ error: "Validation processing error.", details: error.errors }, { status: 400 });
     }
+    
+    // General error
     const message = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: 'Failed to update injured worker.', details: message }, { status: 500 });
   }
 }
 
 // GET handler for fetching a specific InjuredWorker
-// Updated the type for the second argument to match Next.js expectations
 export async function GET(
     req: NextRequest, 
-    { params }: { params: { id: string } }
+    context: RouteHandlerContext 
 ) {
-    const workerId = params.id;
+    const workerId = context.params.id; 
 
     if (!workerId) {
         return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
@@ -167,9 +166,13 @@ export async function GET(
 
         return NextResponse.json(workerDataToSend);
 
-    } catch (error) {
+    } catch (error: unknown) { // Catch error as unknown
         console.error(`Error fetching worker ${workerId}:`, error);
-        const message = error instanceof Error ? error.message : 'An unknown error occurred';
+        // Type narrowing for error handling
+        let message = 'An unknown error occurred';
+        if (error instanceof Error) {
+            message = error.message;
+        }
         return NextResponse.json({ error: 'Failed to fetch injured worker details.', details: message }, { status: 500 });
     }
 }

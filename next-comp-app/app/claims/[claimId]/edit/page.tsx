@@ -348,7 +348,7 @@ export default function EditClaimPage() {
                         <Select onValueChange={field.onChange} value={field.value || ""} defaultValue={initialClaimData?.claim_status || ""}>
                             <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="Open">Open</SelectItem><SelectItem value="Closed">Closed</SelectItem>
+                                <SelectItem value="Open"></SelectItem><SelectItem value="Closed">Closed</SelectItem>
                                 <SelectItem value="Pending">Pending</SelectItem><SelectItem value="Denied">Denied</SelectItem>
                                 <SelectItem value="Accepted">Accepted</SelectItem><SelectItem value="Investigating">Investigating</SelectItem>
                                 <SelectItem value="In Litigation">In Litigation</SelectItem><SelectItem value="Pending Review">Pending Review</SelectItem>

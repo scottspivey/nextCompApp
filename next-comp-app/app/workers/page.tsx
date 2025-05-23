@@ -65,7 +65,7 @@ interface SortConfig {
     direction: 'ascending' | 'descending';
 }
 
-const OPEN_CLAIM_STATUSES_FOR_WORKERS: string[] = ["Open", "Pending", "Active", "In Progress", "Unknown", "Accepted", "Investigating", "In Litigation", "Pending Review"];
+const OPEN_CLAIM_STATUSES_FOR_WORKERS: string[] = ["OPEN", "PENDING", "ACCEPTED", "INVESTIGATING", "IN_LITIGATION", "PENDING_REVIEW", "UNKNOWN"];
 
 export default function AllInjuredWorkersPage() {
   const router = useRouter();

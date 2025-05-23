@@ -67,8 +67,8 @@ interface SortConfig {
     direction: 'ascending' | 'descending';
 }
 
-const OPEN_CLAIM_STATUSES_FOR_CLAIMS: string[] = ["Open", "OPEN", "Pending", "Active", "In Progress", "Unknown", "Accepted", "Investigating", "In Litigation", "Pending Review"];
-const CLOSED_CLAIM_STATUSES_FOR_CLAIMS: string[] = ["Closed", "Settled", "Denied", "Finaled"];
+const OPEN_CLAIM_STATUSES_FOR_CLAIMS: string[] = ["OPEN", "PENDING", "ACCEPTED", "INVESTIGATING", "IN_LITIGATION", "PENDING_REVIEW", "UNKNOWN"];
+const CLOSED_CLAIM_STATUSES_FOR_CLAIMS: string[] = ["CLOSED", "SETTLED", "DENIED", "FINALED"];
 
 
 export default function ClaimsListPage() {

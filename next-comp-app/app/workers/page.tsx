@@ -74,11 +74,12 @@ const safeRenderToString = (value: any): string => {
     if (value === null || value === undefined) {
         return ''; // Or 'N/A' or some other placeholder
     }
-    if (typeof value === 'object') {
-        // This is a critical warning if you expect a primitive for rendering.
-        console.warn("Attempting to render an object where a string or primitive was expected. This can cause React Error 310. Value:", value);
-        // For debugging, you might show its type or a stringified version,
-        // but the root cause (unexpected object) needs fixing.
+    if (Array.isArray(value)) {
+        console.warn("Attempting to render an ARRAY where a string or primitive was expected. Value:", value);
+        return `[Array: ${value.join(', ')}]`; 
+    }
+    if (typeof value === 'object' && value !== null) {
+        console.warn("Attempting to render an OBJECT where a string or primitive was expected. Value:", value);
         return `[Object: ${Object.prototype.toString.call(value)}]`; 
     }
     return String(value);
@@ -121,7 +122,6 @@ export default function AllInjuredWorkersPage() {
         throw new Error(errData.error);
       }
       const data: InjuredWorkerSummary[] = await response.json() as InjuredWorkerSummary[]; 
-      // For Debugging React Error 310: Log the fetched data structure.
       // console.log("Fetched workers data:", JSON.stringify(data, null, 2));
       setAllWorkers(data);
     } catch (err) {
@@ -151,13 +151,11 @@ export default function AllInjuredWorkersPage() {
 
   const workerHasOpenClaims = useCallback((worker: InjuredWorkerSummary): boolean => {
     if (!worker.claims || worker.claims.length === 0) return false;
-    // Ensure claim_status is a string before using .includes()
     return worker.claims.some(claim => typeof claim.claim_status === 'string' && OPEN_CLAIM_STATUSES.includes(claim.claim_status));
   }, []);
 
   const workerHasAnyClosedClaims = useCallback((worker: InjuredWorkerSummary): boolean => {
     if (!worker.claims || worker.claims.length === 0) return false;
-    // Ensure claim_status is a string before using .includes()
     return worker.claims.some(claim => typeof claim.claim_status === 'string' && CLOSED_CLAIM_STATUSES.includes(claim.claim_status));
   }, []);
 
@@ -174,7 +172,6 @@ export default function AllInjuredWorkersPage() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       searchedWorkers = filteredByStatus.filter(worker => {
-        // Ensure properties are strings before calling toLowerCase() or includes()
         const firstNameMatch = typeof worker.first_name === 'string' && worker.first_name.toLowerCase().includes(term);
         const lastNameMatch = typeof worker.last_name === 'string' && worker.last_name.toLowerCase().includes(term);
         const ssnMatch = worker.ssn && typeof worker.ssn === 'string' && worker.ssn.replace(/-/g, "").includes(term.replace(/-/g, ""));
@@ -222,6 +219,13 @@ export default function AllInjuredWorkersPage() {
     }
     return sortedWorkers;
   }, [allWorkers, searchTerm, sortConfig, workerClaimFilter, workerHasOpenClaims, workerHasAnyClosedClaims]);
+
+  // Moved filterDescription useMemo hook before any conditional returns
+  const filterDescription = useMemo(() => {
+    if (workerClaimFilter === 'open') return "(filtered by: open claims)";
+    if (workerClaimFilter === 'closed') return "(filtered by: closed claims)";
+    return ""; 
+  }, [workerClaimFilter]);
 
   const requestSort = (key: SortableWorkerKeys) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -310,6 +314,7 @@ export default function AllInjuredWorkersPage() {
     }
   };
 
+  // Conditional rendering for loading state
   if (sessionStatus === "loading" || (isLoading && allWorkers.length === 0 && !error)) {
     return (
       <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
@@ -321,12 +326,7 @@ export default function AllInjuredWorkersPage() {
     );
   }
 
-  const filterDescription = useMemo(() => {
-    if (workerClaimFilter === 'open') return "(filtered by: open claims)";
-    if (workerClaimFilter === 'closed') return "(filtered by: closed claims)";
-    return ""; 
-  }, [workerClaimFilter]);
-
+  // Main component return if not loading
   return (
     <>
       <div className="container mx-auto max-w-7xl px-4 py-8 md:py-12">
@@ -414,44 +414,50 @@ export default function AllInjuredWorkersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayedWorkers.map((worker) => (
-                    <TableRow key={worker.id}>
-                      <TableCell className="font-medium">
-                        <Link href={`/workers/${worker.id}`} className="hover:underline text-primary">
-                          {/* Use safeRenderToString for potentially problematic direct renders */}
-                          {safeRenderToString(worker.last_name)}, {safeRenderToString(worker.first_name)} 
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <span className="truncate" title={displayEmployerInfo(worker.employerNames)}>
-                            {displayEmployerInfo(worker.employerNames)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="truncate" title={worker.claims.map(c => `${safeRenderToString(c.wcc_file_number) || 'N/A'} (${safeRenderToString(c.claim_status)})`).join('; ')}>
-                            {displayClaimInfo(worker.claims)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {formatDate(worker.date_of_birth)}
-                      </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/workers/${worker.id}`}>
-                              <Edit3 className="mr-2 h-3 w-3" /> View/Edit
-                          </Link>
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => openDeleteConfirmation(worker)}
-                          aria-label={`Delete worker ${safeRenderToString(worker.first_name)} ${safeRenderToString(worker.last_name)}`}
-                        >
-                          <Trash2 className="mr-2 h-3 w-3" /> Delete
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {displayedWorkers.map((worker) => {
+                    const nameCellContent = `${safeRenderToString(worker.last_name)}, ${safeRenderToString(worker.first_name)}`;
+                    const employerCellContent = displayEmployerInfo(worker.employerNames);
+                    const claimsCellContent = displayClaimInfo(worker.claims);
+                    const dobCellContent = formatDate(worker.date_of_birth);
+                    
+                    return (
+                        <TableRow key={worker.id}>
+                          <TableCell className="font-medium">
+                            <Link href={`/workers/${worker.id}`} className="hover:underline text-primary">
+                              {nameCellContent}
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            <span className="truncate" title={employerCellContent}>
+                                {employerCellContent}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="truncate" title={worker.claims.map(c => `${safeRenderToString(c.wcc_file_number) || 'N/A'} (${safeRenderToString(c.claim_status)})`).join('; ')}>
+                                {claimsCellContent}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {dobCellContent}
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/workers/${worker.id}`}>
+                                  <Edit3 className="mr-2 h-3 w-3" /> View/Edit
+                              </Link>
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => openDeleteConfirmation(worker)}
+                              aria-label={`Delete worker ${safeRenderToString(worker.first_name)} ${safeRenderToString(worker.last_name)}`}
+                            >
+                              <Trash2 className="mr-2 h-3 w-3" /> Delete
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (

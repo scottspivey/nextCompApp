@@ -67,7 +67,7 @@ interface SortConfig {
 
 // Define claim status groups
 const OPEN_CLAIM_STATUSES: string[] = ["OPEN", "PENDING", "ACCEPTED", "INVESTIGATING", "IN_LITIGATION", "PENDING_REVIEW", "UNKNOWN"];
-const CLOSED_CLAIM_STATUSES: string[] = ["CLOSED", "SETTLED", "DENIED", "FINALED"]; // Renamed for clarity
+const CLOSED_CLAIM_STATUSES: string[] = ["CLOSED", "SETTLED", "DENIED", "FINALED"];
 
 export default function AllInjuredWorkersPage() {
   const router = useRouter();
@@ -80,7 +80,6 @@ export default function AllInjuredWorkersPage() {
   
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'last_name', direction: 'ascending' });
-  // Updated workerClaimFilter initial state and type to reflect new options
   const [workerClaimFilter, setWorkerClaimFilter] = useState<'all' | 'open' | 'closed'>('open');
   
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -150,7 +149,7 @@ export default function AllInjuredWorkersPage() {
     } else if (workerClaimFilter === 'closed') {
         filteredByStatus = allWorkers.filter(workerHasAnyClosedClaims);
     }
-    // If workerClaimFilter is 'all', no status-based filtering is applied here.
+    // If workerClaimFilter is 'all', no status-based filtering is applied here (filteredByStatus remains allWorkers).
 
     let searchedWorkers = filteredByStatus;
     if (searchTerm) {
@@ -179,17 +178,23 @@ export default function AllInjuredWorkersPage() {
             bValue = getFirstEmployer(b.employerNames);
             break;
           case 'date_of_birth':
-            aValue = a.date_of_birth ? parseISO(a.date_of_birth).getTime() : null;
-            bValue = b.date_of_birth ? parseISO(b.date_of_birth).getTime() : null;
+            // Ensure date_of_birth is a string before parsing
+            aValue = typeof a.date_of_birth === 'string' ? parseISO(a.date_of_birth).getTime() : null;
+            bValue = typeof b.date_of_birth === 'string' ? parseISO(b.date_of_birth).getTime() : null;
             break;
           default: 
-            const key = sortConfig.key as 'first_name' | 'last_name';
+            const key = sortConfig.key as 'first_name' | 'last_name'; // Type assertion
             aValue = a[key]?.toLowerCase() || '';
             bValue = b[key]?.toLowerCase() || '';
         }
 
         if (aValue === null || aValue === undefined) return 1; 
         if (bValue === null || bValue === undefined) return -1;
+        
+        // Handle NaN from getTime() on invalid dates by pushing them to the end
+        if (typeof aValue === 'number' && isNaN(aValue)) return 1;
+        if (typeof bValue === 'number' && isNaN(bValue)) return -1;
+
 
         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -217,7 +222,8 @@ export default function AllInjuredWorkersPage() {
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A';
     try {
-        const date = parseISO(dateString);
+        // Ensure dateString is a string before parsing
+        const date = typeof dateString === 'string' ? parseISO(dateString) : new Date(dateString);
         return isValid(date) ? format(date, 'MM/dd/yyyy') : 'Invalid Date';
     } catch {
         return 'Invalid Date';
@@ -330,6 +336,7 @@ export default function AllInjuredWorkersPage() {
               />
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
+          {/* Corrected RadioGroupItem values and labels */}
           <RadioGroup
               value={workerClaimFilter}
               onValueChange={(value) => setWorkerClaimFilter(value as 'all' | 'open' | 'closed')}
@@ -430,9 +437,11 @@ export default function AllInjuredWorkersPage() {
               !error && (
                 <div className="text-center py-10">
                     <p className="text-muted-foreground">
+                        {/* Corrected condition for "No workers match" text */}
                         {searchTerm || workerClaimFilter !== 'all' ? "No workers match your criteria." : "No injured workers found."}
                     </p>
-                    {!(searchTerm || workerClaimFilter !== 'all') && (
+                    {/* Corrected condition for "Add Your First Worker" button */}
+                    {!(searchTerm || workerClaimFilter !== 'all') && !allWorkers.length && (
                         <Button className="mt-4" asChild>
                             <Link href="/workers/new">
                                 <UserPlus className="mr-2 h-4 w-4" /> Add Your First Worker
@@ -447,6 +456,7 @@ export default function AllInjuredWorkersPage() {
               <CardFooter className="text-sm text-muted-foreground justify-between">
                   <span>
                     Showing {displayedWorkers.length} of {allWorkers.length} total worker(s)
+                    {/* filterDescription already correctly reflects 'all', 'open', 'closed' */}
                     {filterDescription}.
                   </span>
               </CardFooter>
@@ -476,4 +486,3 @@ export default function AllInjuredWorkersPage() {
     </>
   );
 }
-

@@ -69,6 +69,22 @@ interface SortConfig {
 const OPEN_CLAIM_STATUSES: string[] = ["OPEN", "PENDING", "ACCEPTED", "INVESTIGATING", "IN_LITIGATION", "PENDING_REVIEW", "UNKNOWN"];
 const CLOSED_CLAIM_STATUSES: string[] = ["CLOSED", "SETTLED", "DENIED", "FINALED"];
 
+// Helper to safely render a value as a string. For debugging React Error 310.
+const safeRenderToString = (value: any): string => {
+    if (value === null || value === undefined) {
+        return ''; // Or 'N/A' or some other placeholder
+    }
+    if (typeof value === 'object') {
+        // This is a critical warning if you expect a primitive for rendering.
+        console.warn("Attempting to render an object where a string or primitive was expected. This can cause React Error 310. Value:", value);
+        // For debugging, you might show its type or a stringified version,
+        // but the root cause (unexpected object) needs fixing.
+        return `[Object: ${Object.prototype.toString.call(value)}]`; 
+    }
+    return String(value);
+};
+
+
 export default function AllInjuredWorkersPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -105,6 +121,8 @@ export default function AllInjuredWorkersPage() {
         throw new Error(errData.error);
       }
       const data: InjuredWorkerSummary[] = await response.json() as InjuredWorkerSummary[]; 
+      // For Debugging React Error 310: Log the fetched data structure.
+      // console.log("Fetched workers data:", JSON.stringify(data, null, 2));
       setAllWorkers(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
@@ -133,12 +151,14 @@ export default function AllInjuredWorkersPage() {
 
   const workerHasOpenClaims = useCallback((worker: InjuredWorkerSummary): boolean => {
     if (!worker.claims || worker.claims.length === 0) return false;
-    return worker.claims.some(claim => OPEN_CLAIM_STATUSES.includes(claim.claim_status));
+    // Ensure claim_status is a string before using .includes()
+    return worker.claims.some(claim => typeof claim.claim_status === 'string' && OPEN_CLAIM_STATUSES.includes(claim.claim_status));
   }, []);
 
   const workerHasAnyClosedClaims = useCallback((worker: InjuredWorkerSummary): boolean => {
     if (!worker.claims || worker.claims.length === 0) return false;
-    return worker.claims.some(claim => CLOSED_CLAIM_STATUSES.includes(claim.claim_status));
+    // Ensure claim_status is a string before using .includes()
+    return worker.claims.some(claim => typeof claim.claim_status === 'string' && CLOSED_CLAIM_STATUSES.includes(claim.claim_status));
   }, []);
 
   const displayedWorkers = useMemo(() => {
@@ -149,19 +169,19 @@ export default function AllInjuredWorkersPage() {
     } else if (workerClaimFilter === 'closed') {
         filteredByStatus = allWorkers.filter(workerHasAnyClosedClaims);
     }
-    // If workerClaimFilter is 'all', no status-based filtering is applied here (filteredByStatus remains allWorkers).
 
     let searchedWorkers = filteredByStatus;
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       searchedWorkers = filteredByStatus.filter(worker => {
-        return (
-          worker.first_name.toLowerCase().includes(term) ||
-          worker.last_name.toLowerCase().includes(term) ||
-          (worker.ssn && worker.ssn.replace(/-/g, "").includes(term.replace(/-/g, ""))) ||
-          worker.claims.some(claim => claim.wcc_file_number?.toLowerCase().includes(term)) ||
-          worker.employerNames.some(name => name.toLowerCase().includes(term))
-        );
+        // Ensure properties are strings before calling toLowerCase() or includes()
+        const firstNameMatch = typeof worker.first_name === 'string' && worker.first_name.toLowerCase().includes(term);
+        const lastNameMatch = typeof worker.last_name === 'string' && worker.last_name.toLowerCase().includes(term);
+        const ssnMatch = worker.ssn && typeof worker.ssn === 'string' && worker.ssn.replace(/-/g, "").includes(term.replace(/-/g, ""));
+        const claimWCCMatch = worker.claims.some(claim => typeof claim.wcc_file_number === 'string' && claim.wcc_file_number.toLowerCase().includes(term));
+        const employerNameMatch = worker.employerNames.some(name => typeof name === 'string' && name.toLowerCase().includes(term));
+        
+        return firstNameMatch || lastNameMatch || ssnMatch || claimWCCMatch || employerNameMatch;
       });
     }
 
@@ -173,28 +193,27 @@ export default function AllInjuredWorkersPage() {
 
         switch (sortConfig.key) {
           case 'employerNames':
-            const getFirstEmployer = (names: string[]) => (names && names.length > 0 && names[0] !== 'N/A' ? names[0].toLowerCase() : '');
+            const getFirstEmployer = (names: string[]) => (names && names.length > 0 && typeof names[0] === 'string' && names[0] !== 'N/A' ? names[0].toLowerCase() : '');
             aValue = getFirstEmployer(a.employerNames);
             bValue = getFirstEmployer(b.employerNames);
             break;
           case 'date_of_birth':
-            // Ensure date_of_birth is a string before parsing
             aValue = typeof a.date_of_birth === 'string' ? parseISO(a.date_of_birth).getTime() : null;
             bValue = typeof b.date_of_birth === 'string' ? parseISO(b.date_of_birth).getTime() : null;
             break;
           default: 
-            const key = sortConfig.key as 'first_name' | 'last_name'; // Type assertion
-            aValue = a[key]?.toLowerCase() || '';
-            bValue = b[key]?.toLowerCase() || '';
+            const key = sortConfig.key as 'first_name' | 'last_name'; 
+            const rawA = a[key];
+            const rawB = b[key];
+            aValue = typeof rawA === 'string' ? rawA.toLowerCase() : '';
+            bValue = typeof rawB === 'string' ? rawB.toLowerCase() : '';
         }
 
         if (aValue === null || aValue === undefined) return 1; 
         if (bValue === null || bValue === undefined) return -1;
         
-        // Handle NaN from getTime() on invalid dates by pushing them to the end
         if (typeof aValue === 'number' && isNaN(aValue)) return 1;
         if (typeof bValue === 'number' && isNaN(bValue)) return -1;
-
 
         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -219,11 +238,10 @@ export default function AllInjuredWorkersPage() {
     return <ArrowUpDown className="ml-2 h-3 w-3 opacity-50 group-hover:opacity-100 inline-block" />;
   };
   
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'N/A';
+  const formatDate = (dateStringInput: Date | string | null | undefined) => {
+    if (!dateStringInput) return 'N/A';
     try {
-        // Ensure dateString is a string before parsing
-        const date = typeof dateString === 'string' ? parseISO(dateString) : new Date(dateString);
+        const date = typeof dateStringInput === 'string' ? parseISO(dateStringInput) : new Date(dateStringInput);
         return isValid(date) ? format(date, 'MM/dd/yyyy') : 'Invalid Date';
     } catch {
         return 'Invalid Date';
@@ -232,15 +250,18 @@ export default function AllInjuredWorkersPage() {
 
   const displayClaimInfo = (claims: ClaimForWorkerSummary[]) => {
     if (!claims || claims.length === 0) return "No Claims";
-    const openClaims = claims.filter(claim => OPEN_CLAIM_STATUSES.includes(claim.claim_status));
+    const openClaims = claims.filter(claim => typeof claim.claim_status === 'string' && OPEN_CLAIM_STATUSES.includes(claim.claim_status));
     if (openClaims.length === 0) return "No Open Claims";
-    if (openClaims.length === 1 && openClaims[0]) return `1 Open Claim: ${openClaims[0].wcc_file_number || openClaims[0].id.substring(0,8)}`;
+    if (openClaims.length === 1 && openClaims[0]) {
+        const wccNum = typeof openClaims[0].wcc_file_number === 'string' ? openClaims[0].wcc_file_number : openClaims[0].id.substring(0,8);
+        return `1 Open Claim: ${wccNum}`;
+    }
     return `${openClaims.length} Open Claims`;
   };
   
   const displayEmployerInfo = (employerNames: string[]) => {
     if (!employerNames || employerNames.length === 0 || (employerNames.length === 1 && employerNames[0] === 'N/A')) return "N/A";
-    return employerNames.join(', ');
+    return employerNames.filter(name => typeof name === 'string').join(', ');
   };
 
   const openDeleteConfirmation = (worker: InjuredWorkerSummary) => {
@@ -272,7 +293,7 @@ export default function AllInjuredWorkersPage() {
       setAllWorkers(prevWorkers => prevWorkers.filter(w => w.id !== workerToDelete.id));
       toast({
         title: "Success!",
-        description: `Worker ${workerToDelete.first_name} ${workerToDelete.last_name} has been deleted.`,
+        description: `Worker ${safeRenderToString(workerToDelete.first_name)} ${safeRenderToString(workerToDelete.last_name)} has been deleted.`,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unknown error occurred.";
@@ -303,7 +324,7 @@ export default function AllInjuredWorkersPage() {
   const filterDescription = useMemo(() => {
     if (workerClaimFilter === 'open') return "(filtered by: open claims)";
     if (workerClaimFilter === 'closed') return "(filtered by: closed claims)";
-    return ""; // No specific filter text for 'all'
+    return ""; 
   }, [workerClaimFilter]);
 
   return (
@@ -336,7 +357,6 @@ export default function AllInjuredWorkersPage() {
               />
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           </div>
-          {/* Corrected RadioGroupItem values and labels */}
           <RadioGroup
               value={workerClaimFilter}
               onValueChange={(value) => setWorkerClaimFilter(value as 'all' | 'open' | 'closed')}
@@ -398,7 +418,8 @@ export default function AllInjuredWorkersPage() {
                     <TableRow key={worker.id}>
                       <TableCell className="font-medium">
                         <Link href={`/workers/${worker.id}`} className="hover:underline text-primary">
-                          {worker.last_name}, {worker.first_name} 
+                          {/* Use safeRenderToString for potentially problematic direct renders */}
+                          {safeRenderToString(worker.last_name)}, {safeRenderToString(worker.first_name)} 
                         </Link>
                       </TableCell>
                       <TableCell>
@@ -407,7 +428,7 @@ export default function AllInjuredWorkersPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="truncate" title={worker.claims.map(c => `${c.wcc_file_number || 'N/A'} (${c.claim_status})`).join('; ')}>
+                        <span className="truncate" title={worker.claims.map(c => `${safeRenderToString(c.wcc_file_number) || 'N/A'} (${safeRenderToString(c.claim_status)})`).join('; ')}>
                             {displayClaimInfo(worker.claims)}
                         </span>
                       </TableCell>
@@ -424,7 +445,7 @@ export default function AllInjuredWorkersPage() {
                           variant="destructive" 
                           size="sm" 
                           onClick={() => openDeleteConfirmation(worker)}
-                          aria-label={`Delete worker ${worker.first_name} ${worker.last_name}`}
+                          aria-label={`Delete worker ${safeRenderToString(worker.first_name)} ${safeRenderToString(worker.last_name)}`}
                         >
                           <Trash2 className="mr-2 h-3 w-3" /> Delete
                         </Button>
@@ -437,10 +458,8 @@ export default function AllInjuredWorkersPage() {
               !error && (
                 <div className="text-center py-10">
                     <p className="text-muted-foreground">
-                        {/* Corrected condition for "No workers match" text */}
                         {searchTerm || workerClaimFilter !== 'all' ? "No workers match your criteria." : "No injured workers found."}
                     </p>
-                    {/* Corrected condition for "Add Your First Worker" button */}
                     {!(searchTerm || workerClaimFilter !== 'all') && !allWorkers.length && (
                         <Button className="mt-4" asChild>
                             <Link href="/workers/new">
@@ -456,7 +475,6 @@ export default function AllInjuredWorkersPage() {
               <CardFooter className="text-sm text-muted-foreground justify-between">
                   <span>
                     Showing {displayedWorkers.length} of {allWorkers.length} total worker(s)
-                    {/* filterDescription already correctly reflects 'all', 'open', 'closed' */}
                     {filterDescription}.
                   </span>
               </CardFooter>
@@ -470,7 +488,7 @@ export default function AllInjuredWorkersPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the worker:
-              <span className="font-semibold"> {workerToDelete?.first_name} {workerToDelete?.last_name}</span>.
+              <span className="font-semibold"> {safeRenderToString(workerToDelete?.first_name)} {safeRenderToString(workerToDelete?.last_name)}</span>.
               This will also delete all claims associated with this worker.
             </AlertDialogDescription>
           </AlertDialogHeader>

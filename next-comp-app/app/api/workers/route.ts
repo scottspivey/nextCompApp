@@ -1,15 +1,18 @@
 // app/api/workers/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import * as z from 'zod';
 import { auth } from '@/auth'; 
 import type { AppUser } from '@/types/next-auth'; 
-
-import { Gender, MaritalStatus } from '@prisma/client';
+// PrismaClientKnownRequestError is imported directly from @prisma/client/runtime/library DO NOT CHANGE THIS IMPORT to @prisma/client.
+import { Prisma, Gender, MaritalStatus } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 
-// Zod schema updated to use nativeEnum for gender and marital_status
+export const dynamic = 'force-dynamic';
+
+
 const workerFormSchema = z.object({
   profileId: z.string().min(1, "Profile ID is required"),
   first_name: z.string().min(1, "First name is required"),
@@ -20,10 +23,8 @@ const workerFormSchema = z.object({
     message: "SSN must be 9 digits or empty",
   }),
   date_of_birth: z.coerce.date().optional().nullable(),
-  // Assuming Gender is an enum in your Prisma schema
-  gender: z.nativeEnum(Gender).optional().nullable(),
-  // Assuming MaritalStatus is an enum in your Prisma schema
-  marital_status: z.nativeEnum(MaritalStatus).optional().nullable(),
+  gender: z.nativeEnum(Gender).optional().nullable(), // Uses Gender enum
+  marital_status: z.nativeEnum(MaritalStatus).optional().nullable(), // Uses MaritalStatus enum
   address_line1: z.string().optional().nullable(),
   address_line2: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
@@ -67,7 +68,6 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // workerDataFields will now have gender and marital_status typed as their respective enums (or null/undefined)
     const { profileId: requestProfileId, ...workerDataFields }: ValidatedWorkerData = validationResult.data;
 
     if (requestProfileId !== user.profileId) {
@@ -82,10 +82,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Associated profile not found for authenticated user." }, { status: 404 });
     }
     
-    // This should now be type-correct if `workerDataFields` has correctly typed enums
     const newInjuredWorker = await prisma.injuredWorker.create({
       data: {
-        ...workerDataFields, // gender and marital_status are now expected to be enums
+        ...workerDataFields, 
         profileId: user.profileId, 
       },
     });
@@ -136,13 +135,11 @@ export async function GET(req: NextRequest) {
         ssn: true, 
         city: true,
         state: true,
-        // Assuming claim_status is String? in Claim model as per previous discussions
-        // If it becomes an enum, ensure Zod validation and types are consistent.
         claims: { 
           select: {
             id: true,
             wcc_file_number: true,
-            claim_status: true, 
+            claim_status: true,
             date_of_injury: true,
             employer: { 
               select: {

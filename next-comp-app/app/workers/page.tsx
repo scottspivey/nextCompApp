@@ -65,7 +65,9 @@ interface SortConfig {
     direction: 'ascending' | 'descending';
 }
 
-const OPEN_CLAIM_STATUSES_FOR_WORKERS: string[] = ["OPEN", "PENDING", "ACCEPTED", "INVESTIGATING", "IN_LITIGATION", "PENDING_REVIEW", "UNKNOWN"];
+// Define claim status groups
+const OPEN_CLAIM_STATUSES: string[] = ["OPEN", "PENDING", "ACCEPTED", "INVESTIGATING", "IN_LITIGATION", "PENDING_REVIEW", "UNKNOWN"];
+const CLOSED_CLAIM_STATUSES: string[] = ["CLOSED", "SETTLED", "DENIED", "FINALED"]; // Renamed for clarity
 
 export default function AllInjuredWorkersPage() {
   const router = useRouter();
@@ -78,18 +80,17 @@ export default function AllInjuredWorkersPage() {
   
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'last_name', direction: 'ascending' });
-  const [workerClaimFilter, setWorkerClaimFilter] = useState<'activeClaimsOnly' | 'includeAllWorkers'>('activeClaimsOnly');
-
+  // Updated workerClaimFilter initial state and type to reflect new options
+  const [workerClaimFilter, setWorkerClaimFilter] = useState<'all' | 'open' | 'closed'>('open');
+  
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [workerToDelete, setWorkerToDelete] = useState<InjuredWorkerSummary | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Remove 'profileId' parameter as it's not used
   const fetchWorkers = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // API uses session on the backend to determine profileId
       const response = await fetch(`/api/workers`); 
       if (!response.ok) {
         let errData: ApiErrorData = { error: "Failed to parse error response" };
@@ -119,36 +120,42 @@ export default function AllInjuredWorkersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]); // Removed profileId from dependencies if it was there implicitly
+  }, [toast]); 
 
   useEffect(() => {
     if (sessionStatus === "authenticated" && session?.user?.profileId) {
-      // Call fetchWorkers without profileId argument
       void fetchWorkers(); 
     } else if (sessionStatus === "unauthenticated") {
       toast({ title: "Authentication Required", description: "Please log in to view injured workers." });
       router.push("/login");
     }
-  // Ensure fetchWorkers is stable or dependencies are correctly listed.
-  // session.user.profileId is still needed to trigger the effect.
   }, [sessionStatus, session?.user?.profileId, fetchWorkers, router, toast]);
 
 
-  const workerHasActiveClaims = useCallback((worker: InjuredWorkerSummary): boolean => {
+  const workerHasOpenClaims = useCallback((worker: InjuredWorkerSummary): boolean => {
     if (!worker.claims || worker.claims.length === 0) return false;
-    return worker.claims.some(claim => OPEN_CLAIM_STATUSES_FOR_WORKERS.includes(claim.claim_status));
+    return worker.claims.some(claim => OPEN_CLAIM_STATUSES.includes(claim.claim_status));
+  }, []);
+
+  const workerHasAnyClosedClaims = useCallback((worker: InjuredWorkerSummary): boolean => {
+    if (!worker.claims || worker.claims.length === 0) return false;
+    return worker.claims.some(claim => CLOSED_CLAIM_STATUSES.includes(claim.claim_status));
   }, []);
 
   const displayedWorkers = useMemo(() => {
-    let processedWorkers = [...allWorkers];
+    let filteredByStatus = [...allWorkers];
 
-    if (workerClaimFilter === 'activeClaimsOnly') {
-      processedWorkers = processedWorkers.filter(workerHasActiveClaims);
+    if (workerClaimFilter === 'open') {
+        filteredByStatus = allWorkers.filter(workerHasOpenClaims);
+    } else if (workerClaimFilter === 'closed') {
+        filteredByStatus = allWorkers.filter(workerHasAnyClosedClaims);
     }
+    // If workerClaimFilter is 'all', no status-based filtering is applied here.
 
+    let searchedWorkers = filteredByStatus;
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      processedWorkers = processedWorkers.filter(worker => {
+      searchedWorkers = filteredByStatus.filter(worker => {
         return (
           worker.first_name.toLowerCase().includes(term) ||
           worker.last_name.toLowerCase().includes(term) ||
@@ -159,8 +166,9 @@ export default function AllInjuredWorkersPage() {
       });
     }
 
+    let sortedWorkers = [...searchedWorkers];
     if (sortConfig.key !== null) {
-      processedWorkers.sort((a, b) => {
+      sortedWorkers.sort((a, b) => {
         let aValue: string | number | null | undefined;
         let bValue: string | number | null | undefined;
 
@@ -188,8 +196,8 @@ export default function AllInjuredWorkersPage() {
         return 0;
       });
     }
-    return processedWorkers;
-  }, [allWorkers, searchTerm, sortConfig, workerClaimFilter, workerHasActiveClaims]);
+    return sortedWorkers;
+  }, [allWorkers, searchTerm, sortConfig, workerClaimFilter, workerHasOpenClaims, workerHasAnyClosedClaims]);
 
   const requestSort = (key: SortableWorkerKeys) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -218,7 +226,7 @@ export default function AllInjuredWorkersPage() {
 
   const displayClaimInfo = (claims: ClaimForWorkerSummary[]) => {
     if (!claims || claims.length === 0) return "No Claims";
-    const openClaims = claims.filter(claim => OPEN_CLAIM_STATUSES_FOR_WORKERS.includes(claim.claim_status));
+    const openClaims = claims.filter(claim => OPEN_CLAIM_STATUSES.includes(claim.claim_status));
     if (openClaims.length === 0) return "No Open Claims";
     if (openClaims.length === 1 && openClaims[0]) return `1 Open Claim: ${openClaims[0].wcc_file_number || openClaims[0].id.substring(0,8)}`;
     return `${openClaims.length} Open Claims`;
@@ -275,7 +283,7 @@ export default function AllInjuredWorkersPage() {
     }
   };
 
-  if (sessionStatus === "loading" || (isLoading && allWorkers.length === 0)) {
+  if (sessionStatus === "loading" || (isLoading && allWorkers.length === 0 && !error)) {
     return (
       <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -285,6 +293,12 @@ export default function AllInjuredWorkersPage() {
       </div>
     );
   }
+
+  const filterDescription = useMemo(() => {
+    if (workerClaimFilter === 'open') return "(filtered by: open claims)";
+    if (workerClaimFilter === 'closed') return "(filtered by: closed claims)";
+    return ""; // No specific filter text for 'all'
+  }, [workerClaimFilter]);
 
   return (
     <>
@@ -318,16 +332,20 @@ export default function AllInjuredWorkersPage() {
           </div>
           <RadioGroup
               value={workerClaimFilter}
-              onValueChange={(value: 'activeClaimsOnly' | 'includeAllWorkers') => setWorkerClaimFilter(value)}
+              onValueChange={(value) => setWorkerClaimFilter(value as 'all' | 'open' | 'closed')}
               className="flex items-center space-x-2 sm:space-x-4"
           >
             <div className="flex items-center space-x-2">
-                <RadioGroupItem value="activeClaimsOnly" id="activeClaimsOnly" />
-                <Label htmlFor="activeClaimsOnly" className="cursor-pointer">Active Claims Only</Label>
+              <RadioGroupItem value="all" id="filterAll" />
+              <Label htmlFor="filterAll" className="cursor-pointer">All Workers</Label>
             </div>
             <div className="flex items-center space-x-2">
-                <RadioGroupItem value="includeAllWorkers" id="includeAllWorkers" />
-                <Label htmlFor="includeAllWorkers" className="cursor-pointer">All Workers</Label>
+              <RadioGroupItem value="open" id="filterOpen" />
+              <Label htmlFor="filterOpen" className="cursor-pointer">Open Claims</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="closed" id="filterClosed" />
+              <Label htmlFor="filterClosed" className="cursor-pointer">Closed Claims</Label>
             </div>
           </RadioGroup>
         </div>
@@ -337,7 +355,6 @@ export default function AllInjuredWorkersPage() {
             <CardHeader><CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5" /> Error Loading Workers</CardTitle></CardHeader>
             <CardContent>
               <p className="text-destructive-foreground">{error}</p>
-              {/* Update "Try Again" to not pass profileId */}
               <Button variant="outline" size="sm" onClick={() => { if (session?.user?.profileId) void fetchWorkers();}} className="mt-4">
                 Try Again
               </Button>
@@ -393,7 +410,7 @@ export default function AllInjuredWorkersPage() {
                       <TableCell className="text-right space-x-2">
                         <Button variant="outline" size="sm" asChild>
                           <Link href={`/workers/${worker.id}`}>
-                            <Edit3 className="mr-2 h-3 w-3" /> View/Edit
+                              <Edit3 className="mr-2 h-3 w-3" /> View/Edit
                           </Link>
                         </Button>
                         <Button 
@@ -413,9 +430,9 @@ export default function AllInjuredWorkersPage() {
               !error && (
                 <div className="text-center py-10">
                     <p className="text-muted-foreground">
-                        {searchTerm || workerClaimFilter !== 'includeAllWorkers' ? "No workers match your criteria." : "No injured workers found."}
+                        {searchTerm || workerClaimFilter !== 'all' ? "No workers match your criteria." : "No injured workers found."}
                     </p>
-                    {!(searchTerm || workerClaimFilter !== 'includeAllWorkers') && (
+                    {!(searchTerm || workerClaimFilter !== 'all') && (
                         <Button className="mt-4" asChild>
                             <Link href="/workers/new">
                                 <UserPlus className="mr-2 h-4 w-4" /> Add Your First Worker
@@ -430,7 +447,7 @@ export default function AllInjuredWorkersPage() {
               <CardFooter className="text-sm text-muted-foreground justify-between">
                   <span>
                     Showing {displayedWorkers.length} of {allWorkers.length} total worker(s)
-                    {workerClaimFilter !== 'includeAllWorkers' ? ` (matching filter: active claims only)` : ""}.
+                    {filterDescription}.
                   </span>
               </CardFooter>
           )}
@@ -459,3 +476,4 @@ export default function AllInjuredWorkersPage() {
     </>
   );
 }
+

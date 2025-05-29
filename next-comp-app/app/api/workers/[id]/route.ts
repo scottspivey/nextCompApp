@@ -46,15 +46,10 @@ const updateWorkerSchema = z.object({
   num_dependents: z.number().int().min(0).optional().nullable(),
 });
 
-// Define the context type for route handlers with dynamic params
-interface RouteHandlerContext {
-  params: { id: string };
-}
-
 // PUT Handler for updating a specific InjuredWorker
 export async function PUT(
     req: NextRequest, 
-    context: RouteHandlerContext // Use the defined interface
+    context: { params: { id: string } } // Use the defined interface
 ) {
   const workerId = context.params.id; 
 
@@ -132,7 +127,7 @@ export async function PUT(
 
 export async function GET(
     req: NextRequest,
-    context: RouteHandlerContext // Use the defined interface
+    context: { params: { id: string } } // Use the defined interface
 ) {
   const workerId = context.params.id; 
 
@@ -199,7 +194,7 @@ export async function GET(
 
 export async function DELETE(
     req: NextRequest,
-    context: RouteHandlerContext // Use the defined interface
+    context: { params: { id: string } } // Use the defined interface
 ) {
     const workerId = context.params.id;
 

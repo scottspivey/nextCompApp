@@ -48,10 +48,10 @@ const updateWorkerSchema = z.object({
 
 // PUT Handler for updating a specific InjuredWorker
 export async function PUT(
-    req: NextRequest, 
-    context: { params: { id: string } } // Use the defined interface
+  req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-  const workerId = context.params.id; 
+  const workerId = params.id; 
 
   if (!workerId) {
     return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
@@ -126,10 +126,10 @@ export async function PUT(
 
 
 export async function GET(
-    req: NextRequest,
-    context: { params: { id: string } } // Use the defined interface
+  req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-  const workerId = context.params.id; 
+  const workerId = params.id; 
 
   if (!workerId) {
     return NextResponse.json({ error: 'Worker ID is required' }, { status: 400 });
@@ -193,56 +193,56 @@ export async function GET(
 }
 
 export async function DELETE(
-    req: NextRequest,
-    context: { params: { id: string } } // Use the defined interface
+  req: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-    const workerId = context.params.id;
+  const workerId = params.id;
 
-    if (!workerId) {
-        return NextResponse.json({ error: 'Worker ID is required for deletion' }, { status: 400 });
-    }
+  if (!workerId) {
+      return NextResponse.json({ error: 'Worker ID is required for deletion' }, { status: 400 });
+  }
 
-    try {
-        const session = await auth();
-        if (!session?.user) {
-            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-        }
-        const user = session.user; 
-        if (!user.profileId) {
-            return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
-        }
+  try {
+      const session = await auth();
+      if (!session?.user) {
+          return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      }
+      const user = session.user; 
+      if (!user.profileId) {
+          return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
+      }
 
-        const workerToDelete = await prisma.injuredWorker.findFirst({
-            where: {
-                id: workerId,
-                profileId: user.profileId, 
-            },
-        });
+      const workerToDelete = await prisma.injuredWorker.findFirst({
+          where: {
+              id: workerId,
+              profileId: user.profileId, 
+          },
+      });
 
-        if (!workerToDelete) {
-            return NextResponse.json({ error: 'Injured worker not found or not authorized for deletion.' }, { status: 404 });
-        }
+      if (!workerToDelete) {
+          return NextResponse.json({ error: 'Injured worker not found or not authorized for deletion.' }, { status: 404 });
+      }
 
-        await prisma.injuredWorker.delete({
-            where: {
-                id: workerId,
-            },
-        });
+      await prisma.injuredWorker.delete({
+          where: {
+              id: workerId,
+          },
+      });
 
-        return NextResponse.json({ message: `Worker ${workerToDelete.first_name} ${workerToDelete.last_name} deleted successfully.` }, { status: 200 });
+      return NextResponse.json({ message: `Worker ${workerToDelete.first_name} ${workerToDelete.last_name} deleted successfully.` }, { status: 200 });
 
-    } catch (error: unknown) {
-        console.error(`Error deleting worker ${workerId}:`, error);
-        if (error instanceof PrismaClientKnownRequestError) {
-            if (error.code === 'P2003') { 
-                return NextResponse.json({ error: 'Failed to delete worker due to related records. Ensure cascading deletes are set up or handle related records first.' }, { status: 409 });
-            }
-            if (error.code === 'P2025') {
-                return NextResponse.json({ error: 'Worker to delete not found.' }, { status: 404 });
-            }
-            return NextResponse.json({ error: 'A database error occurred during deletion.' }, { status: 500 });
-        }
-        const message = error instanceof Error ? error.message : 'An unknown error occurred';
-        return NextResponse.json({ error: 'Failed to delete injured worker.', details: message }, { status: 500 });
-    }
+  } catch (error: unknown) {
+      console.error(`Error deleting worker ${workerId}:`, error);
+      if (error instanceof PrismaClientKnownRequestError) {
+          if (error.code === 'P2003') { 
+              return NextResponse.json({ error: 'Failed to delete worker due to related records. Ensure cascading deletes are set up or handle related records first.' }, { status: 409 });
+          }
+          if (error.code === 'P2025') {
+              return NextResponse.json({ error: 'Worker to delete not found.' }, { status: 404 });
+          }
+          return NextResponse.json({ error: 'A database error occurred during deletion.' }, { status: 500 });
+      }
+      const message = error instanceof Error ? error.message : 'An unknown error occurred';
+      return NextResponse.json({ error: 'Failed to delete injured worker.', details: message }, { status: 500 });
+  }
 }

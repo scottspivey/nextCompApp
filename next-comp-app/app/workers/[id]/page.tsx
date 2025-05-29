@@ -1,18 +1,19 @@
+// app/workers/[id]/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm, SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Button } from '@/app/Components/ui/button'; // Assuming this path is correct
-import { Input } from '@/app/Components/ui/input';   // Assuming this path is correct
-import { Label } from '@/app/Components/ui/label';   // Assuming this path is correct
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select"; // Assuming this path is correct
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card'; // Assuming this path is correct
-import { useToast } from "@/app/Components/ui/use-toast"; // Assuming this path is correct
-import { Loader2, ArrowLeft, Edit, Save, XCircle, AlertTriangle } from 'lucide-react';
-import { AlternativeDatePicker } from "@/app/Components/ui/date-picker"; // Assuming this path is correct
+import { Button } from '@/app/Components/ui/button';
+import { Input } from '@/app/Components/ui/input';
+import { Label } from '@/app/Components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
+import { useToast } from "@/app/Components/ui/use-toast";
+import { Loader2, ArrowLeft, Edit, Save, XCircle, AlertTriangle, PlusCircle, Trash2 } from 'lucide-react'; // Added PlusCircle, Trash2
+import { AlternativeDatePicker } from "@/app/Components/ui/date-picker";
 import Link from 'next/link';
 import { subYears, format, isValid, parseISO } from 'date-fns';
 import { useSession } from 'next-auth/react';
@@ -23,24 +24,35 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/app/Components/ui/table"; // Assuming this path is correct
+} from "@/app/Components/ui/table";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/app/Components/ui/alert-dialog";
 
-// Zod schema for form validation (remains the same)
+
+// Zod schema for form validation
 const workerFormSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   middle_name: z.string().optional().nullable(),
   last_name: z.string().min(1, "Last name is required"),
   suffix: z.string().optional().nullable(),
   ssn: z.string().optional().nullable().refine(val => {
-    if (!val) return true;
+    if (!val) return true; // Allow empty or null
     const cleanVal = val.replace(/-/g, '');
-    return /^\d{9}$/.test(cleanVal) || /^XXX-XX-\d{4}$/.test(val);
+    return /^\d{9}$/.test(cleanVal) || /^XXX-XX-\d{4}$/.test(val); // Allow full or masked format
   }, {
     message: "SSN must be 9 digits (XXXXXXXXX), XXX-XX-XXXX, or the masked format if not changing.",
   }),
   date_of_birth: z.date({ invalid_type_error: "Invalid date" }).optional().nullable(),
-  gender: z.string().optional().nullable(),
-  marital_status: z.string().optional().nullable(),
+  gender: z.string().optional().nullable(), 
+  marital_status: z.string().optional().nullable(), 
   address_line1: z.string().optional().nullable(),
   address_line2: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
@@ -67,15 +79,15 @@ interface ClaimDetail {
   id: string;
   wcc_file_number: string | null;
   claim_status: string | null;
-  date_of_injury: string | null;
+  date_of_injury: string | null; 
   employer?: { name: string | null } | null;
 }
 interface InjuredWorkerDetail extends WorkerFormData {
   id: string;
   profileId: string;
-  createdAt: string;
-  updatedAt: string;
-  claims?: ClaimDetail[];
+  createdAt: string; 
+  updatedAt: string; 
+  claims?: ClaimDetail[]; 
 }
 
 interface ApiErrorData {
@@ -102,7 +114,7 @@ const FormItem = ({ label, id, children, error, description }: { label?: string,
 export default function IndividualWorkerPage() {
   const router = useRouter();
   const params = useParams();
-  const workerId = params.id as string; // Stable for the page instance
+  const workerId = params.id as string;
 
   const { toast } = useToast();
   const { data: session, status: sessionStatus } = useSession();
@@ -113,10 +125,16 @@ export default function IndividualWorkerPage() {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [originalSsn, setOriginalSsn] = useState<string | null | undefined>(null);
+  
+  // State for delete confirmation dialog (already existed in previous version, just ensure it's used)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [workerToDelete, setWorkerToDelete] = useState<InjuredWorkerDetail | null>(null); // Changed type to InjuredWorkerDetail
+  const [isDeleting, setIsDeleting] = useState(false);
+
 
   const { register, handleSubmit, control, formState: { errors, isDirty }, reset, getValues } = useForm<WorkerFormData>({
     resolver: zodResolver(workerFormSchema),
-    defaultValues: { // Initialize with empty or null to prevent uncontrolled to controlled warnings
+    defaultValues: {
       first_name: '', middle_name: null, last_name: '', suffix: null, ssn: null,
       date_of_birth: null, gender: null, marital_status: null, address_line1: null,
       address_line2: null, city: null, state: null, zip_code: null, phone_number: null,
@@ -124,7 +142,6 @@ export default function IndividualWorkerPage() {
     }
   });
 
-  // Stable utility function
   const parseDateIfNeeded = useCallback((dateValue: string | Date | null | undefined): Date | null => {
     if (!dateValue) return null;
     if (dateValue instanceof Date && isValid(dateValue)) return dateValue;
@@ -139,11 +156,16 @@ export default function IndividualWorkerPage() {
     return null;
   }, []);
 
-  // Effect for fetching worker details
+  const formatDateForDisplay = useCallback((dateInput: string | Date | null | undefined): string => {
+    if (!dateInput) return 'N/A';
+    const date = parseDateIfNeeded(dateInput);
+    return date && isValid(date) ? format(date, 'MM/dd/yyyy') : 'N/A';
+  }, [parseDateIfNeeded]);
+
+
   useEffect(() => {
-    // Conditions that determine if we should attempt to fetch
     if (sessionStatus === "authenticated" && session?.user?.profileId && workerId) {
-      setPageStatus('loading'); // Indicate data fetching has started
+      setPageStatus('loading'); 
       setError(null);
 
       const fetchData = async () => {
@@ -156,7 +178,7 @@ export default function IndividualWorkerPage() {
               if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError) {
                 errorPayload = parsedError as ApiErrorData;
               }
-            } catch (_e) {
+            } catch {
               console.warn("Failed to parse error JSON from API (fetchData)");
             }
             throw new Error(errorPayload.error || `Error ${response.status}: ${response.statusText}`);
@@ -165,14 +187,14 @@ export default function IndividualWorkerPage() {
           const data = responseData as InjuredWorkerDetail;
           
           setWorkerData(data);
-          setOriginalSsn(data.ssn); // API returns masked SSN
+          setOriginalSsn(data.ssn); 
           reset({
             ...data,
             date_of_birth: parseDateIfNeeded(data.date_of_birth),
             num_dependents: data.num_dependents === null || data.num_dependents === undefined ? null : Number(data.num_dependents),
-            ssn: data.ssn, // Set form with masked SSN initially
+            ssn: data.ssn, 
           });
-          setPageStatus('authenticated'); // Data loaded successfully
+          setPageStatus('authenticated'); 
         } catch (err) {
           const message = err instanceof Error ? err.message : "An unknown error occurred while fetching data.";
           console.error("Error fetching worker details:", err);
@@ -187,62 +209,55 @@ export default function IndividualWorkerPage() {
       setPageStatus('error');
     } else if (sessionStatus === "unauthenticated") {
       toast({ title: "Authentication Required", description: "Please log in to view worker details." });
-      router.push("/login"); // Ensure this is your correct login page
+      router.push("/login"); 
     } else if (sessionStatus === "loading") {
-        setPageStatus('loading'); // Keep page status as loading while session is loading
+        setPageStatus('loading'); 
     }
-  // This useEffect should only re-run if these key identifiers change.
-  // `workerId` is stable from `useParams`. `sessionStatus` and `profileId` trigger the logic.
-  // `router` and `toast` are stable hooks.
   }, [sessionStatus, session?.user?.profileId, workerId, router, toast, reset, parseDateIfNeeded]);
 
 
   const onSubmit: SubmitHandler<WorkerFormData> = async (formData) => {
-    if (!workerData?.id) { // Use workerData.id which confirms worker is loaded
+    if (!workerData?.id) { 
         toast({ title: "Error", description: "Worker data not loaded, cannot save.", variant: "destructive" });
         return;
     }
     setIsSaving(true);
     try {
-      let ssnPayload: string | null | undefined = formData.ssn; // Default to form value
+      let ssnPayload: string | null | undefined = formData.ssn; 
       
-      // If SSN is the same as the original masked SSN, don't send it for update (send undefined)
       if (formData.ssn === originalSsn && originalSsn?.startsWith('XXX-XX-')) {
         ssnPayload = undefined;
-      } else if (formData.ssn && formData.ssn.trim() !== '') { // If SSN is provided and not empty
+      } else if (formData.ssn && formData.ssn.trim() !== '') { 
         const cleanSsn = formData.ssn.replace(/-/g, '');
         if (/^\d{9}$/.test(cleanSsn)) {
-          ssnPayload = cleanSsn; // Send clean 9-digit SSN
+          ssnPayload = cleanSsn; 
         } else {
-          // This case should ideally be caught by Zod, but an extra check is fine.
-          // If it's not 9 digits and not the original masked one, it's an invalid attempt to change.
           toast({ title: "Invalid SSN", description: "If changing SSN, please provide 9 digits (XXXXXXXXX).", variant: "destructive" });
           setIsSaving(false);
           return;
         }
-      } else { // SSN is empty or null
-        ssnPayload = null; // Explicitly send null to clear it
+      } else { 
+        ssnPayload = null; 
       }
 
       const payload = {
         ...formData,
-        ssn: ssnPayload, // Use the processed ssnPayload
+        ssn: ssnPayload, 
         num_dependents: formData.num_dependents === null || formData.num_dependents === undefined || isNaN(Number(formData.num_dependents)) 
-                          ? null 
-                          : Number(formData.num_dependents),
-        phone_number: formData.phone_number ? formData.phone_number.replace(/\D/g, '') : null, // Send null if empty
-        work_phone_number: formData.work_phone_number ? formData.work_phone_number.replace(/\D/g, '') : null, // Send null if empty
-        state: formData.state ? formData.state.toUpperCase() : null, // Send null if empty
+                            ? null 
+                            : Number(formData.num_dependents),
+        phone_number: formData.phone_number ? formData.phone_number.replace(/\D/g, '') : null, 
+        work_phone_number: formData.work_phone_number ? formData.work_phone_number.replace(/\D/g, '') : null, 
+        state: formData.state ? formData.state.toUpperCase() : null, 
       };
       
-      const response = await fetch(`/api/workers/${workerData.id}`, { // Use workerData.id
+      const response = await fetch(`/api/workers/${workerData.id}`, { 
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       
       if (!response.ok) {
-        // ... (your existing detailed error parsing logic for PUT is good) ...
         const errorPayload: ApiErrorData = { error: `Failed to update worker: ${response.statusText}` };
         try {
             const parsedError: unknown = await response.json();
@@ -277,14 +292,13 @@ export default function IndividualWorkerPage() {
       toast({ title: "Success!", description: `${updatedWorker.first_name} ${updatedWorker.last_name} updated successfully.` });
       setIsEditing(false);
       
-      // Refresh data after successful save
-      setWorkerData(updatedWorker); // Update local state with response from PUT
-      setOriginalSsn(updatedWorker.ssn); // API PUT returns masked SSN
-      reset({ // Reset form with new data
+      setWorkerData(updatedWorker); 
+      setOriginalSsn(updatedWorker.ssn); 
+      reset({ 
         ...updatedWorker,
         date_of_birth: parseDateIfNeeded(updatedWorker.date_of_birth),
         num_dependents: updatedWorker.num_dependents === null || updatedWorker.num_dependents === undefined ? null : Number(updatedWorker.num_dependents),
-        ssn: updatedWorker.ssn, // Reset form with new masked SSN
+        ssn: updatedWorker.ssn, 
       });
 
     } catch (error) {
@@ -298,20 +312,69 @@ export default function IndividualWorkerPage() {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    if (workerData) { // Reset to original fetched data
+    if (workerData) { 
         reset({
             ...workerData,
             date_of_birth: parseDateIfNeeded(workerData.date_of_birth),
             num_dependents: workerData.num_dependents === null || workerData.num_dependents === undefined ? null : Number(workerData.num_dependents),
-            ssn: originalSsn, // Reset to original (potentially masked) SSN
+            ssn: originalSsn, 
         });
     }
   };
 
+  const openDeleteWorkerDialog = () => {
+    if (workerData) {
+      setWorkerToDelete(workerData); // Set the current worker to be deleted
+      setShowDeleteDialog(true);
+    }
+  };
+
+  const confirmDeleteWorker = async () => {
+    if (!workerToDelete) return;
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/workers/${workerToDelete.id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        // ... (existing error handling for delete)
+        let errorData: ApiErrorData = { error: "An unknown error occurred during deletion." };
+        try {
+            const parsedError: unknown = await response.json();
+             if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError && typeof (parsedError as ApiErrorData).error === 'string') {
+                 errorData = parsedError as ApiErrorData;
+            }
+        } catch (parseError) {
+            console.warn("Failed to parse error JSON from API during worker delete:", parseError);
+            errorData.error = response.statusText || "Failed to delete worker";
+        }
+        throw new Error(errorData.error);
+      }
+      
+      toast({
+        title: "Success!",
+        description: `Worker ${workerToDelete.first_name} ${workerToDelete.last_name} has been deleted.`,
+      });
+      router.push('/workers'); // Redirect to workers list after successful deletion
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred.";
+      console.error("Error deleting worker:", err);
+      toast({
+        title: "Deletion Failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      setWorkerToDelete(null);
+    }
+  };
+
+
   const today = new Date();
   const minBirthDate = subYears(today, 120);
 
-  // Render logic based on pageStatus
   if (pageStatus === 'loading') {
     return (
       <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
@@ -330,7 +393,6 @@ export default function IndividualWorkerPage() {
           <CardHeader><CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5" /> Error</CardTitle></CardHeader>
           <CardContent>
             <p className="text-destructive-foreground">{error || "An unexpected error occurred."}</p>
-            {/* Optional: Add a retry button if appropriate for the error type */}
             <Button variant="outline" onClick={() => router.push('/workers')} className="mt-4 ml-2">Back to Worker List</Button>
           </CardContent>
         </Card>
@@ -339,7 +401,6 @@ export default function IndividualWorkerPage() {
   }
 
   if (pageStatus !== 'authenticated' || !workerData) {
-     // This case handles if somehow pageStatus is 'idle' or workerData is null after auth
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <p className="text-muted-foreground">Worker data is currently unavailable. You may need to authenticate.</p>
@@ -348,28 +409,36 @@ export default function IndividualWorkerPage() {
     );
   }
 
-  // Main content render (form and claims table)
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8 md:py-12">
       <Button variant="outline" size="sm" onClick={() => router.push('/workers')} className="mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Worker List
       </Button>
 
-      <form onSubmit={handleSubmit(onSubmit)}> {/* handleSubmit will call your onSubmit */}
+      {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
+      <form onSubmit={handleSubmit(onSubmit)}>
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between">
+          <CardHeader className="flex flex-row items-start justify-between space-x-4">
             <div>
               <CardTitle className="text-2xl font-semibold">
-                {/* Use getValues for dynamic display from form state if editing, else workerData */}
                 {isEditing ? (getValues("first_name") || '') : (workerData.first_name || '')} {isEditing ? (getValues("last_name") || '') : (workerData.last_name || '')}
               </CardTitle>
               <CardDescription>View or edit injured worker details. {isEditing ? "You are in edit mode." : ""}</CardDescription>
             </div>
-            {!isEditing && (
-              <Button variant="outline" onClick={() => setIsEditing(true)} type="button">
-                <Edit className="mr-2 h-4 w-4" /> Edit
-              </Button>
-            )}
+            <div className="flex items-center space-x-2 flex-shrink-0"> {/* Group buttons */}
+              {!isEditing && (
+                <>
+                  <Button variant="outline" onClick={() => setIsEditing(true)} type="button">
+                    <Edit className="mr-2 h-4 w-4" /> Edit Worker
+                  </Button>
+                  <Button variant="default" asChild>
+                    <Link href={`/claims/new?workerId=${workerId}`}>
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Claim
+                    </Link>
+                  </Button>
+                </>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-8">
             {/* Personal Information Section */}
@@ -397,7 +466,7 @@ export default function IndividualWorkerPage() {
                   <Input 
                     id="ssn" 
                     {...register("ssn")} 
-                    placeholder={isEditing ? "XXX-XX-XXXX" : (originalSsn || "N/A")} // Use originalSsn for placeholder
+                    placeholder={isEditing ? "XXX-XX-XXXX" : (originalSsn || "N/A")} 
                     readOnly={!isEditing} 
                     className={!isEditing ? "border-none px-0 read-only:focus:ring-0 read-only:shadow-none" : ""}
                   />
@@ -482,14 +551,25 @@ export default function IndividualWorkerPage() {
             </section>
             
             {isEditing && (
-              <CardFooter className="px-0 pt-8 flex justify-end space-x-3">
-                <Button variant="outline" type="button" onClick={handleCancelEdit} disabled={isSaving}>
-                  <XCircle className="mr-2 h-4 w-4" /> Cancel
+              <CardFooter className="px-0 pt-8 flex justify-between items-center"> {/* Changed to justify-between */}
+                <Button 
+                  variant="destructive" 
+                  type="button" 
+                  onClick={openDeleteWorkerDialog} // Updated to call the new handler
+                  disabled={isSaving || isDeleting}
+                >
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                  {isDeleting ? 'Deleting...' : 'Delete Worker'}
                 </Button>
-                <Button type="submit" disabled={isSaving || !isDirty}>
-                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
+                <div className="flex space-x-3">
+                    <Button variant="outline" type="button" onClick={handleCancelEdit} disabled={isSaving}>
+                      <XCircle className="mr-2 h-4 w-4" /> Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSaving || !isDirty}>
+                      {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                </div>
               </CardFooter>
             )}
           </CardContent> 
@@ -517,9 +597,7 @@ export default function IndividualWorkerPage() {
                     <TableRow key={claim.id}>
                       <TableCell className="font-medium">{claim.wcc_file_number || 'N/A'}</TableCell>
                       <TableCell>
-                        {claim.date_of_injury && isValid(parseISO(claim.date_of_injury)) 
-                          ? format(parseISO(claim.date_of_injury), 'MM/dd/yyyy') 
-                          : 'N/A'}
+                        {formatDateForDisplay(claim.date_of_injury)}
                       </TableCell>
                       <TableCell>{claim.employer?.name || 'N/A'}</TableCell>
                       <TableCell>{claim.claim_status || 'Unknown'}</TableCell>
@@ -538,6 +616,28 @@ export default function IndividualWorkerPage() {
           </Card>
         </section>
       )}
+
+      {/* Delete Worker Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the worker:
+              <span className="font-semibold"> {workerToDelete?.first_name} {workerToDelete?.last_name}</span>.
+              This will also delete all associated claims.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setWorkerToDelete(null)} disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmDeleteWorker()} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              {isDeleting ? 'Deleting...' : 'Yes, delete worker'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div> 
   );
 }

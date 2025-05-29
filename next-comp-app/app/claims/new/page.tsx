@@ -2,7 +2,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; 
+// Added useSearchParams
+import { useRouter, useSearchParams } from 'next/navigation'; 
 import { useForm, SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -18,12 +19,11 @@ import { AlternativeDatePicker } from "@/app/Components/ui/date-picker";
 import { useSession } from 'next-auth/react';
 
 // Define date boundaries dynamically
-const maxInjuryDate = new Date(); // This is "today" at the moment of script execution/component rendering
+const maxInjuryDate = new Date(); 
+maxInjuryDate.setHours(23, 59, 59, 999); 
 const minInjuryDate = new Date();
 minInjuryDate.setFullYear(maxInjuryDate.getFullYear() - 100);
-// To prevent issues with the time part making "today" fail for dates selected on "today":
-maxInjuryDate.setHours(23, 59, 59, 999); // Set maxInjuryDate to the end of the current day
-minInjuryDate.setHours(0, 0, 0, 0);    // Set minInjuryDate to the beginning of that day 100 years ago
+minInjuryDate.setHours(0, 0, 0, 0);    
 
 
 // Zod schema for the "Add Claim" form
@@ -35,7 +35,7 @@ const addClaimFormSchema = z.object({
   carrier_file_number: z.string().optional().nullable(),
   
   date_of_injury: z.date({ required_error: "Date of injury is required." })
-    .min(minInjuryDate, { message: `Date of injury must be on or after ${minInjuryDate.toLocaleDateString()}.` }) // Dynamic message
+    .min(minInjuryDate, { message: `Date of injury must be on or after ${minInjuryDate.toLocaleDateString()}.` }) 
     .max(maxInjuryDate, { message: `Date of injury cannot be in the future.` }),
   
   time_of_injury: z.string().optional().nullable(),
@@ -53,7 +53,7 @@ const addClaimFormSchema = z.object({
   mmi_date: z.date().optional().nullable(),
 
   initial_treatment_desc: z.string().optional().nullable(),
-  current_work_status: z.string().optional().nullable(),
+  current_work_status: z.string().optional().nullable(), // Assuming String type based on previous context
   permanent_impairment_rating: z.coerce.number().int({message: "Rating must be a whole number"}).min(0).optional().nullable(),
 
   claimant_attorney_name: z.string().optional().nullable(),
@@ -64,7 +64,7 @@ const addClaimFormSchema = z.object({
   }),
   claimant_attorney_email: z.string().email({ message: "Invalid email address" }).optional().nullable().or(z.literal('')),
   
-  claim_status: z.string().optional().nullable(),
+  claim_status: z.string().optional().nullable(), // Assuming String type
 });
 
 type AddClaimFormData = z.infer<typeof addClaimFormSchema>;
@@ -110,18 +110,23 @@ const FormItem: React.FC<FormItemProps> = ({ label, id, children, error, descrip
 
 export default function AddNewClaimPage() {
   const router = useRouter();
+  const searchParams = useSearchParams(); // Get search params
+  const workerIdFromQuery = searchParams.get('workerId'); // Get workerId from query
+
   const { toast } = useToast();
   const { data: session, status: sessionStatus } = useSession();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [injuredWorkers, setInjuredWorkers] = useState<InjuredWorkerOption[]>([]);
-  const [employers] = useState<EmployerOption[]>([]); 
+  const [employers] = useState<EmployerOption[]>([]); // Keep if you plan to fetch employers
   const [pageLoading, setPageLoading] = useState(true);
 
 
-  const { register, handleSubmit, control, formState: { errors }, watch } = useForm<AddClaimFormData>({
+  const { register, handleSubmit, control, formState: { errors }, watch, setValue } = useForm<AddClaimFormData>({
     resolver: zodResolver(addClaimFormSchema),
     defaultValues: {
+      // injuredWorkerId will be set by useEffect if present in query params
+      injuredWorkerId: undefined, 
       wcc_file_number: '',
       carrier_file_number: '',
       date_of_injury: undefined, 
@@ -165,13 +170,19 @@ export default function AddNewClaimPage() {
                         if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError && typeof (parsedError as ApiErrorData).error === 'string') {
                             errData = parsedError as ApiErrorData;
                         }
-                    } catch (_e) {
+                    } catch {
                          errData.error = workersResponse.statusText || "Failed to fetch injured workers list.";
                     }
                     throw new Error(errData.error);
                 }
                 const workersData = await workersResponse.json() as InjuredWorkerOption[];
                 setInjuredWorkers(workersData.filter(w => w.first_name && w.last_name));
+
+                // TODO: Fetch employers if needed, or remove if not used
+                // const employersResponse = await fetch(`/api/employers?profileId=${session.user.profileId}`);
+                // if (!employersResponse.ok) throw new Error('Failed to fetch employers.');
+                // const employersData = await employersResponse.json();
+                // setEmployers(employersData);
 
             } catch (error) {
                 console.error("Error fetching initial data for new claim page:", error);
@@ -189,7 +200,25 @@ export default function AddNewClaimPage() {
         router.push("/dashboard"); 
         setPageLoading(false);
     }
-  }, [sessionStatus, session, router, toast]);
+  // Refined dependencies for stability
+  }, [sessionStatus, session?.user?.profileId, router, toast]); 
+
+  // New useEffect to pre-select worker if workerIdFromQuery is present
+  useEffect(() => {
+    if (workerIdFromQuery && injuredWorkers.length > 0) {
+      const workerExists = injuredWorkers.some(w => w.id === workerIdFromQuery);
+      if (workerExists) {
+        setValue("injuredWorkerId", workerIdFromQuery, { shouldValidate: true, shouldDirty: true });
+      } else {
+        toast({ 
+            title: "Worker Not Found", 
+            description: `The worker specified in the URL (ID starting with: ${workerIdFromQuery.substring(0,8)}) was not found in your list or is not accessible. Please select a worker.`, 
+            variant: "default", // Changed to default variant for less alarming message
+            duration: 7000 
+        });
+      }
+    }
+  }, [workerIdFromQuery, injuredWorkers, setValue, toast]);
 
 
   const onSubmit: SubmitHandler<AddClaimFormData> = async (formData) => {
@@ -201,6 +230,7 @@ export default function AddNewClaimPage() {
     try {
       const payload = {
         ...formData, 
+        // Ensure phone numbers are stripped of non-digits before sending
         claimant_attorney_phone: formData.claimant_attorney_phone ? formData.claimant_attorney_phone.replace(/\D/g, '') : null,
       };
 
@@ -219,7 +249,7 @@ export default function AddNewClaimPage() {
             } else {
                  errorData.error = `Failed to add claim: ${response.statusText}`;
             }
-        } catch (_e) { 
+        } catch { 
             errorData.error = `Failed to add claim: ${response.statusText}`;
         }
         throw new Error(errorData.error);
@@ -230,7 +260,8 @@ export default function AddNewClaimPage() {
       const displayWorkerName = worker ? `${worker.first_name} ${worker.last_name}` : "the selected worker";
 
       toast({ title: "Success!", description: `Claim added successfully for ${displayWorkerName}. WCC File #: ${newClaim.wcc_file_number || 'N/A'}` });
-      router.push(`/claims`); 
+      // Redirect to the newly created claim's detail page
+      router.push(`/claims/${newClaim.id}`); 
       
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
@@ -271,7 +302,9 @@ export default function AddNewClaimPage() {
             <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-            <h1 className="text-3xl font-bold tracking-tight"> <FilePlus2 className="mr-3 h-8 w-8" /> Add New Claim</h1>
+            <h1 className="flex items-center text-3xl font-bold tracking-tight">
+                <FilePlus2 className="mr-3 h-8 w-8" /> Add New Claim
+            </h1>
             {selectedWorkerId && injuredWorkers.find(w => w.id === selectedWorkerId) && (
                 <p className="text-muted-foreground">
                     For: {injuredWorkers.find(w => w.id === selectedWorkerId)?.first_name} {injuredWorkers.find(w => w.id === selectedWorkerId)?.last_name}
@@ -284,16 +317,20 @@ export default function AddNewClaimPage() {
         <Card>
           <CardHeader>
             <CardTitle>Claim Information</CardTitle>
-            <CardDescription>Fill in the details for the new claim. <span className="text-destructive">*</span> indicates required fields.</CardDescription>
+            <CardDescription>Fill in the details for the new claim. An <span className="text-destructive">*</span> indicates required fields.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <FormItem label="Injured Worker *" id="injuredWorkerId" error={errors.injuredWorkerId?.message}>
                 <Controller
                     name="injuredWorkerId"
                     control={control}
-                    rules={{ required: "Please select an Injured Worker."}}
+                    rules={{ required: "Please select an Injured Worker."}} // Rule for Controller if needed
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ""} disabled={injuredWorkers.length === 0}>
+                        <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value || ""} // Ensure value is controlled
+                            disabled={injuredWorkers.length === 0}
+                        >
                             <SelectTrigger id="injuredWorkerId">
                                 <SelectValue placeholder={injuredWorkers.length > 0 ? "Select an Injured Worker..." : "No workers available to select"} />
                             </SelectTrigger>
@@ -322,11 +359,10 @@ export default function AddNewClaimPage() {
                         name="date_of_injury" 
                         control={control} 
                         label="Date of Injury *"
-                        minDate={minInjuryDate}   // <-- Pass minInjuryDate
-                        maxDate={maxInjuryDate}   // <-- Pass maxInjuryDate
-                        showYearDropdown         // <-- Good to enable for wide date ranges
-                        dropdownMode="select"    // <-- 'select' mode is often better for year dropdowns with wide ranges
-                        // yearDropdownItemNumber={101} // Optional: to control items in year dropdown, react-datepicker default might be fine
+                        minDate={minInjuryDate}  
+                        maxDate={maxInjuryDate}  
+                        showYearDropdown        
+                        dropdownMode="select"  
                     />
                     {errors.date_of_injury && <p className="text-sm text-destructive">{errors.date_of_injury.message}</p>}
                 </div>
@@ -338,7 +374,7 @@ export default function AddNewClaimPage() {
                     <Controller
                         name="claim_status"
                         control={control}
-                        defaultValue="Open"
+                        defaultValue="Open" // Ensure this matches one of your SelectItem values
                         render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value || "Open"}>
                                 <SelectTrigger id="claim_status"><SelectValue placeholder="Select status" /></SelectTrigger>
@@ -367,7 +403,7 @@ export default function AddNewClaimPage() {
                                     field.onChange(value === "NO_EMPLOYER_SELECTED" ? null : value);
                                 }}
                                 value={field.value || ""} 
-                                disabled={employers.length === 0}
+                                disabled={employers.length === 0} // You need to fetch and set 'employers' state
                             >
                                 <SelectTrigger id="employerId">
                                     <SelectValue placeholder={employers.length > 0 ? "Select an employer" : "No employers available"} />

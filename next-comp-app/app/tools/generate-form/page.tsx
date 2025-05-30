@@ -47,13 +47,14 @@ const generateFormSchema = z.object({
   amendment_adding_party_details: z.string().optional().nullable(),
   amendment_removing_party_details: z.string().optional().nullable(),
   amendment_other_details: z.string().optional().nullable(),
-  checkbox_stop_payment: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
-  checkbox_II_A: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
-  checkbox_II_B: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
-  checkbox_III_determine_comp: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
-  checkbox_IV_credit: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
-  checkbox_V_fatality: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
-  checkbox_amendment: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
+  checkbox_stop_payment: z.boolean(),
+  checkbox_II_A: z.boolean(),
+  checkbox_II_B: z.boolean(),
+  checkbox_III_determine_comp: z.boolean(),
+  checkbox_IV_credit: z.boolean(),
+  checkbox_V_fatality: z.boolean(),
+  checkbox_amendment: z.boolean(),
+
 
   // Form 27 Specific Additional Data
   subpoena_to_person: z.string().optional().nullable(),
@@ -67,10 +68,10 @@ const generateFormSchema = z.object({
   documents_inspection_datetime: z.string().optional().nullable(),
   premises_address: z.string().optional().nullable(),
   premises_inspection_datetime: z.string().optional().nullable(),
-  checkbox_appear_hearing: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
-  checkbox_appear_deposition: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
-  checkbox_produce_documents: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
-  checkbox_inspect_premises: z.preprocess(val => typeof val === "boolean" ? val : !!val, z.boolean()),
+  checkbox_appear_hearing: z.boolean(),
+  checkbox_appear_deposition: z.boolean(),
+  checkbox_produce_documents: z.boolean(),
+  checkbox_inspect_premises: z.boolean(),
 
   // For "Other" form type
   otherFormDescription: z.string().optional().nullable(),
@@ -82,7 +83,9 @@ interface ClaimOption {
     id: string;
     wcc_file_number?: string | null;
     carrier_file_number?: string | null;
-    injuredWorkerFullName?: string;
+    // Assuming your API returns these for the worker associated with the claim
+    injuredWorkerFirstName?: string | null;
+    injuredWorkerLastName?: string | null;
 }
 
 interface FormItemProps {
@@ -112,7 +115,7 @@ export default function GenerateFormPage() {
   const [claims, setClaims] = useState<ClaimOption[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
 
-  const { register, handleSubmit, control, formState: { errors }, watch, setValue, reset } = useForm({
+  const { register, handleSubmit, control, formState: { errors }, watch, setValue, reset } = useForm<GenerateFormData>({
     resolver: zodResolver(generateFormSchema),
     defaultValues: {
       claimId: null,
@@ -156,12 +159,18 @@ export default function GenerateFormPage() {
         const fetchClaimsData = async () => {
             setPageLoading(true);
             try {
+                // Ensure this API endpoint returns ClaimOption structure including
+                // injuredWorkerFirstName and injuredWorkerLastName
                 const response = await fetch(`/api/claims?minimal=true`);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ error: 'Failed to fetch claims list.' }));
                     throw new Error(errorData.error || 'Failed to fetch claims list.');
                 }
                 const claimsData = await response.json() as ClaimOption[];
+                // Optional: Log to verify data structure during development
+                // if (claimsData.length > 0) {
+                //   console.log("Fetched claim data for dropdown:", claimsData[0]);
+                // }
                 setClaims(claimsData);
             } catch (error) {
                 console.error("Error fetching claims:", error);
@@ -353,11 +362,16 @@ export default function GenerateFormPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="NO_CLAIM_SELECTED">None</SelectItem>
-                                {claims.map(claim => (
-                                    <SelectItem key={claim.id} value={claim.id}>
-                                        {`WCC#: ${claim.wcc_file_number || 'N/A'} - Worker: ${claim.injuredWorkerFullName || 'N/A'}`}
-                                    </SelectItem>
-                                ))}
+                                {claims.map(claim => {
+                                    const workerName = (claim.injuredWorkerFirstName || claim.injuredWorkerLastName)
+                                        ? `${claim.injuredWorkerFirstName || ''} ${claim.injuredWorkerLastName || ''}`.trim()
+                                        : 'N/A';
+                                    return (
+                                        <SelectItem key={claim.id} value={claim.id}>
+                                            {`WCC#: ${claim.wcc_file_number || 'N/A'} - Worker: ${workerName}`}
+                                        </SelectItem>
+                                    );
+                                })}
                             </SelectContent>
                         </Select>
                     )}
@@ -388,31 +402,31 @@ export default function GenerateFormPage() {
                     </FormItem>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormItem id="checkbox_stop_payment" error={errors.checkbox_stop_payment?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_stop_payment" control={control} render={({ field }) => <Checkbox id="checkbox_stop_payment" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_stop_payment" control={control} render={({ field }) => <Checkbox id="checkbox_stop_payment" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_stop_payment" className="font-normal">Stop Payment of Compensation</Label>
                         </FormItem>
                         <FormItem id="checkbox_II_A" error={errors.checkbox_II_A?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_II_A" control={control} render={({ field }) => <Checkbox id="checkbox_II_A" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_II_A" control={control} render={({ field }) => <Checkbox id="checkbox_II_A" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_II_A" className="font-normal">II.A: Pursuant to §42-9-260(E)</Label>
                         </FormItem>
                          <FormItem id="checkbox_II_B" error={errors.checkbox_II_B?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_II_B" control={control} render={({ field }) => <Checkbox id="checkbox_II_B" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_II_B" control={control} render={({ field }) => <Checkbox id="checkbox_II_B" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_II_B" className="font-normal">II.B: After 150 Day Period</Label>
                         </FormItem>
                         <FormItem id="checkbox_III_determine_comp" error={errors.checkbox_III_determine_comp?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_III_determine_comp" control={control} render={({ field }) => <Checkbox id="checkbox_III_determine_comp" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_III_determine_comp" control={control} render={({ field }) => <Checkbox id="checkbox_III_determine_comp" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_III_determine_comp" className="font-normal">III: Determine Compensation Due</Label>
                         </FormItem>
                          <FormItem id="checkbox_IV_credit" error={errors.checkbox_IV_credit?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_IV_credit" control={control} render={({ field }) => <Checkbox id="checkbox_IV_credit" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_IV_credit" control={control} render={({ field }) => <Checkbox id="checkbox_IV_credit" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_IV_credit" className="font-normal">IV: Request Credit for Overpayment</Label>
                         </FormItem>
                         <FormItem id="checkbox_V_fatality" error={errors.checkbox_V_fatality?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_V_fatality" control={control} render={({ field }) => <Checkbox id="checkbox_V_fatality" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_V_fatality" control={control} render={({ field }) => <Checkbox id="checkbox_V_fatality" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_V_fatality" className="font-normal">V: Determine Compensation (Fatality)</Label>
                         </FormItem>
                          <FormItem id="checkbox_amendment" error={errors.checkbox_amendment?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_amendment" control={control} render={({ field }) => <Checkbox id="checkbox_amendment" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_amendment" control={control} render={({ field }) => <Checkbox id="checkbox_amendment" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_amendment" className="font-normal">Amendment to Prior Request</Label>
                         </FormItem>
                     </div>
@@ -467,19 +481,19 @@ export default function GenerateFormPage() {
                     <p className="text-sm font-medium mt-2">Subpoena Commands (Check all that apply):</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormItem id="checkbox_appear_hearing" error={errors.checkbox_appear_hearing?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_appear_hearing" control={control} render={({ field }) => <Checkbox id="checkbox_appear_hearing" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_appear_hearing" control={control} render={({ field }) => <Checkbox id="checkbox_appear_hearing" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_appear_hearing" className="font-normal">Appear for Hearing Testimony</Label>
                         </FormItem>
                         <FormItem id="checkbox_appear_deposition" error={errors.checkbox_appear_deposition?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_appear_deposition" control={control} render={({ field }) => <Checkbox id="checkbox_appear_deposition" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_appear_deposition" control={control} render={({ field }) => <Checkbox id="checkbox_appear_deposition" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_appear_deposition" className="font-normal">Appear for Deposition Testimony</Label>
                         </FormItem>
                         <FormItem id="checkbox_produce_documents" error={errors.checkbox_produce_documents?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_produce_documents" control={control} render={({ field }) => <Checkbox id="checkbox_produce_documents" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_produce_documents" control={control} render={({ field }) => <Checkbox id="checkbox_produce_documents" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_produce_documents" className="font-normal">Produce Documents</Label>
                         </FormItem>
                         <FormItem id="checkbox_inspect_premises" error={errors.checkbox_inspect_premises?.message} className="flex flex-row items-center space-x-3 space-y-0">
-                            <Controller name="checkbox_inspect_premises" control={control} render={({ field }) => <Checkbox id="checkbox_inspect_premises" checked={!!field.value} onCheckedChange={field.onChange} />} />
+                             <Controller name="checkbox_inspect_premises" control={control} render={({ field }) => <Checkbox id="checkbox_inspect_premises" checked={field.value} onCheckedChange={field.onChange} />} />
                              <Label htmlFor="checkbox_inspect_premises" className="font-normal">Inspect Premises</Label>
                         </FormItem>
                     </div>
@@ -512,5 +526,5 @@ export default function GenerateFormPage() {
         </Card>
       </form>
     </div>
-  )
+  );
 }

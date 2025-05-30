@@ -6,12 +6,12 @@ import type { AppUser } from '@/types/next-auth';
 import { Prisma, Gender, MaritalStatus } from '@prisma/client';
 import * as z from 'zod';
 
-// Define an interface for the structure of the 'params' object
+// Interface for the structure of the 'params' object (content of the promise)
 interface WorkerRouteParams {
-  id: string; // This 'id' must match the [id] in the filename
+  id: string;
 }
 
-// Zod schema for updating an InjuredWorker (remains the same)
+// Zod schema (remains the same)
 const updateWorkerSchema = z.object({
   first_name: z.string().min(1, "First name is required.").optional(),
   middle_name: z.string().optional().nullable(),
@@ -33,12 +33,13 @@ const updateWorkerSchema = z.object({
   num_dependents: z.coerce.number().int().min(0).optional().nullable(),
 });
 
-// GET handler: Type of the second argument is now { params: WorkerRouteParams }
+// GET handler: params is now a Promise
 export async function GET(
   req: NextRequest,
-  { params }: { params: WorkerRouteParams }
+  { params }: { params: Promise<WorkerRouteParams> } // Updated type
 ) {
-  const workerId = params.id;
+  const resolvedParams = await params; // Await the params
+  const workerId = resolvedParams.id;
 
   try {
     const session = await auth();
@@ -71,12 +72,13 @@ export async function GET(
   }
 }
 
-// PUT Handler: Type of the second argument is now { params: WorkerRouteParams }
+// PUT Handler: params is now a Promise
 export async function PUT(
   req: NextRequest,
-  { params }: { params: WorkerRouteParams }
+  { params }: { params: Promise<WorkerRouteParams> } // Updated type
 ) {
-  const workerId = params.id;
+  const resolvedParams = await params; // Await the params
+  const workerId = resolvedParams.id;
 
   try {
     const session = await auth();
@@ -135,12 +137,13 @@ export async function PUT(
   }
 }
 
-// DELETE Handler: Type of the second argument is now { params: WorkerRouteParams }
+// DELETE Handler: params is now a Promise
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: WorkerRouteParams }
+  { params }: { params: Promise<WorkerRouteParams> } // Updated type
 ) {
-  const workerId = params.id;
+  const resolvedParams = await params; // Await the params
+  const workerId = resolvedParams.id;
 
   try {
     const session = await auth();

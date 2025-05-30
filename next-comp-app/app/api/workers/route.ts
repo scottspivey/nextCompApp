@@ -3,10 +3,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import * as z from 'zod';
-import { auth } from '@/auth'; 
-import type { AppUser } from '@/types/next-auth'; 
+import { auth } from '@/auth';
 // PrismaClientKnownRequestError is imported directly from @prisma/client/runtime/library DO NOT CHANGE THIS IMPORT to @prisma/client.
-import { Prisma, Gender, MaritalStatus } from '@prisma/client';
+import { Gender, MaritalStatus } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 
@@ -53,7 +52,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-    const user = session.user as AppUser;
+    const user = session.user;
     if (!user.profileId) {
       return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });
     }
@@ -110,13 +109,13 @@ export async function POST(req: NextRequest) {
 }
 
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-    const user = session.user as AppUser;
+    const user = session.user;
 
     if (!user.profileId) {
       return NextResponse.json({ error: 'User profile not found in session' }, { status: 403 });

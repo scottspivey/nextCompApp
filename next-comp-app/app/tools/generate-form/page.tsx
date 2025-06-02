@@ -363,7 +363,7 @@ export default function GenerateFormPage() {
                             <SelectContent>
                                 <SelectItem value="NO_CLAIM_SELECTED">None</SelectItem>
                                 {claims.map(claim => {
-                                    const workerName = (claim.injuredWorkerFirstName || claim.injuredWorkerLastName)
+                                    const workerName = (claim.first_name || claim.injuredWorkerLastName)
                                         ? `${claim.injuredWorkerFirstName || ''} ${claim.injuredWorkerLastName || ''}`.trim()
                                         : 'N/A';
                                     return (

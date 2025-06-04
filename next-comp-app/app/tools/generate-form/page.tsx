@@ -11,18 +11,18 @@ import { Input } from '@/app/Components/ui/input';
 import { Label } from '@/app/Components/ui/label';
 import { Textarea } from '@/app/Components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/Components/ui/select";
-import { Checkbox } from "@/app/Components/ui/checkbox"; // Assuming you have a Checkbox component
+import { Checkbox } from "@/app/Components/ui/checkbox";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/app/Components/ui/card';
 import { useToast } from "@/app/Components/ui/use-toast";
 import { Loader2, ArrowLeft, FileText, Send } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { AlternativeDatePicker } from "@/app/Components/ui/date-picker"; // Ensure this path is correct
+import { AlternativeDatePicker } from "@/app/Components/ui/date-picker";
 
 
 // Define available form types for this page
 interface FormTypeOption {
-  id: string; // Should match keys in your backend formMappings (e.g., "SCWCC_Form27")
-  displayNumber: string; // User-friendly number e.g., "Form 27"
+  id: string;
+  displayNumber: string;
   title: string;
 }
 
@@ -82,11 +82,22 @@ type GenerateFormData = z.infer<typeof generateFormSchema>;
 interface ClaimOption {
     id: string;
     wcc_file_number?: string | null;
-    carrier_file_number?: string | null;
-    // Assuming your API returns these for the worker associated with the claim
-    injuredWorkerFirstName?: string | null;
-    injuredWorkerLastName?: string | null;
+    injuredWorker?: {
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+    } | null;
+    employer?: {
+        name: string | null;
+    } | null;
 }
+
+// Interface for expected API error structure
+interface ApiErrorResponse {
+    error: string;
+    details?: unknown;
+}
+
 
 interface FormItemProps {
   label?: string;
@@ -115,7 +126,7 @@ export default function GenerateFormPage() {
   const [claims, setClaims] = useState<ClaimOption[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
 
-  const { register, handleSubmit, control, formState: { errors }, watch, setValue, reset } = useForm<GenerateFormData>({
+  const { register, handleSubmit, control, formState: { errors }, watch, reset } = useForm<GenerateFormData>({
     resolver: zodResolver(generateFormSchema),
     defaultValues: {
       claimId: null,
@@ -159,18 +170,20 @@ export default function GenerateFormPage() {
         const fetchClaimsData = async () => {
             setPageLoading(true);
             try {
-                // Ensure this API endpoint returns ClaimOption structure including
-                // injuredWorkerFirstName and injuredWorkerLastName
                 const response = await fetch(`/api/claims?minimal=true`);
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ error: 'Failed to fetch claims list.' }));
-                    throw new Error(errorData.error || 'Failed to fetch claims list.');
+                    let errorJson: ApiErrorResponse = { error: 'Failed to fetch claims list.' };
+                    try {
+                        const parsedError: unknown = await response.json();
+                        if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError && typeof (parsedError as ApiErrorResponse).error === 'string') {
+                           errorJson = parsedError as ApiErrorResponse;
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse error JSON from /api/claims", e);
+                    }
+                    throw new Error(errorJson.error || 'Failed to fetch claims list.');
                 }
                 const claimsData = await response.json() as ClaimOption[];
-                // Optional: Log to verify data structure during development
-                // if (claimsData.length > 0) {
-                //   console.log("Fetched claim data for dropdown:", claimsData[0]);
-                // }
                 setClaims(claimsData);
             } catch (error) {
                 console.error("Error fetching claims:", error);
@@ -266,8 +279,16 @@ export default function GenerateFormPage() {
         window.URL.revokeObjectURL(url);
         toast({ title: "Form Generated Successfully", description: `${filename} has started downloading.` });
       } else {
-        const errorData = await response.json().catch(() => ({ error: "An unknown error occurred while generating the form."}));
-        throw new Error(errorData.error || `Server responded with status ${response.status}`);
+        let errorJson: ApiErrorResponse = { error: "An unknown error occurred while generating the form." };
+        try {
+            const parsedError: unknown = await response.json();
+            if (typeof parsedError === 'object' && parsedError !== null && 'error' in parsedError && typeof (parsedError as ApiErrorResponse).error === 'string') {
+                errorJson = parsedError as ApiErrorResponse;
+            }
+        } catch(e) {
+            console.error("Failed to parse error JSON from /api/generate-form", e);
+        }
+        throw new Error(errorJson.error || `Server responded with status ${response.status}`);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred during form generation.";
@@ -363,8 +384,10 @@ export default function GenerateFormPage() {
                             <SelectContent>
                                 <SelectItem value="NO_CLAIM_SELECTED">None</SelectItem>
                                 {claims.map(claim => {
-                                    const workerName = (claim.first_name || claim.injuredWorkerLastName)
-                                        ? `${claim.injuredWorkerFirstName || ''} ${claim.injuredWorkerLastName || ''}`.trim()
+                                    const firstName = claim.injuredWorker?.first_name;
+                                    const lastName = claim.injuredWorker?.last_name;
+                                    const workerName = (firstName || lastName)
+                                        ? `${firstName || ''} ${lastName || ''}`.trim()
                                         : 'N/A';
                                     return (
                                         <SelectItem key={claim.id} value={claim.id}>
@@ -383,7 +406,7 @@ export default function GenerateFormPage() {
                 <div className="space-y-4 p-4 border rounded-md">
                     <h3 className="text-lg font-medium">Form 21 Details</h3>
                     <FormItem label="Compensation Payments Current As Of Date" id="comp_current_date" error={errors.comp_current_date?.message}>
-                        <AlternativeDatePicker name="comp_current_date" control={control} />
+                        <AlternativeDatePicker name="comp_current_date" control={control} /> 
                     </FormItem>
                     <FormItem label="Form 17 Offered/Refused Date" id="form17_refused_date" error={errors.form17_refused_date?.message}>
                          <AlternativeDatePicker name="form17_refused_date" control={control} />
